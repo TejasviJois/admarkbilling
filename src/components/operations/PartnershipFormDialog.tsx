@@ -24,6 +24,8 @@ const PARTNERSHIP_STATUSES: PartnershipStatus[] = ["active", "prospect", "inacti
 
 const EMPTY_FORM = {
   name: "",
+  phone: "",
+  email: "",
   type: "",
   opportunityType: "",
   status: "active" as PartnershipStatus,
@@ -48,6 +50,8 @@ export function PartnershipFormDialog({
     if (partnership) {
       setForm({
         name: partnership.name,
+        phone: partnership.phone ?? partnership.contact ?? "",
+        email: partnership.email ?? "",
         type: partnership.type || "",
         opportunityType: partnership.opportunityType || "",
         status: partnership.status,
@@ -63,6 +67,8 @@ export function PartnershipFormDialog({
     const saved: Partnership = {
       id: partnership?.id ?? crypto.randomUUID(),
       name: form.name.trim(),
+      phone: form.phone.trim() || undefined,
+      email: form.email.trim() || undefined,
       type: form.type.trim() || undefined,
       opportunityType: form.opportunityType.trim() || undefined,
       status: form.status,
@@ -92,6 +98,24 @@ export function PartnershipFormDialog({
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="Partner / agency"
               required
+            />
+          </Field>
+          <Field label="Phone" id="dialog-partner-phone">
+            <Input
+              id="dialog-partner-phone"
+              type="tel"
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              placeholder="+91 98765 43210"
+            />
+          </Field>
+          <Field label="Email" id="dialog-partner-email">
+            <Input
+              id="dialog-partner-email"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="contact@agency.com"
             />
           </Field>
           <Field label="Type" id="dialog-partner-type">

@@ -4,6 +4,7 @@ import type { FinancialBaseline } from "./types";
 export const DEFAULT_FINANCIAL_BASELINE: FinancialBaseline = {
   periodLabel: "Past two months (historical baseline)",
   asOfDate: "2026-06-11",
+  /** Optional manual override; when null, derived from active project pipeline. */
   totalRevenueBooked: null,
   totalHandoutsTaken: 121_500,
   totalRevenueReceived: 102_425,
@@ -15,6 +16,8 @@ export const DEFAULT_FINANCIAL_BASELINE: FinancialBaseline = {
 export function withDefaultFinancialBaseline<T extends { financialBaseline?: FinancialBaseline }>(
   data: T,
 ): T {
-  if (data.financialBaseline) return data;
-  return { ...data, financialBaseline: DEFAULT_FINANCIAL_BASELINE };
+  if (!data.financialBaseline) {
+    return { ...data, financialBaseline: DEFAULT_FINANCIAL_BASELINE };
+  }
+  return data;
 }

@@ -1,5 +1,9 @@
-import { Pencil, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
+import { LoadingDog } from "@/components/ui/loading-dog";
+import { cn } from "@/lib/utils";
 
 export function OperationsPageHeader({
   title,
@@ -27,24 +31,84 @@ export function DataSection({
   title,
   description,
   icon,
+  action,
+  id,
   children,
+  collapsible = false,
+  defaultOpen = false,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   title: string;
   description: string;
   icon: React.ReactNode;
+  action?: React.ReactNode;
+  id?: string;
   children: React.ReactNode;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  return (
-    <section className="rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
-      <div className="mb-5 flex items-start gap-3">
-        <span className="mt-0.5 shrink-0">{icon}</span>
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        </div>
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
+
+  const headerBody = (
+    <>
+      <span className="mt-0.5 shrink-0">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </div>
-      {children}
-    </section>
+      {collapsible && (
+        <ChevronDown
+          className={cn(
+            "mt-1 h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200",
+            open && "rotate-180",
+          )}
+          aria-hidden
+        />
+      )}
+    </>
+  );
+
+  if (!collapsible) {
+    return (
+      <section id={id} className="scroll-mt-24 rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-start gap-3">{headerBody}</div>
+          {action ? <div className="shrink-0">{action}</div> : null}
+        </div>
+        {children}
+      </section>
+    );
+  }
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <section id={id} className="scroll-mt-24 rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex min-w-0 flex-1 items-start gap-3 rounded-md text-left transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              aria-expanded={open}
+            >
+              {headerBody}
+            </button>
+          </CollapsibleTrigger>
+          {action ? (
+            <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+              {action}
+            </div>
+          ) : null}
+        </div>
+        <CollapsibleContent className="mt-5 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+          {children}
+        </CollapsibleContent>
+      </section>
+    </Collapsible>
   );
 }
 
@@ -70,9 +134,11 @@ export function Field({
 export function DataTable({
   headers,
   rows,
+  footerRow,
 }: {
   headers: string[];
   rows: React.ReactNode[][];
+  footerRow?: React.ReactNode[];
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
@@ -97,6 +163,17 @@ export function DataTable({
             </tr>
           ))}
         </tbody>
+        {footerRow ? (
+          <tfoot>
+            <tr className="border-t border-border bg-muted/30 font-medium">
+              {footerRow.map((cell, j) => (
+                <td key={j} className="px-4 py-3 text-foreground">
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        ) : null}
       </table>
     </div>
   );
@@ -107,6 +184,41 @@ export function StatusPill({ label }: { label: string }) {
     <span className="inline-flex rounded-full bg-primary/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
       {label}
     </span>
+  );
+}
+
+export function ContactLinks({
+  phone,
+  email,
+  legacyContact,
+}: {
+  phone?: string;
+  email?: string;
+  /** Older rows may only have a free-text contact field. */
+  legacyContact?: string;
+}) {
+  const tel = phone?.trim();
+  const mail = email?.trim();
+  const legacy = legacyContact?.trim();
+
+  if (!tel && !mail && !legacy) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  return (
+    <div className="flex min-w-[8rem] flex-col gap-0.5 text-xs">
+      {tel && (
+        <a href={`tel:${tel.replace(/\s/g, "")}`} className="font-medium text-primary hover:underline">
+          {tel}
+        </a>
+      )}
+      {mail && (
+        <a href={`mailto:${mail}`} className="text-primary hover:underline">
+          {mail}
+        </a>
+      )}
+      {!tel && !mail && legacy && <span className="text-muted-foreground">{legacy}</span>}
+    </div>
   );
 }
 
@@ -145,9 +257,5 @@ export function EmptyRow({ message }: { message: string }) {
 }
 
 export function OperationsLoading() {
-  return (
-    <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
-      Loading…
-    </div>
-  );
+  return <LoadingDog message="Loading data…" />;
 }

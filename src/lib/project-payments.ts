@@ -177,9 +177,24 @@ export function paymentSummary(project: Project): {
 } {
   const payments = project.payments ?? [];
   const received = sumProjectPayments(payments);
-  const target = parseRevenueTarget(project.revenueValue);
+  const fromBilling = contractTargetFromProject(project);
+  const target = fromBilling > 0 ? fromBilling : parseRevenueTarget(project.revenueValue);
   const pending = target != null && received < target ? target - received : null;
   return { received, target, pending, count: payments.length };
+}
+
+/** Contract total without importing project-billing (avoids circular deps). */
+function contractTargetFromProject(project: Project): number {
+  const b = project.billing ?? {};
+  let total = b.upfrontAmount ?? 0;
+  total += b.maintenanceAmount ?? 0;
+  if (b.monthlyAmount && b.monthlyMonths != null) {
+    total += b.monthlyAmount * b.monthlyMonths;
+  }
+  if (total > 0) return total;
+  const parsed = project.revenueValue?.trim() ?? "";
+  if (!parsed || /partner|discount|tbd|—|\/\s*month/i.test(parsed)) return 0;
+  return parseInrAmount(parsed) ?? 0;
 }
 
 export function paymentProofSummary(project: Project): {

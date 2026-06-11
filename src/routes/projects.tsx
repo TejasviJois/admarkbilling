@@ -4,17 +4,10 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProjectFormDialog } from "@/components/operations/ProjectFormDialog";
 import { ProjectPaymentsDialog } from "@/components/operations/ProjectPaymentsDialog";
-import {
-  ProofImageDialog,
-  ProofImageDialogCloseButton,
-} from "@/components/operations/ProofImageDialog";
 import { ProjectsSection } from "@/components/operations/ProjectsSection";
 import { ProjectsPipelineSummary } from "@/components/operations/ProjectsTable";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
-import { formatINRWhole } from "@/lib/invoice-calc";
-import { latestPaymentProof } from "@/lib/project-payments";
-import { projectClientLabel } from "@/lib/project-status";
 import type { Project } from "@/lib/types";
 
 export const Route = createFileRoute("/projects")({ component: ProjectsPage });
@@ -25,9 +18,6 @@ function ProjectsPage() {
   const [editing, setEditing] = useState<Project | null>(null);
   const [paymentsOpen, setPaymentsOpen] = useState(false);
   const [paymentsProject, setPaymentsProject] = useState<Project | null>(null);
-  const [proofViewerOpen, setProofViewerOpen] = useState(false);
-  const [proofViewerSrc, setProofViewerSrc] = useState<string | null>(null);
-  const [proofViewerTitle, setProofViewerTitle] = useState("Payment proof");
 
   const openAdd = () => {
     setEditing(null);
@@ -42,19 +32,6 @@ function ProjectsPage() {
   const openPayments = (project: Project) => {
     setPaymentsProject(project);
     setPaymentsOpen(true);
-  };
-
-  const openPaymentProof = (project: Project) => {
-    const latest = latestPaymentProof(project);
-    if (!latest) {
-      openPayments(project);
-      return;
-    }
-    setProofViewerTitle(
-      `${projectClientLabel(project)} — ${formatINRWhole(latest.payment.amount)}`,
-    );
-    setProofViewerSrc(latest.imageUrl);
-    setProofViewerOpen(true);
   };
 
   const updateProject = (project: Project) => {
@@ -109,20 +86,11 @@ function ProjectsPage() {
         project={paymentsProject}
         onUpdateProject={updateProject}
       />
-      <ProofImageDialog
-        open={proofViewerOpen}
-        onOpenChange={setProofViewerOpen}
-        src={proofViewerSrc}
-        title={proofViewerTitle}
-        description="Uploaded payment screenshot for this project."
-        footer={<ProofImageDialogCloseButton onClose={() => setProofViewerOpen(false)} />}
-      />
       <ProjectsSection
         ops={ops}
         persist={persist}
         onEdit={openEdit}
         onManagePayments={openPayments}
-        onViewProof={openPaymentProof}
       />
     </div>
   );

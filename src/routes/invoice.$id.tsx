@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { NewInvoiceLink } from "@/components/invoice/NewInvoiceLink";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Download, Pencil, Trash2 } from "lucide-react";
 import { deleteInvoice, getInvoice, loadCompany } from "@/lib/storage";
@@ -22,8 +23,8 @@ function InvoiceNotFoundView() {
       <p className="mt-2 text-sm text-muted-foreground">
         This link may be wrong or the invoice was removed.
       </p>
-      <Link to="/history" className="mt-4 inline-block text-sm text-primary hover:underline">
-        ← Back to history
+      <Link to="/documents/invoices" className="mt-4 inline-block text-sm text-primary hover:underline">
+        ← Back to invoices
       </Link>
     </div>
   );
@@ -92,8 +93,8 @@ function InvoicePage() {
     return (
       <div className="py-16 text-center text-sm text-destructive">
         {loadError}
-        <Link to="/history" className="mt-4 block text-primary hover:underline">
-          ← Back to history
+        <Link to="/documents/invoices" className="mt-4 block text-primary hover:underline">
+          ← Back to invoices
         </Link>
       </div>
     );
@@ -114,7 +115,7 @@ function InvoicePage() {
   const handleDelete = () => {
     if (!confirm("Delete this invoice?")) return;
     void deleteInvoice(invoice.id)
-      .then(() => navigate({ to: "/history" }))
+      .then(() => navigate({ to: "/documents/invoices" }))
       .catch((e) => logClientError("invoicePage.delete", e));
   };
 
@@ -122,18 +123,17 @@ function InvoicePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
-          to="/history"
+          to="/documents/invoices"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" /> Back to history
+          <ArrowLeft className="h-4 w-4" /> Back to invoices
         </Link>
         <div className="flex flex-wrap gap-2">
-          <Link
-            to="/new"
+          <NewInvoiceLink
             className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm hover:bg-secondary"
           >
             <Pencil className="h-4 w-4" /> New invoice
-          </Link>
+          </NewInvoiceLink>
           <button
             type="button"
             onClick={handleDelete}

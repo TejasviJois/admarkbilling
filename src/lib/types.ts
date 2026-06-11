@@ -4,6 +4,8 @@ export interface CompanyMember {
   name: string;
   email: string;
   phone: string;
+  /** e.g. Partner, Director, Operations */
+  role?: string;
 }
 
 export interface CompanySettings {
@@ -12,6 +14,7 @@ export interface CompanySettings {
   address: string;
   email: string;
   phone?: string;
+  website?: string;
   pan?: string;
   gstin?: string;
   bankName?: string;
@@ -97,12 +100,18 @@ export interface Project {
   endDate?: string;
   budget?: number;
   notes?: string;
+  phone?: string;
+  email?: string;
 }
 
 /** How a project is billed — upfront, recurring, or both. */
 export interface ProjectBilling {
   /** One-time / upfront amount (₹). Counts in booked revenue when project is active. */
   upfrontAmount?: number;
+  /** Flat maintenance package (₹). Counts in booked only when there is no separate project/upfront fee. */
+  maintenanceAmount?: number;
+  /** Duration label for maintenance, e.g. 2 months. */
+  maintenanceMonths?: number;
   /** Monthly retainer (₹). Only counts after `monthlyStartDate`. */
   monthlyAmount?: number;
   /** Fixed number of monthly payments; omit for ongoing retainer. */
@@ -116,10 +125,25 @@ export type PartnershipStatus = "active" | "inactive" | "prospect";
 export interface Partnership {
   id: string;
   name: string;
+  /** @deprecated Prefer `phone` and `email` — kept for older saved rows. */
   contact?: string;
+  phone?: string;
+  email?: string;
   type?: string;
   opportunityType?: string;
   status: PartnershipStatus;
+  notes?: string;
+}
+
+export type AssetCategory = "equipment" | "digital" | "cash" | "investment" | "other";
+
+/** Company asset — equipment, cash, investments, etc. */
+export interface AssetEntry {
+  id: string;
+  name: string;
+  category: AssetCategory;
+  value: number;
+  acquiredDate: string;
   notes?: string;
 }
 
@@ -165,7 +189,57 @@ export interface OperationsData {
   projects: Project[];
   partnerships: Partnership[];
   expenses: ExpenseEntry[];
+  assets?: AssetEntry[];
   financialBaseline?: FinancialBaseline;
+  /** Recurring monthly obligations — loan repayments, rent, subscriptions, etc. */
+  fixedMonthlyExpenses?: FixedMonthlyExpense[];
+}
+
+/** Monthly fixed outflow (loan repayment, rent, SaaS, etc.). */
+export type FixedMonthlyExpenseKind =
+  | "salary"
+  | "emi"
+  | "rent"
+  | "subscription"
+  | "utility"
+  | "other";
+
+export interface FixedMonthlyExpense {
+  id: string;
+  label: string;
+  amountPerMonth: number;
+  /** Salary, EMI, rent, subscription, etc. */
+  kind?: FixedMonthlyExpenseKind;
+  /** First month this obligation applies (YYYY-MM-DD). */
+  startDate: string;
+  notes?: string;
+  active: boolean;
+}
+
+export type AgreementCounterpartyType = "client" | "partner" | "vendor" | "other";
+
+/** Stored contract / MOU / NDA — file upload or external link. */
+export interface Agreement {
+  id: string;
+  title: string;
+  counterpartyName: string;
+  counterpartyType: AgreementCounterpartyType;
+  /** Optional link to project id, partnership id, or client slug. */
+  counterpartyRef?: string;
+  signedDate?: string;
+  expiryDate?: string;
+  fileDataUrl?: string;
+  fileName?: string;
+  mimeType?: string;
+  externalUrl?: string;
+  notes?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Agreements vault — persisted in Supabase `operations_data` row `documents`. */
+export interface DocumentsData {
+  agreements: Agreement[];
 }
 
 export type ActivityEntity =
@@ -173,7 +247,9 @@ export type ActivityEntity =
   | "partnership"
   | "expense"
   | "invoice"
-  | "settings";
+  | "settings"
+  | "agreement"
+  | "document";
 
 export type ActivityAction =
   | "created"

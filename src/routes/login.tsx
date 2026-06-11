@@ -3,8 +3,9 @@ import { useState } from "react";
 import { LogIn } from "lucide-react";
 
 import { DEFAULT_PUBLIC_LOGO_URL } from "@/lib/constants";
+import { clearAuthStatusCache, getAuthStatusCached } from "@/lib/auth-status-cache";
 import { logClientError } from "@/lib/client-logger";
-import { getAuthStatusFn, loginFn } from "@/server/auth-fns";
+import { loginFn } from "@/server/auth-fns";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (raw: Record<string, unknown>) => ({
@@ -14,7 +15,7 @@ export const Route = createFileRoute("/login")({
         : undefined,
   }),
   beforeLoad: async ({ search }) => {
-    const { ok } = await getAuthStatusFn();
+    const { ok } = await getAuthStatusCached();
     if (ok) {
       throw redirect({ to: search.redirect ?? "/" });
     }
@@ -37,6 +38,7 @@ function LoginPage() {
     setPending(true);
     void loginFn({ data: { username, password } })
       .then(() => {
+        clearAuthStatusCache();
         void navigate({ to: redirectTo ?? "/", replace: true });
       })
       .catch((err: unknown) => {
@@ -50,7 +52,7 @@ function LoginPage() {
     <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-md flex-col justify-center px-4 py-10">
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <img src={DEFAULT_PUBLIC_LOGO_URL} alt="Admark Digitals" className="h-14 w-auto object-contain" />
+          <img src={DEFAULT_PUBLIC_LOGO_URL} alt="Admark Digitals" className="h-16 w-auto max-w-[220px] object-contain" />
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Sign in</h1>
             <p className="mt-1 text-sm text-muted-foreground">Admark Billing — internal access</p>

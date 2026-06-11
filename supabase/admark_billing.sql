@@ -56,6 +56,10 @@ insert into public.operations_data (id, payload)
 values ('activity_logs', '{"entries":[]}'::jsonb)
 on conflict (id) do nothing;
 
+insert into public.operations_data (id, payload)
+values ('documents', '{"agreements":[]}'::jsonb)
+on conflict (id) do nothing;
+
 commit;
 
 -- Verify (optional): should return one row for company and zero+ invoices

@@ -1,24 +1,109 @@
 import { Link } from "@tanstack/react-router";
+import { CheckCircle2 } from "lucide-react";
 import type { Project } from "@/lib/types";
+import { formatINRWhole } from "@/lib/invoice-calc";
 import {
   projectClientLabel,
   projectStatusBadgeClass,
   projectStatusLabel,
 } from "@/lib/project-status";
-import { DataTable, RowDelete } from "./operations-ui";
+import { paymentSummary } from "@/lib/project-payments";
+import { DataTable, RowDelete, RowEdit, ContactLinks } from "./operations-ui";
+
+function PaymentCell({ project }: { project: Project }) {
+  const { received, target, pending, count } = paymentSummary(project);
+
+  if (count === 0) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  const settled = target != null && pending === 0 && received > 0;
+
+  return (
+    <div className="min-w-[8rem]">
+      <div
+        className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 ring-1 ${
+          settled
+            ? "bg-emerald-500/15 ring-emerald-500/30"
+            : "bg-emerald-500/10 ring-emerald-500/20"
+        }`}
+      >
+        <CheckCircle2
+          className={`h-3.5 w-3.5 shrink-0 ${settled ? "text-emerald-300" : "text-emerald-400"}`}
+          aria-hidden
+        />
+        <div className="leading-tight">
+          <p className="text-sm font-semibold tabular-nums text-emerald-300">
+            {formatINRWhole(received)}
+          </p>
+          <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90">
+            Received
+          </p>
+        </div>
+      </div>
+      {target != null && pending != null && pending > 0 && (
+        <p className="mt-1 text-[11px] tabular-nums text-amber-400/90">
+          {formatINRWhole(pending)} pending
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PaymentManageButton({
+  project,
+  onManagePayments,
+}: {
+  project: Project;
+  onManagePayments?: (project: Project) => void;
+}) {
+  if (!onManagePayments) return null;
+  const { count } = paymentSummary(project);
+  return (
+    <button
+      type="button"
+      onClick={() => onManagePayments(project)}
+      className="text-xs font-medium text-primary hover:underline"
+    >
+      {count === 0 ? "Record payment" : `${count} payment${count === 1 ? "" : "s"} · Manage`}
+    </button>
+  );
+}
 
 export function ProjectsTable({
   projects,
+  onEdit,
   onRemove,
+  onManagePayments,
   showActions = true,
 }: {
   projects: Project[];
+  onEdit?: (project: Project) => void;
   onRemove?: (id: string) => void;
+  onManagePayments?: (project: Project) => void;
   showActions?: boolean;
 }) {
+  const showPaymentManage = Boolean(onManagePayments);
   const headers = showActions
-    ? ["Client", "Project type", "Status", "Revenue", "Payment", ""]
-    : ["Client", "Project type", "Status", "Revenue", "Payment"];
+    ? [
+        "Client",
+        "Project type",
+        "Status",
+        "Revenue",
+        "Contact",
+        "Received",
+        ...(showPaymentManage ? (["Payment"] as const) : []),
+        "Actions",
+      ]
+    : [
+        "Client",
+        "Project type",
+        "Status",
+        "Revenue",
+        "Contact",
+        "Received",
+        ...(showPaymentManage ? (["Payment"] as const) : []),
+      ];
 
   return (
     <DataTable
@@ -28,18 +113,28 @@ export function ProjectsTable({
           projectClientLabel(p),
           p.projectType || "—",
           <ProjectStatusBadge key={`st-${p.id}`} status={p.status} />,
-          p.revenueValue || (p.budget != null ? `₹${p.budget.toLocaleString("en-IN")}` : "—"),
-          p.paymentStatus || "—",
+          p.revenueValue || (p.budget != null ? formatINRWhole(p.budget) : "—"),
+          <ContactLinks key={`contact-${p.id}`} phone={p.phone} email={p.email} />,
+          <PaymentCell key={`pay-${p.id}`} project={p} />,
         ];
-        if (showActions && onRemove) {
-          cells.push(<RowDelete key={`del-${p.id}`} onClick={() => onRemove(p.id)} />);
+        if (showPaymentManage) {
+          cells.push(
+            <PaymentManageButton key={`manage-${p.id}`} project={p} onManagePayments={onManagePayments} />,
+          );
+        }
+        if (showActions) {
+          cells.push(
+            <div key={`actions-${p.id}`} className="flex items-center justify-end gap-1">
+              {onEdit && <RowEdit onClick={() => onEdit(p)} />}
+              {onRemove && <RowDelete onClick={() => onRemove(p.id)} />}
+            </div>,
+          );
         }
         return cells;
       })}
     />
   );
 }
-
 export function ProjectStatusBadge({ status }: { status: Project["status"] }) {
   return (
     <span
@@ -64,7 +159,7 @@ export function ProjectsPipelineSummary({ projects }: { projects: Project[] }) {
     { label: "Ongoing", count: counts.active, className: "text-emerald-300" },
     { label: "In discussions", count: counts.planning, className: "text-sky-400" },
     { label: "On hold", count: counts.on_hold, className: "text-rose-400" },
-    { label: "Cancelled", count: counts.cancelled, className: "text-rose-300" },
+    { label: "Not interested", count: counts.cancelled, className: "text-rose-300" },
   ];
 
   return (

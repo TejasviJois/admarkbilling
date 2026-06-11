@@ -1,5 +1,6 @@
 import type { CompanySettings, Invoice } from "./types";
 import { DEFAULT_COMPANY } from "./constants";
+import { normalizeCompanySettings } from "./company-settings";
 import type { LogDraft } from "./activity-log";
 import {
   deleteInvoiceFn,
@@ -12,6 +13,7 @@ import {
 } from "@/server/invoice-fns";
 
 export { DEFAULT_COMPANY } from "./constants";
+export { normalizeCompanySettings } from "./company-settings";
 
 const INVOICES_KEY = "admark.invoices";
 const COMPANY_KEY = "admark.company";
@@ -41,7 +43,9 @@ function loadCompanyLocal(): CompanySettings {
   if (!isBrowser()) return DEFAULT_COMPANY;
   try {
     const raw = localStorage.getItem(COMPANY_KEY);
-    return raw ? { ...DEFAULT_COMPANY, ...JSON.parse(raw) } : DEFAULT_COMPANY;
+    return raw
+      ? normalizeCompanySettings(JSON.parse(raw) as CompanySettings)
+      : DEFAULT_COMPANY;
   } catch {
     return DEFAULT_COMPANY;
   }
@@ -107,7 +111,7 @@ export async function upsertInvoice(inv: Invoice) {
 export async function deleteInvoice(id: string) {
   const existing = await getInvoice(id);
   if (existing) {
-    await appendActivityLog({
+    await recordActivity({
       entity: "invoice",
       action: "deleted",
       entityId: existing.id,
@@ -132,12 +136,17 @@ export async function getInvoice(id: string): Promise<Invoice | undefined> {
 }
 
 export async function loadCompany(): Promise<CompanySettings> {
-  if (!(await serverApiEnabled())) return loadCompanyLocal();
-  return getCompanyFn();
+  try {
+    if (!(await serverApiEnabled())) return loadCompanyLocal();
+    const remote = await getCompanyFn();
+    return normalizeCompanySettings(remote);
+  } catch {
+    return loadCompanyLocal();
+  }
 }
 
 export async function saveCompany(c: CompanySettings) {
-  await appendActivityLog({
+  await recordActivity({
     entity: "settings",
     action: "updated",
     summary: "Updated company settings",

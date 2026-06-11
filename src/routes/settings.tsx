@@ -1,17 +1,33 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Save, Upload } from "lucide-react";
-import { loadCompany, saveCompany } from "@/lib/storage";
-import { DEFAULT_PUBLIC_LOGO_URL } from "@/lib/constants";
-import { logClientError } from "@/lib/client-logger";
+import { Cloud, Database, LogOut, Save, Users } from "lucide-react";
 import { ComplianceDocumentsPanel } from "@/components/settings/ComplianceDocumentsPanel";
-import type { CompanySettings, CompanyMember } from "@/lib/types";
+import {
+  PartnerCard,
+  SettingsField,
+  SettingsImageField,
+  SettingsProfileHero,
+  SettingsQuickLinks,
+  SettingsSection,
+} from "@/components/settings/settings-ui";
+import { DEFAULT_COMPANY, DEFAULT_PUBLIC_LOGO_URL } from "@/lib/constants";
+import { companyLogoSrc } from "@/lib/company-branding";
+import { logClientError } from "@/lib/client-logger";
+import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
+import { loadCompany, normalizeCompanySettings, saveCompany } from "@/lib/storage";
+import { getDataBackendStatus } from "@/server/invoice-fns";
+import { logoutFn } from "@/server/auth-fns";
+import type { CompanyMember, CompanySettings } from "@/lib/types";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
 function SettingsPage() {
-  const [c, setC] = useState<CompanySettings | null>(null);
+  const router = useRouter();
+  const [c, setC] = useState<CompanySettings>(() => normalizeCompanySettings(DEFAULT_COMPANY));
+  const [syncing, setSyncing] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [backendLabel, setBackendLabel] = useState<string>("Checking storage…");
   const latestRef = useRef<CompanySettings | null>(null);
   latestRef.current = c;
 
@@ -22,21 +38,37 @@ function SettingsPage() {
           .join("¬")}`
       : "";
 
-  /** After first non-empty compliance signature (company loaded), auto-save on further changes. */
   const primedComplianceAutoSave = useRef(false);
 
   useEffect(() => {
-    void loadCompany().then(setC).catch((e) => logClientError("settings.loadCompany", e));
+    void loadCompany()
+      .then((loaded) => {
+        setC(normalizeCompanySettings(loaded));
+        setLoadError(null);
+      })
+      .catch((e) => {
+        logClientError("settings.loadCompany", e);
+        setLoadError("Could not load saved settings — showing defaults.");
+        setC(normalizeCompanySettings(DEFAULT_COMPANY));
+      })
+      .finally(() => setSyncing(false));
+    void getDataBackendStatus()
+      .then((s) =>
+        setBackendLabel(
+          s.configured
+            ? "Supabase — synced across devices"
+            : "Browser localStorage — this device only",
+        ),
+      )
+      .catch(() => setBackendLabel("Storage status unknown"));
   }, []);
 
   useEffect(() => {
     if (complianceSig === "") return;
-
     if (!primedComplianceAutoSave.current) {
       primedComplianceAutoSave.current = true;
       return;
     }
-
     const id = window.setTimeout(() => {
       const cur = latestRef.current;
       if (!cur) return;
@@ -58,7 +90,7 @@ function SettingsPage() {
   }, [complianceSig]);
 
   const set = <K extends keyof CompanySettings>(k: K, v: CompanySettings[K]) => {
-    setC((prev) => (prev ? { ...prev, [k]: v } : null));
+    setC((prev) => ({ ...prev, [k]: v }));
     setSaved(false);
   };
 
@@ -73,7 +105,7 @@ function SettingsPage() {
       const reader = new FileReader();
       reader.onload = () => {
         const data = String(reader.result);
-        setC((prev) => (prev ? { ...prev, [key]: data } : null));
+        setC((prev) => ({ ...prev, [key]: data }));
         setSaved(false);
       };
       reader.readAsDataURL(file);
@@ -82,21 +114,19 @@ function SettingsPage() {
   const handleUdyamPdf = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const max = 4 * 1024 * 1024;
     if (file.type !== "application/pdf") {
       alert("Please choose a PDF file.");
       e.target.value = "";
       return;
     }
-    if (file.size > max) {
+    if (file.size > 4 * 1024 * 1024) {
       alert("PDF too large (max 4MB).");
       e.target.value = "";
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
-      const data = String(reader.result);
-      setC((prev) => (prev ? { ...prev, udyamCertificateDataUrl: data } : null));
+      setC((prev) => ({ ...prev, udyamCertificateDataUrl: String(reader.result) }));
       setSaved(false);
       e.target.value = "";
     };
@@ -120,22 +150,19 @@ function SettingsPage() {
 
   const updateMember = (
     id: string,
-    patch: Partial<Pick<CompanyMember, "name" | "email" | "phone">>,
+    patch: Partial<Pick<CompanyMember, "name" | "email" | "phone" | "role">>,
   ) => {
-    setC((prev) => {
-      if (!prev) return prev;
-      const list = prev.companyMembers ?? [];
-      return {
-        ...prev,
-        companyMembers: list.map((m) => (m.id === id ? { ...m, ...patch } : m)),
-      };
-    });
+    setC((prev) => ({
+      ...prev,
+      companyMembers: (prev.companyMembers ?? []).map((m) =>
+        m.id === id ? { ...m, ...patch } : m,
+      ),
+    }));
     setSaved(false);
   };
 
   const removeMember = (id: string) => {
     setC((prev) => {
-      if (!prev) return prev;
       const list = (prev.companyMembers ?? []).filter((m) => m.id !== id);
       return { ...prev, companyMembers: list.length ? list : undefined };
     });
@@ -143,266 +170,257 @@ function SettingsPage() {
   };
 
   const addMember = () => {
-    setC((prev) => {
-      if (!prev) return prev;
-      const list = [...(prev.companyMembers ?? [])];
-      const id =
-        typeof globalThis.crypto !== "undefined" && "randomUUID" in globalThis.crypto
-          ? globalThis.crypto.randomUUID()
-          : `member-${Date.now()}`;
-      list.push({ id, name: "", email: "", phone: "" });
-      return { ...prev, companyMembers: list };
-    });
+    const id = crypto.randomUUID();
+    setC((prev) => ({
+      ...prev,
+      companyMembers: [
+        ...(prev.companyMembers ?? []),
+        { id, name: "", email: "", phone: "", role: "Partner" },
+      ],
+    }));
     setSaved(false);
   };
 
-  if (!c) {
-    return (
-      <div className="flex min-h-[30vh] items-center justify-center text-sm text-muted-foreground">
-        Loading settings…
-      </div>
-    );
-  }
+  const handleSignOut = () => {
+    void logoutFn()
+      .then(() => router.navigate({ to: "/login", replace: true, search: { redirect: undefined } }))
+      .catch((e) => logClientError("settings.signOut", e));
+  };
+
+  const partners = c.companyMembers ?? [];
+  const logoPreview = companyLogoSrc(c) || DEFAULT_PUBLIC_LOGO_URL;
 
   return (
     <form onSubmit={handleSave} className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
-        <div className="min-w-0 space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight">Company settings</h1>
-          <p className="text-pretty text-sm leading-relaxed text-muted-foreground">
-            When the server database is not configured, data is stored in this browser&apos;s{" "}
-            <code className="rounded bg-secondary px-1 font-mono text-xs">admark.company</code>{" "}
-            (localStorage). <span className="font-medium text-foreground/90">Compliance</span> links &
-            files auto-save shortly after you change them. Use <span className="font-medium">Save</span>{" "}
-            for logo, identity, bank, and to persist everything at once.
+      {(syncing || loadError) && (
+        <div
+          className={`rounded-lg border px-4 py-2 text-sm ${
+            loadError
+              ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+              : "border-border bg-muted/30 text-muted-foreground"
+          }`}
+        >
+          {loadError ?? "Syncing saved settings…"}
+        </div>
+      )}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Settings</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Company profile, partners, branding, bank details, and compliance — used on invoices and
+            documents.
           </p>
         </div>
         <button
           type="submit"
-          className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 sm:h-auto sm:w-auto sm:justify-start sm:py-2"
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
         >
-          <Save className="h-4 w-4" /> {saved ? "Saved!" : "Save"}
+          <Save className="h-4 w-4" />
+          {saved ? "Saved!" : "Save changes"}
         </button>
       </div>
 
-      <Section title="Brand">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <ImageField
-            label="Logo"
-            value={c.logoDataUrl}
-            emptyPreviewSrc={DEFAULT_PUBLIC_LOGO_URL}
-            onChange={handleImage("logoDataUrl")}
-            onClear={() => set("logoDataUrl", undefined)}
-          />
-          <ImageField
-            label="Signature"
-            value={c.signatureDataUrl}
-            onChange={handleImage("signatureDataUrl")}
-            onClear={() => set("signatureDataUrl", undefined)}
-          />
-        </div>
-      </Section>
+      <nav className="flex flex-wrap gap-2 text-sm">
+        {[
+          { href: "#profile", label: "Profile" },
+          { href: "#partners", label: "Partners" },
+          { href: "#brand", label: "Brand" },
+          { href: "#legal", label: "Legal & address" },
+          { href: "#bank", label: "Bank" },
+          { href: "#compliance", label: "Compliance" },
+          { href: "#workspace", label: "Workspace" },
+        ].map((item) => (
+          <a
+            key={item.href}
+            href={item.href}
+            className="rounded-full border border-border bg-muted/30 px-3 py-1 text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
+          >
+            {item.label}
+          </a>
+        ))}
+      </nav>
 
-      <Section title="Identity">
+      <div id="profile">
+        <SettingsProfileHero
+          company={c}
+          logoPreview={logoPreview}
+          onLogoUpload={handleImage("logoDataUrl")}
+          onLogoClear={() => set("logoDataUrl", undefined)}
+          onFieldChange={set}
+        />
+      </div>
+
+      <SettingsSection
+        id="partners"
+        title="Company partners"
+        description={`${partners.length} partner${partners.length === 1 ? "" : "s"} — founders and core team with direct contact details.`}
+      >
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-muted-foreground">
+          <Users className="h-4 w-4 shrink-0 text-primary" />
+          <span>
+            These profiles are internal references. External agency partners are managed under{" "}
+            <Link to="/partnerships" className="font-medium text-primary hover:underline">
+              Partnerships
+            </Link>
+            .
+          </span>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Company name" value={c.name} onChange={(v) => set("name", v)} />
-          <Field label="Tagline" value={c.tagline || ""} onChange={(v) => set("tagline", v)} />
-          <Field label="Email" value={c.email} onChange={(v) => set("email", v)} />
-          <Field label="Phone" value={c.phone || ""} onChange={(v) => set("phone", v)} />
-          <Field
-            label="Address"
+          {partners.map((member) => (
+            <PartnerCard
+              key={member.id}
+              member={member}
+              onChange={(patch) => updateMember(member.id, patch)}
+              onRemove={() => removeMember(member.id)}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={addMember}
+          className="mt-4 rounded-lg border border-dashed border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:border-primary/40 hover:text-foreground"
+        >
+          Add partner
+        </button>
+      </SettingsSection>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SettingsSection id="brand" title="Brand assets" description="Logo and signature on invoices.">
+          <div className="grid gap-4">
+            <SettingsImageField
+              label="Logo"
+              value={c.logoDataUrl}
+              emptyPreviewSrc={DEFAULT_PUBLIC_LOGO_URL}
+              onChange={handleImage("logoDataUrl")}
+              onClear={() => set("logoDataUrl", undefined)}
+            />
+            <SettingsImageField
+              label="Signature"
+              value={c.signatureDataUrl}
+              onChange={handleImage("signatureDataUrl")}
+              onClear={() => set("signatureDataUrl", undefined)}
+            />
+          </div>
+        </SettingsSection>
+
+        <SettingsSection id="bank" title="Bank details" description="Shown on invoices for client payments.">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SettingsField label="Bank name" value={c.bankName || ""} onChange={(v) => set("bankName", v)} />
+            <SettingsField
+              label="Account holder"
+              value={c.accountName || ""}
+              onChange={(v) => set("accountName", v)}
+            />
+            <SettingsField
+              label="Account number"
+              value={c.accountNumber || ""}
+              onChange={(v) => set("accountNumber", v)}
+            />
+            <SettingsField label="IFSC" value={c.ifsc || ""} onChange={(v) => set("ifsc", v)} />
+            <SettingsField label="Branch" value={c.branch || ""} onChange={(v) => set("branch", v)} />
+            <SettingsField label="UPI ID" value={c.upi || ""} onChange={(v) => set("upi", v)} />
+          </div>
+        </SettingsSection>
+      </div>
+
+      <SettingsSection
+        id="legal"
+        title="Legal & registered address"
+        description="GST, PAN, and address printed on tax invoices."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SettingsField label="PAN" value={c.pan || ""} onChange={(v) => set("pan", v)} />
+          <SettingsField label="GSTIN" value={c.gstin || ""} onChange={(v) => set("gstin", v)} />
+          <SettingsField
+            label="Registered address"
             value={c.address}
             onChange={(v) => set("address", v)}
             className="sm:col-span-2"
           />
-          <Field label="PAN" value={c.pan || ""} onChange={(v) => set("pan", v)} />
-          <Field label="GSTIN" value={c.gstin || ""} onChange={(v) => set("gstin", v)} />
-          <Field
-            label="Authorized signatory name"
-            value={c.authorizedName || ""}
-            onChange={(v) => set("authorizedName", v)}
-            className="sm:col-span-2"
-          />
         </div>
-      </Section>
+      </SettingsSection>
 
-      <Section title="Team / company contacts">
-        <p className="mb-4 text-sm text-muted-foreground">
-          Direct contacts for your team. These are stored with company settings; use{" "}
-          <span className="font-medium text-foreground/90">Save</span> to persist edits (same as
-          identity & bank).
-        </p>
-        <div className="space-y-4">
-          {(c.companyMembers ?? []).map((m) => (
-            <div
-              key={m.id}
-              className="rounded-lg border border-border bg-background p-4 shadow-sm"
-            >
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Field label="Name" value={m.name} onChange={(v) => updateMember(m.id, { name: v })} />
-                <Field
-                  label="Email"
-                  type="email"
-                  value={m.email}
-                  onChange={(v) => updateMember(m.id, { email: v })}
-                />
-                <Field
-                  label="Phone"
-                  value={m.phone}
-                  onChange={(v) => updateMember(m.id, { phone: v })}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => removeMember(m.id)}
-                className="mt-3 text-xs text-muted-foreground hover:text-destructive"
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={addMember}
-            className="rounded-md border border-input bg-card px-3 py-2 text-sm font-medium hover:bg-secondary"
-          >
-            Add team member
-          </button>
-        </div>
-      </Section>
-
-      <Section title="Compliance" className="p-4 sm:p-5">
+      <SettingsSection
+        id="compliance"
+        title="Compliance documents"
+        description="Udyam / MSME, GST, PAN — files auto-save shortly after upload."
+      >
         <ComplianceDocumentsPanel
           company={c}
           onUdyamUpload={handleUdyamPdf}
           onUdyamClear={() => set("udyamCertificateDataUrl", undefined)}
           onDocumentsChange={(docs) => {
-            setC((prev) =>
-              prev
-                ? { ...prev, complianceDocuments: docs.length ? docs : undefined }
-                : prev,
-            );
+            setC((prev) => ({
+              ...prev,
+              complianceDocuments: docs.length ? docs : undefined,
+            }));
             setSaved(false);
           }}
         />
-      </Section>
+        <p className="mt-4 text-xs text-muted-foreground">
+          Full archive also available under{" "}
+          <Link to="/documents/company" className="text-primary hover:underline">
+            Documents → Company
+          </Link>
+          .
+        </p>
+      </SettingsSection>
 
-      <Section title="Bank details">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Bank name" value={c.bankName || ""} onChange={(v) => set("bankName", v)} />
-          <Field
-            label="Account holder name"
-            value={c.accountName || ""}
-            onChange={(v) => set("accountName", v)}
-          />
-          <Field
-            label="Account number"
-            value={c.accountNumber || ""}
-            onChange={(v) => set("accountNumber", v)}
-          />
-          <Field label="IFSC" value={c.ifsc || ""} onChange={(v) => set("ifsc", v)} />
-          <Field label="Branch" value={c.branch || ""} onChange={(v) => set("branch", v)} />
-          <Field label="UPI ID" value={c.upi || ""} onChange={(v) => set("upi", v)} />
+      <SettingsSection
+        id="workspace"
+        title="Workspace"
+        description="Data storage, financial baseline, and quick links."
+      >
+        <div className="mb-6 grid gap-3 sm:grid-cols-2">
+          <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/10 p-4">
+            {backendLabel.includes("Supabase") ? (
+              <Cloud className="mt-0.5 h-5 w-5 shrink-0 text-sky-400" />
+            ) : (
+              <Database className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+            )}
+            <div>
+              <p className="text-sm font-medium text-foreground">Data storage</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{backendLabel}</p>
+            </div>
+          </div>
+          <div className="rounded-lg border border-border bg-muted/10 p-4">
+            <p className="text-sm font-medium text-foreground">Financial baseline</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Reconciled through {DEFAULT_FINANCIAL_BASELINE.asOfDate} —{" "}
+              {DEFAULT_FINANCIAL_BASELINE.periodLabel}
+            </p>
+          </div>
         </div>
-      </Section>
+
+        <SettingsQuickLinks
+          links={[
+            {
+              label: "Accounts",
+              description: "Income, expenses, assets, and billing.",
+              to: "/accounts",
+            },
+            {
+              label: "Documents",
+              description: "Invoices, payments, and company files.",
+              to: "/documents",
+            },
+            {
+              label: "Activity logs",
+              description: "Audit trail of changes across the app.",
+              to: "/logs",
+            },
+          ]}
+        />
+
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="mt-6 inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign out
+        </button>
+      </SettingsSection>
     </form>
-  );
-}
-
-function Section({
-  title,
-  children,
-  className = "",
-}: {
-  title: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const pad = className.includes("p-") ? className : `p-6 ${className}`.trim();
-  return (
-    <section className={`rounded-lg border border-border bg-card shadow-sm ${pad}`}>
-      <h2 className="mb-4 text-lg font-semibold tracking-tight">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  className = "",
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  className?: string;
-  type?: string;
-}) {
-  return (
-    <label className={`block ${className}`}>
-      <span className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-      />
-    </label>
-  );
-}
-
-function ImageField({
-  label,
-  value,
-  emptyPreviewSrc,
-  onChange,
-  onClear,
-}: {
-  label: string;
-  value?: string;
-  /** Shown when no file is uploaded (e.g. default app logo). */
-  emptyPreviewSrc?: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onClear: () => void;
-}) {
-  const previewSrc = value || emptyPreviewSrc;
-  return (
-    <div>
-      <span className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
-      <div className="flex items-center gap-4 rounded-md border border-dashed border-border bg-background p-4">
-        <div className="grid h-20 w-20 place-items-center overflow-hidden rounded-md bg-secondary">
-          {previewSrc ? (
-            <img
-              src={previewSrc}
-              alt={label}
-              className={`h-full w-full object-contain ${value ? "" : "opacity-80"}`}
-            />
-          ) : (
-            <span className="text-xs text-muted-foreground">No image</span>
-          )}
-        </div>
-        <div className="flex flex-col gap-2">
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-input bg-card px-3 py-1.5 text-xs font-medium hover:bg-secondary">
-            <Upload className="h-3.5 w-3.5" /> Upload
-            <input type="file" accept="image/*" className="hidden" onChange={onChange} />
-          </label>
-          {value && (
-            <button
-              type="button"
-              onClick={onClear}
-              className="text-xs text-muted-foreground hover:text-destructive"
-            >
-              Remove
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }

@@ -6,21 +6,50 @@ import {
   AnalyticsSummaryCards,
   AnalyticsTableSection,
 } from "@/components/analytics/analytics-ui";
-import { ProjectStatusBadge } from "@/components/operations/ProjectsTable";
-import { OperationsLoading } from "@/components/operations/operations-ui";
+import { ProjectFormDialog } from "@/components/operations/ProjectFormDialog";
+import { OperationsLoading, RowEdit } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
+import type { Project } from "@/lib/types";
 import { formatINRWhole } from "@/lib/invoice-calc";
+import {
+  matchesAnyDateInPeriod,
+  DEFAULT_PERIOD,
+  type PeriodKey,
+  projectRelevantDates,
+} from "@/lib/date-range-filter";
 import {
   projectBillingRows,
   recurringStatusLabel,
-  sumBookedProjectRevenue,
 } from "@/lib/project-billing";
+import { computeFinancialSummary } from "@/lib/financial";
 
 export const Route = createFileRoute("/analytics/ongoing")({ component: AnalyticsOngoingPage });
 
 function AnalyticsOngoingPage() {
-  const { ops, loading } = useOperations();
+  const { ops, persist, loading } = useOperations();
   const [search, setSearch] = useState("");
+  const [period, setPeriod] = useState<PeriodKey>(DEFAULT_PERIOD);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState<Project | null>(null);
+
+  const openEdit = (project: Project) => {
+    setEditing(project);
+    setEditOpen(true);
+  };
+
+  const handleSave = (saved: Project) => {
+    const prior = ops.projects.find((p) => p.id === saved.id);
+    const project: Project = {
+      ...saved,
+      payments: prior?.payments ?? saved.payments,
+      paymentProofs: prior?.paymentProofs ?? saved.paymentProofs,
+      paymentStatus: prior?.paymentStatus ?? saved.paymentStatus,
+    };
+    persist({
+      ...ops,
+      projects: ops.projects.map((p) => (p.id === project.id ? project : p)),
+    });
+  };
 
   const rows = useMemo(
     () => projectBillingRows(ops.projects.filter((p) => p.status === "active")),
@@ -29,16 +58,18 @@ function AnalyticsOngoingPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(
-      (r) =>
+    return rows.filter((r) => {
+      if (!matchesAnyDateInPeriod(projectRelevantDates(r.project), period)) return false;
+      if (!q) return true;
+      return (
         r.client.toLowerCase().includes(q) ||
         r.billingLabel.toLowerCase().includes(q) ||
-        r.project.projectType?.toLowerCase().includes(q),
-    );
-  }, [rows, search]);
+        r.project.projectType?.toLowerCase().includes(q)
+      );
+    });
+  }, [rows, search, period]);
 
-  const bookedTotal = sumBookedProjectRevenue(ops.projects.filter((p) => p.status === "active"));
+  const financial = computeFinancialSummary(ops);
 
   if (loading) return <OperationsLoading />;
 
@@ -51,7 +82,7 @@ function AnalyticsOngoingPage() {
       <AnalyticsSummaryCards
         items={[
           { label: "Ongoing count", value: String(rows.length), tone: "neutral" },
-          { label: "Revenue booked", value: formatINRWhole(bookedTotal), tone: "positive" },
+          { label: "Revenue booked", value: formatINRWhole(financial.totalRevenueBooked), tone: "positive" },
         ]}
       />
       <AnalyticsTableSection
@@ -60,10 +91,12 @@ function AnalyticsOngoingPage() {
           <AnalyticsSearch
             value={search}
             onChange={setSearch}
+            period={period}
+            onPeriodChange={setPeriod}
             placeholder="Search ongoing projects…"
           />
         }
-        headers={["Client", "Type", "Billing", "Monthly status", "Booked", "Received"]}
+        headers={["Client", "Type", "Billing", "Monthly status", "Booked", "Received", ""]}
         rows={filtered.map((r) => [
           <Link
             key={`c-${r.project.id}`}
@@ -83,8 +116,18 @@ function AnalyticsOngoingPage() {
           ) : (
             "—"
           ),
+          <div key={`edit-${r.project.id}`} className="flex justify-end">
+            <RowEdit onClick={() => openEdit(r.project)} />
+          </div>,
         ])}
         emptyMessage={search ? "No ongoing projects match your search." : "No ongoing projects."}
+      />
+
+      <ProjectFormDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        project={editing}
+        onSave={handleSave}
       />
     </div>
   );

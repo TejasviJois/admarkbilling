@@ -6,7 +6,16 @@ function expectedUsername(): string {
 }
 
 function expectedPassword(): string {
-  return process.env.ADMARK_APP_PASSWORD ?? DEFAULT_PASSWORD;
+  const env = process.env.ADMARK_APP_PASSWORD;
+  if (process.env.NODE_ENV === "production") {
+    if (!env?.trim()) {
+      throw new Error(
+        "ADMARK_APP_PASSWORD must be set in production (Vercel → Environment Variables).",
+      );
+    }
+    return env;
+  }
+  return env ?? DEFAULT_PASSWORD;
 }
 
 export function normalizeUsername(input: string): string {

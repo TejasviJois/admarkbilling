@@ -1,12 +1,10 @@
 import { loadInvoices } from "./storage";
 
-/**
- * Indian financial year: Apr 1 → Mar 31.
- * For a date in May 2026 → "26-27"; in Feb 2027 → "26-27"; in May 2027 → "27-28".
- */
-export function financialYear(date = new Date()): string {
-  const y = date.getFullYear();
-  const m = date.getMonth(); // 0-based
+/** Indian financial year: Apr 1 → Mar 31. */
+export function financialYear(date: Date | string = new Date()): string {
+  const d = typeof date === "string" ? new Date(`${date}T12:00:00`) : date;
+  const y = d.getFullYear();
+  const m = d.getMonth(); // 0-based
   const startYear = m >= 3 ? y : y - 1;
   const endYear = startYear + 1;
   return `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`;
@@ -32,14 +30,22 @@ export function parseInvoiceSequence(number: string, fy: string): number | null 
   return null;
 }
 
-/** Look at existing invoices to find next sequence for current FY. */
-export async function nextInvoiceNumber(date = new Date()): Promise<string> {
+/** Sync: next sequence from an in-memory invoice list (no network). */
+export function nextInvoiceNumberFromList(
+  invoices: { number: string }[],
+  date: Date | string = new Date(),
+): string {
   const fy = financialYear(date);
   let max = 0;
-  const invoices = await loadInvoices();
   for (const inv of invoices) {
     const n = parseInvoiceSequence(inv.number, fy);
     if (n != null && n > max) max = n;
   }
   return formatInvoiceNumber(max + 1, fy);
+}
+
+/** Look at existing invoices to find next sequence for the invoice date's FY. */
+export async function nextInvoiceNumber(date: Date | string = new Date()): Promise<string> {
+  const invoices = await loadInvoices();
+  return nextInvoiceNumberFromList(invoices, date);
 }

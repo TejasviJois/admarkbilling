@@ -22,9 +22,11 @@ import {
 import { DEFAULT_PUBLIC_LOGO_URL, PUBLIC_HOME_URL } from "@/lib/constants";
 import { logClientError } from "@/lib/client-logger";
 import { companyLogoSrc } from "@/lib/company-branding";
-import { loadCompany } from "@/lib/storage";
+import { getAuthStatusCached, clearAuthStatusCache } from "@/lib/auth-status-cache";
+import { prefetchAppData } from "@/lib/prefetch-app-data";
+import { useCompany } from "@/hooks/use-company";
 import { getDataBackendStatus } from "@/server/invoice-fns";
-import { getAuthStatusFn, logoutFn } from "@/server/auth-fns";
+import { logoutFn } from "@/server/auth-fns";
 
 function NotFoundComponent() {
   return (
@@ -71,9 +73,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ location, context }) => {
     if (location.pathname === "/login") return;
-    const { ok } = await getAuthStatusFn();
+    const { ok } = await getAuthStatusCached();
     if (!ok) {
       const path = location.pathname + (location.searchStr || "");
       throw redirect({
@@ -81,6 +83,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         search: { redirect: path || "/" },
       });
     }
+    prefetchAppData(context.queryClient);
   },
   head: () => ({
     meta: [
@@ -90,8 +93,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "Internal operations, billing & invoice automation for Admark." },
     ],
     links: [
-      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
-      { rel: "alternate icon", href: "/favicon.svg", type: "image/svg+xml" },
+      { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/admark-default-logo.png" },
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
@@ -138,8 +141,9 @@ const MAIN_NAV_LINKS: NavLinkItem[] = [
   { to: "/analytics", label: "Analytics" },
   { to: "/projects", label: "Projects" },
   { to: "/partnerships", label: "Partnerships" },
-  { to: "/expenses", label: "Expenses" },
+  { to: "/accounts", label: "Accounts" },
   { to: "/invoices", label: "Invoices" },
+  { to: "/documents", label: "Documents" },
   { to: "/logs", label: "Logs" },
   { to: "/settings", label: "Settings" },
 ];
@@ -147,20 +151,18 @@ const MAIN_NAV_LINKS: NavLinkItem[] = [
 function TopNav() {
   const router = useRouter();
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const [brandLogo, setBrandLogo] = useState(DEFAULT_PUBLIC_LOGO_URL);
+  const { company } = useCompany();
+  const brandLogo = companyLogoSrc(company);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleSignOut = () => {
     void logoutFn()
-      .then(() => router.navigate({ to: "/login", replace: true, search: { redirect: undefined } }))
+      .then(() => {
+        clearAuthStatusCache();
+        return router.navigate({ to: "/login", replace: true, search: { redirect: undefined } });
+      })
       .catch((e) => logClientError("topNav.signOut", e));
   };
-
-  useEffect(() => {
-    void loadCompany()
-      .then((c) => setBrandLogo(companyLogoSrc(c)))
-      .catch(() => setBrandLogo(DEFAULT_PUBLIC_LOGO_URL));
-  }, []);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -183,7 +185,7 @@ function TopNav() {
           <img
             src={brandLogo}
             alt="Admark Digitals"
-            className="h-9 w-auto max-h-9 object-contain sm:h-11 sm:max-h-11"
+            className="h-10 w-auto max-h-10 object-contain sm:h-12 sm:max-h-12"
           />
         </Link>
 
@@ -204,7 +206,7 @@ function TopNav() {
             </a>
           )}
           {MAIN_NAV_LINKS.map(({ to, label, exact }) => (
-            <Link key={to} to={to} className={navLinkClass(isActive(to, exact))}>
+            <Link key={to} to={to} preload="intent" className={navLinkClass(isActive(to, exact))}>
               {label}
             </Link>
           ))}
@@ -254,6 +256,7 @@ function TopNav() {
                 <Link
                   key={to}
                   to={to}
+                  preload="intent"
                   className={navLinkClass(isActive(to, exact), true)}
                   onClick={() => setMenuOpen(false)}
                 >

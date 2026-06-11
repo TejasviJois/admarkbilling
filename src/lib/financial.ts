@@ -1,6 +1,7 @@
 import { formatINR } from "./invoice-calc";
 import { DEFAULT_FINANCIAL_BASELINE, withDefaultFinancialBaseline } from "./default-financial-baseline";
-import { sumBookedProjectRevenue } from "./project-billing";
+import { sumPipelineBookedRevenue } from "./project-billing";
+import { sumActiveFixedMonthlyExpenses } from "./fixed-monthly-expenses";
 import type { ExpenseCategory, ExpenseEntry, FinancialBaseline, OperationsData, Project } from "./types";
 
 export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
@@ -24,6 +25,47 @@ export const EXPENSE_CATEGORY_DESCRIPTIONS: Record<ExpenseCategory, string> = {
   handout: "Money taken as a company loan — tracked separately from cash balance.",
 };
 
+/** Compact labels for dashboards — extend when categories grow. */
+export const EXPENSE_CATEGORY_SHORT_LABELS: Record<ExpenseCategory, string> = {
+  company: "Company",
+  external_payout: "Vendors & partners",
+  founder_payout: "Founders",
+  handout: "Handouts",
+};
+
+/** Categories that reduce cash balance (excludes handouts). */
+export const MONEY_OUT_CATEGORIES: ExpenseCategory[] = [
+  "company",
+  "founder_payout",
+  "external_payout",
+];
+
+export type MoneyOutCategoryRow = {
+  category: ExpenseCategory;
+  label: string;
+  amount: number;
+  newEntryCount: number;
+};
+
+export function buildMoneyOutRows(
+  financial: FinancialSummary,
+  expenses: ExpenseEntry[],
+): MoneyOutCategoryRow[] {
+  const amounts: Record<(typeof MONEY_OUT_CATEGORIES)[number], number> = {
+    company: financial.totalCompanyExpenses,
+    founder_payout: financial.founderPayoutPool,
+    external_payout: financial.totalExternalPayouts,
+  };
+  const logged = expenses.filter((e) => !e.isBaseline);
+
+  return MONEY_OUT_CATEGORIES.map((category) => ({
+    category,
+    label: EXPENSE_CATEGORY_SHORT_LABELS[category],
+    amount: amounts[category],
+    newEntryCount: logged.filter((e) => normalizeCategory(e.category) === category).length,
+  }));
+}
+
 export type FinancialSummary = {
   baseline: FinancialBaseline;
   totalRevenueBooked: number;
@@ -36,6 +78,10 @@ export type FinancialSummary = {
   currentCashBalance: number;
   newExpenseCount: number;
   newRevenueAfterBaseline: number;
+  /** Sum of active fixed monthly obligations (loan repayment, rent, …). */
+  totalMonthlyFixedExpenses: number;
+  /** Confirmed + ongoing + done — full contract value in pipeline. */
+  activePipelineBooked: number;
 };
 
 function sumProjectPaymentsAfter(projects: Project[], afterDate: string): number {
@@ -86,8 +132,11 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
 
   const totalExpense = totalExternalPayouts + totalCompanyExpenses + founderPayoutPool;
   const currentCashBalance = totalRevenueReceived - totalExpense;
+  const activePipelineBooked = sumPipelineBookedRevenue(ops.projects);
+  /** Contract value — ongoing and done projects (not cash received). */
   const totalRevenueBooked =
-    baseline.totalRevenueBooked ?? sumBookedProjectRevenue(ops.projects);
+    baseline.totalRevenueBooked != null ? baseline.totalRevenueBooked : activePipelineBooked;
+  const totalMonthlyFixedExpenses = sumActiveFixedMonthlyExpenses(ops.fixedMonthlyExpenses);
 
   return {
     baseline,
@@ -101,6 +150,8 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
     currentCashBalance,
     newExpenseCount: newExpenses.length,
     newRevenueAfterBaseline,
+    totalMonthlyFixedExpenses,
+    activePipelineBooked,
   };
 }
 

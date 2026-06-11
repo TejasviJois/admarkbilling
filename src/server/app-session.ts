@@ -4,10 +4,16 @@ export const APP_SESSION_COOKIE = "admark_gate";
 const COOKIE_PAYLOAD = "admark-billing-gate-v1";
 
 function sessionSecret(): string {
-  return (
-    process.env.APP_SESSION_SECRET?.trim() ||
-    "admark-dev-only-session-secret-change-with-APP_SESSION_SECRET"
-  );
+  const secret = process.env.APP_SESSION_SECRET?.trim();
+  if (process.env.NODE_ENV === "production") {
+    if (!secret) {
+      throw new Error(
+        "APP_SESSION_SECRET must be set in production (Vercel → Environment Variables).",
+      );
+    }
+    return secret;
+  }
+  return secret || "admark-dev-only-session-secret-change-with-APP_SESSION_SECRET";
 }
 
 function timingSafeEqual(a: string, b: string): boolean {

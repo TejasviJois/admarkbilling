@@ -18,14 +18,28 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as ExpensesRouteImport } from './routes/expenses'
+import { Route as AccountsRouteImport } from './routes/accounts'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DocumentsIndexRouteImport } from './routes/documents/index'
 import { Route as AnalyticsIndexRouteImport } from './routes/analytics/index'
+import { Route as AccountsIndexRouteImport } from './routes/accounts/index'
 import { Route as InvoiceIdRouteImport } from './routes/invoice.$id'
+import { Route as DocumentsInvoicesRouteImport } from './routes/documents/invoices'
+import { Route as DocumentsCompanyRouteImport } from './routes/documents/company'
+import { Route as DocumentsAgreementsRouteImport } from './routes/documents/agreements'
 import { Route as AnalyticsRevenueRouteImport } from './routes/analytics/revenue'
 import { Route as AnalyticsOngoingRouteImport } from './routes/analytics/ongoing'
 import { Route as AnalyticsIncomeRouteImport } from './routes/analytics/income'
 import { Route as AnalyticsExpensesRouteImport } from './routes/analytics/expenses'
 import { Route as AnalyticsBalanceRouteImport } from './routes/analytics/balance'
+import { Route as AccountsBillingRouteImport } from './routes/accounts.billing'
+import { Route as DocumentsPaymentsIndexRouteImport } from './routes/documents/payments/index'
+import { Route as DocumentsPaymentsVendorsIndexRouteImport } from './routes/documents/payments/vendors/index'
+import { Route as DocumentsPaymentsPartnersIndexRouteImport } from './routes/documents/payments/partners/index'
+import { Route as DocumentsPaymentsClientsIndexRouteImport } from './routes/documents/payments/clients/index'
+import { Route as DocumentsPaymentsVendorsVendorKeyRouteImport } from './routes/documents/payments/vendors/$vendorKey'
+import { Route as DocumentsPaymentsPartnersPartnershipIdRouteImport } from './routes/documents/payments/partners/$partnershipId'
+import { Route as DocumentsPaymentsClientsClientKeyRouteImport } from './routes/documents/payments/clients/$clientKey'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -72,9 +86,19 @@ const ExpensesRoute = ExpensesRouteImport.update({
   path: '/expenses',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountsRoute = AccountsRouteImport.update({
+  id: '/accounts',
+  path: '/accounts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsIndexRoute = DocumentsIndexRouteImport.update({
+  id: '/documents/',
+  path: '/documents/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalyticsIndexRoute = AnalyticsIndexRouteImport.update({
@@ -82,9 +106,29 @@ const AnalyticsIndexRoute = AnalyticsIndexRouteImport.update({
   path: '/analytics/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountsIndexRoute = AccountsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AccountsRoute,
+} as any)
 const InvoiceIdRoute = InvoiceIdRouteImport.update({
   id: '/invoice/$id',
   path: '/invoice/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsInvoicesRoute = DocumentsInvoicesRouteImport.update({
+  id: '/documents/invoices',
+  path: '/documents/invoices',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsCompanyRoute = DocumentsCompanyRouteImport.update({
+  id: '/documents/company',
+  path: '/documents/company',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsAgreementsRoute = DocumentsAgreementsRouteImport.update({
+  id: '/documents/agreements',
+  path: '/documents/agreements',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalyticsRevenueRoute = AnalyticsRevenueRouteImport.update({
@@ -112,9 +156,56 @@ const AnalyticsBalanceRoute = AnalyticsBalanceRouteImport.update({
   path: '/analytics/balance',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountsBillingRoute = AccountsBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AccountsRoute,
+} as any)
+const DocumentsPaymentsIndexRoute = DocumentsPaymentsIndexRouteImport.update({
+  id: '/documents/payments/',
+  path: '/documents/payments/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsPaymentsVendorsIndexRoute =
+  DocumentsPaymentsVendorsIndexRouteImport.update({
+    id: '/documents/payments/vendors/',
+    path: '/documents/payments/vendors/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DocumentsPaymentsPartnersIndexRoute =
+  DocumentsPaymentsPartnersIndexRouteImport.update({
+    id: '/documents/payments/partners/',
+    path: '/documents/payments/partners/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DocumentsPaymentsClientsIndexRoute =
+  DocumentsPaymentsClientsIndexRouteImport.update({
+    id: '/documents/payments/clients/',
+    path: '/documents/payments/clients/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DocumentsPaymentsVendorsVendorKeyRoute =
+  DocumentsPaymentsVendorsVendorKeyRouteImport.update({
+    id: '/documents/payments/vendors/$vendorKey',
+    path: '/documents/payments/vendors/$vendorKey',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DocumentsPaymentsPartnersPartnershipIdRoute =
+  DocumentsPaymentsPartnersPartnershipIdRouteImport.update({
+    id: '/documents/payments/partners/$partnershipId',
+    path: '/documents/payments/partners/$partnershipId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DocumentsPaymentsClientsClientKeyRoute =
+  DocumentsPaymentsClientsClientKeyRouteImport.update({
+    id: '/documents/payments/clients/$clientKey',
+    path: '/documents/payments/clients/$clientKey',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/accounts': typeof AccountsRouteWithChildren
   '/expenses': typeof ExpensesRoute
   '/history': typeof HistoryRoute
   '/invoices': typeof InvoicesRoute
@@ -124,13 +215,26 @@ export interface FileRoutesByFullPath {
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
+  '/accounts/billing': typeof AccountsBillingRoute
   '/analytics/balance': typeof AnalyticsBalanceRoute
   '/analytics/expenses': typeof AnalyticsExpensesRoute
   '/analytics/income': typeof AnalyticsIncomeRoute
   '/analytics/ongoing': typeof AnalyticsOngoingRoute
   '/analytics/revenue': typeof AnalyticsRevenueRoute
+  '/documents/agreements': typeof DocumentsAgreementsRoute
+  '/documents/company': typeof DocumentsCompanyRoute
+  '/documents/invoices': typeof DocumentsInvoicesRoute
   '/invoice/$id': typeof InvoiceIdRoute
+  '/accounts/': typeof AccountsIndexRoute
   '/analytics/': typeof AnalyticsIndexRoute
+  '/documents/': typeof DocumentsIndexRoute
+  '/documents/payments/': typeof DocumentsPaymentsIndexRoute
+  '/documents/payments/clients/$clientKey': typeof DocumentsPaymentsClientsClientKeyRoute
+  '/documents/payments/partners/$partnershipId': typeof DocumentsPaymentsPartnersPartnershipIdRoute
+  '/documents/payments/vendors/$vendorKey': typeof DocumentsPaymentsVendorsVendorKeyRoute
+  '/documents/payments/clients/': typeof DocumentsPaymentsClientsIndexRoute
+  '/documents/payments/partners/': typeof DocumentsPaymentsPartnersIndexRoute
+  '/documents/payments/vendors/': typeof DocumentsPaymentsVendorsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -143,17 +247,31 @@ export interface FileRoutesByTo {
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
+  '/accounts/billing': typeof AccountsBillingRoute
   '/analytics/balance': typeof AnalyticsBalanceRoute
   '/analytics/expenses': typeof AnalyticsExpensesRoute
   '/analytics/income': typeof AnalyticsIncomeRoute
   '/analytics/ongoing': typeof AnalyticsOngoingRoute
   '/analytics/revenue': typeof AnalyticsRevenueRoute
+  '/documents/agreements': typeof DocumentsAgreementsRoute
+  '/documents/company': typeof DocumentsCompanyRoute
+  '/documents/invoices': typeof DocumentsInvoicesRoute
   '/invoice/$id': typeof InvoiceIdRoute
+  '/accounts': typeof AccountsIndexRoute
   '/analytics': typeof AnalyticsIndexRoute
+  '/documents': typeof DocumentsIndexRoute
+  '/documents/payments': typeof DocumentsPaymentsIndexRoute
+  '/documents/payments/clients/$clientKey': typeof DocumentsPaymentsClientsClientKeyRoute
+  '/documents/payments/partners/$partnershipId': typeof DocumentsPaymentsPartnersPartnershipIdRoute
+  '/documents/payments/vendors/$vendorKey': typeof DocumentsPaymentsVendorsVendorKeyRoute
+  '/documents/payments/clients': typeof DocumentsPaymentsClientsIndexRoute
+  '/documents/payments/partners': typeof DocumentsPaymentsPartnersIndexRoute
+  '/documents/payments/vendors': typeof DocumentsPaymentsVendorsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/accounts': typeof AccountsRouteWithChildren
   '/expenses': typeof ExpensesRoute
   '/history': typeof HistoryRoute
   '/invoices': typeof InvoicesRoute
@@ -163,18 +281,32 @@ export interface FileRoutesById {
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
+  '/accounts/billing': typeof AccountsBillingRoute
   '/analytics/balance': typeof AnalyticsBalanceRoute
   '/analytics/expenses': typeof AnalyticsExpensesRoute
   '/analytics/income': typeof AnalyticsIncomeRoute
   '/analytics/ongoing': typeof AnalyticsOngoingRoute
   '/analytics/revenue': typeof AnalyticsRevenueRoute
+  '/documents/agreements': typeof DocumentsAgreementsRoute
+  '/documents/company': typeof DocumentsCompanyRoute
+  '/documents/invoices': typeof DocumentsInvoicesRoute
   '/invoice/$id': typeof InvoiceIdRoute
+  '/accounts/': typeof AccountsIndexRoute
   '/analytics/': typeof AnalyticsIndexRoute
+  '/documents/': typeof DocumentsIndexRoute
+  '/documents/payments/': typeof DocumentsPaymentsIndexRoute
+  '/documents/payments/clients/$clientKey': typeof DocumentsPaymentsClientsClientKeyRoute
+  '/documents/payments/partners/$partnershipId': typeof DocumentsPaymentsPartnersPartnershipIdRoute
+  '/documents/payments/vendors/$vendorKey': typeof DocumentsPaymentsVendorsVendorKeyRoute
+  '/documents/payments/clients/': typeof DocumentsPaymentsClientsIndexRoute
+  '/documents/payments/partners/': typeof DocumentsPaymentsPartnersIndexRoute
+  '/documents/payments/vendors/': typeof DocumentsPaymentsVendorsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/accounts'
     | '/expenses'
     | '/history'
     | '/invoices'
@@ -184,13 +316,26 @@ export interface FileRouteTypes {
     | '/partnerships'
     | '/projects'
     | '/settings'
+    | '/accounts/billing'
     | '/analytics/balance'
     | '/analytics/expenses'
     | '/analytics/income'
     | '/analytics/ongoing'
     | '/analytics/revenue'
+    | '/documents/agreements'
+    | '/documents/company'
+    | '/documents/invoices'
     | '/invoice/$id'
+    | '/accounts/'
     | '/analytics/'
+    | '/documents/'
+    | '/documents/payments/'
+    | '/documents/payments/clients/$clientKey'
+    | '/documents/payments/partners/$partnershipId'
+    | '/documents/payments/vendors/$vendorKey'
+    | '/documents/payments/clients/'
+    | '/documents/payments/partners/'
+    | '/documents/payments/vendors/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -203,16 +348,30 @@ export interface FileRouteTypes {
     | '/partnerships'
     | '/projects'
     | '/settings'
+    | '/accounts/billing'
     | '/analytics/balance'
     | '/analytics/expenses'
     | '/analytics/income'
     | '/analytics/ongoing'
     | '/analytics/revenue'
+    | '/documents/agreements'
+    | '/documents/company'
+    | '/documents/invoices'
     | '/invoice/$id'
+    | '/accounts'
     | '/analytics'
+    | '/documents'
+    | '/documents/payments'
+    | '/documents/payments/clients/$clientKey'
+    | '/documents/payments/partners/$partnershipId'
+    | '/documents/payments/vendors/$vendorKey'
+    | '/documents/payments/clients'
+    | '/documents/payments/partners'
+    | '/documents/payments/vendors'
   id:
     | '__root__'
     | '/'
+    | '/accounts'
     | '/expenses'
     | '/history'
     | '/invoices'
@@ -222,17 +381,31 @@ export interface FileRouteTypes {
     | '/partnerships'
     | '/projects'
     | '/settings'
+    | '/accounts/billing'
     | '/analytics/balance'
     | '/analytics/expenses'
     | '/analytics/income'
     | '/analytics/ongoing'
     | '/analytics/revenue'
+    | '/documents/agreements'
+    | '/documents/company'
+    | '/documents/invoices'
     | '/invoice/$id'
+    | '/accounts/'
     | '/analytics/'
+    | '/documents/'
+    | '/documents/payments/'
+    | '/documents/payments/clients/$clientKey'
+    | '/documents/payments/partners/$partnershipId'
+    | '/documents/payments/vendors/$vendorKey'
+    | '/documents/payments/clients/'
+    | '/documents/payments/partners/'
+    | '/documents/payments/vendors/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountsRoute: typeof AccountsRouteWithChildren
   ExpensesRoute: typeof ExpensesRoute
   HistoryRoute: typeof HistoryRoute
   InvoicesRoute: typeof InvoicesRoute
@@ -247,8 +420,19 @@ export interface RootRouteChildren {
   AnalyticsIncomeRoute: typeof AnalyticsIncomeRoute
   AnalyticsOngoingRoute: typeof AnalyticsOngoingRoute
   AnalyticsRevenueRoute: typeof AnalyticsRevenueRoute
+  DocumentsAgreementsRoute: typeof DocumentsAgreementsRoute
+  DocumentsCompanyRoute: typeof DocumentsCompanyRoute
+  DocumentsInvoicesRoute: typeof DocumentsInvoicesRoute
   InvoiceIdRoute: typeof InvoiceIdRoute
   AnalyticsIndexRoute: typeof AnalyticsIndexRoute
+  DocumentsIndexRoute: typeof DocumentsIndexRoute
+  DocumentsPaymentsIndexRoute: typeof DocumentsPaymentsIndexRoute
+  DocumentsPaymentsClientsClientKeyRoute: typeof DocumentsPaymentsClientsClientKeyRoute
+  DocumentsPaymentsPartnersPartnershipIdRoute: typeof DocumentsPaymentsPartnersPartnershipIdRoute
+  DocumentsPaymentsVendorsVendorKeyRoute: typeof DocumentsPaymentsVendorsVendorKeyRoute
+  DocumentsPaymentsClientsIndexRoute: typeof DocumentsPaymentsClientsIndexRoute
+  DocumentsPaymentsPartnersIndexRoute: typeof DocumentsPaymentsPartnersIndexRoute
+  DocumentsPaymentsVendorsIndexRoute: typeof DocumentsPaymentsVendorsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -316,11 +500,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExpensesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/accounts': {
+      id: '/accounts'
+      path: '/accounts'
+      fullPath: '/accounts'
+      preLoaderRoute: typeof AccountsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/': {
+      id: '/documents/'
+      path: '/documents'
+      fullPath: '/documents/'
+      preLoaderRoute: typeof DocumentsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analytics/': {
@@ -330,11 +528,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AnalyticsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/accounts/': {
+      id: '/accounts/'
+      path: '/'
+      fullPath: '/accounts/'
+      preLoaderRoute: typeof AccountsIndexRouteImport
+      parentRoute: typeof AccountsRoute
+    }
     '/invoice/$id': {
       id: '/invoice/$id'
       path: '/invoice/$id'
       fullPath: '/invoice/$id'
       preLoaderRoute: typeof InvoiceIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/invoices': {
+      id: '/documents/invoices'
+      path: '/documents/invoices'
+      fullPath: '/documents/invoices'
+      preLoaderRoute: typeof DocumentsInvoicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/company': {
+      id: '/documents/company'
+      path: '/documents/company'
+      fullPath: '/documents/company'
+      preLoaderRoute: typeof DocumentsCompanyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/agreements': {
+      id: '/documents/agreements'
+      path: '/documents/agreements'
+      fullPath: '/documents/agreements'
+      preLoaderRoute: typeof DocumentsAgreementsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analytics/revenue': {
@@ -372,11 +598,82 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AnalyticsBalanceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/accounts/billing': {
+      id: '/accounts/billing'
+      path: '/billing'
+      fullPath: '/accounts/billing'
+      preLoaderRoute: typeof AccountsBillingRouteImport
+      parentRoute: typeof AccountsRoute
+    }
+    '/documents/payments/': {
+      id: '/documents/payments/'
+      path: '/documents/payments'
+      fullPath: '/documents/payments/'
+      preLoaderRoute: typeof DocumentsPaymentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/payments/vendors/': {
+      id: '/documents/payments/vendors/'
+      path: '/documents/payments/vendors'
+      fullPath: '/documents/payments/vendors/'
+      preLoaderRoute: typeof DocumentsPaymentsVendorsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/payments/partners/': {
+      id: '/documents/payments/partners/'
+      path: '/documents/payments/partners'
+      fullPath: '/documents/payments/partners/'
+      preLoaderRoute: typeof DocumentsPaymentsPartnersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/payments/clients/': {
+      id: '/documents/payments/clients/'
+      path: '/documents/payments/clients'
+      fullPath: '/documents/payments/clients/'
+      preLoaderRoute: typeof DocumentsPaymentsClientsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/payments/vendors/$vendorKey': {
+      id: '/documents/payments/vendors/$vendorKey'
+      path: '/documents/payments/vendors/$vendorKey'
+      fullPath: '/documents/payments/vendors/$vendorKey'
+      preLoaderRoute: typeof DocumentsPaymentsVendorsVendorKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/payments/partners/$partnershipId': {
+      id: '/documents/payments/partners/$partnershipId'
+      path: '/documents/payments/partners/$partnershipId'
+      fullPath: '/documents/payments/partners/$partnershipId'
+      preLoaderRoute: typeof DocumentsPaymentsPartnersPartnershipIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/payments/clients/$clientKey': {
+      id: '/documents/payments/clients/$clientKey'
+      path: '/documents/payments/clients/$clientKey'
+      fullPath: '/documents/payments/clients/$clientKey'
+      preLoaderRoute: typeof DocumentsPaymentsClientsClientKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AccountsRouteChildren {
+  AccountsBillingRoute: typeof AccountsBillingRoute
+  AccountsIndexRoute: typeof AccountsIndexRoute
+}
+
+const AccountsRouteChildren: AccountsRouteChildren = {
+  AccountsBillingRoute: AccountsBillingRoute,
+  AccountsIndexRoute: AccountsIndexRoute,
+}
+
+const AccountsRouteWithChildren = AccountsRoute._addFileChildren(
+  AccountsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountsRoute: AccountsRouteWithChildren,
   ExpensesRoute: ExpensesRoute,
   HistoryRoute: HistoryRoute,
   InvoicesRoute: InvoicesRoute,
@@ -391,8 +688,22 @@ const rootRouteChildren: RootRouteChildren = {
   AnalyticsIncomeRoute: AnalyticsIncomeRoute,
   AnalyticsOngoingRoute: AnalyticsOngoingRoute,
   AnalyticsRevenueRoute: AnalyticsRevenueRoute,
+  DocumentsAgreementsRoute: DocumentsAgreementsRoute,
+  DocumentsCompanyRoute: DocumentsCompanyRoute,
+  DocumentsInvoicesRoute: DocumentsInvoicesRoute,
   InvoiceIdRoute: InvoiceIdRoute,
   AnalyticsIndexRoute: AnalyticsIndexRoute,
+  DocumentsIndexRoute: DocumentsIndexRoute,
+  DocumentsPaymentsIndexRoute: DocumentsPaymentsIndexRoute,
+  DocumentsPaymentsClientsClientKeyRoute:
+    DocumentsPaymentsClientsClientKeyRoute,
+  DocumentsPaymentsPartnersPartnershipIdRoute:
+    DocumentsPaymentsPartnersPartnershipIdRoute,
+  DocumentsPaymentsVendorsVendorKeyRoute:
+    DocumentsPaymentsVendorsVendorKeyRoute,
+  DocumentsPaymentsClientsIndexRoute: DocumentsPaymentsClientsIndexRoute,
+  DocumentsPaymentsPartnersIndexRoute: DocumentsPaymentsPartnersIndexRoute,
+  DocumentsPaymentsVendorsIndexRoute: DocumentsPaymentsVendorsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

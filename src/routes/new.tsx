@@ -1,7 +1,16 @@
+import { lazy, Suspense } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import InvoiceForm from "@/components/invoice/InvoiceForm";
+import { InvoiceFormSkeleton } from "@/components/invoice/InvoiceFormSkeleton";
+import { prefetchInvoiceEditor } from "@/lib/prefetch-invoice-editor";
 
-export const Route = createFileRoute("/new")({ component: NewInvoicePage });
+const InvoiceForm = lazy(() => import("@/components/invoice/InvoiceForm"));
+
+export const Route = createFileRoute("/new")({
+  beforeLoad: ({ context }) => {
+    prefetchInvoiceEditor(context.queryClient);
+  },
+  component: NewInvoicePage,
+});
 
 function NewInvoicePage() {
   const navigate = useNavigate();
@@ -13,10 +22,14 @@ function NewInvoicePage() {
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">Create new invoice</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Invoice number is generated for the current financial year.
+          Invoice number is assigned automatically in sequence for the financial year (AM/YY-YY/0001).
         </p>
       </div>
-      <InvoiceForm onSaved={(inv) => navigate({ to: "/invoice/$id", params: { id: inv.id } })} />
+      <Suspense fallback={<InvoiceFormSkeleton />}>
+        <InvoiceForm
+          onSaved={(inv) => navigate({ to: "/invoice/$id", params: { id: inv.id } })}
+        />
+      </Suspense>
     </div>
   );
 }

@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Field } from "@/components/operations/operations-ui";
-import { buildRevenueValueFromBilling } from "@/lib/project-billing";
+import { buildRevenueValueFromBilling, resolveProjectBilling } from "@/lib/project-billing";
 import { projectStatusLabel } from "@/lib/project-status";
 import type { Project, ProjectBilling, ProjectStatus } from "@/lib/types";
 
@@ -31,6 +31,8 @@ const PROJECT_STATUSES: ProjectStatus[] = [
 
 type BillingForm = {
   upfrontAmount: string;
+  maintenanceAmount: string;
+  maintenanceMonths: string;
   monthlyAmount: string;
   monthlyMonths: string;
   monthlyStartDate: string;
@@ -38,6 +40,8 @@ type BillingForm = {
 
 const EMPTY_BILLING: BillingForm = {
   upfrontAmount: "",
+  maintenanceAmount: "",
+  maintenanceMonths: "",
   monthlyAmount: "",
   monthlyMonths: "",
   monthlyStartDate: "",
@@ -46,14 +50,18 @@ const EMPTY_BILLING: BillingForm = {
 const EMPTY_FORM = {
   client: "",
   projectType: "",
+  phone: "",
+  email: "",
   status: "active" as ProjectStatus,
   ...EMPTY_BILLING,
 };
 
 function billingFromProject(project: Project): BillingForm {
-  const b = project.billing ?? {};
+  const b = resolveProjectBilling(project);
   return {
     upfrontAmount: b.upfrontAmount != null ? String(b.upfrontAmount) : "",
+    maintenanceAmount: b.maintenanceAmount != null ? String(b.maintenanceAmount) : "",
+    maintenanceMonths: b.maintenanceMonths != null ? String(b.maintenanceMonths) : "",
     monthlyAmount: b.monthlyAmount != null ? String(b.monthlyAmount) : "",
     monthlyMonths: b.monthlyMonths != null ? String(b.monthlyMonths) : "",
     monthlyStartDate: b.monthlyStartDate ?? "",
@@ -63,12 +71,15 @@ function billingFromProject(project: Project): BillingForm {
 function buildBilling(form: typeof EMPTY_FORM): ProjectBilling | undefined {
   const billing: ProjectBilling = {};
   if (form.upfrontAmount.trim()) billing.upfrontAmount = Number(form.upfrontAmount);
+  if (form.maintenanceAmount.trim()) billing.maintenanceAmount = Number(form.maintenanceAmount);
+  if (form.maintenanceMonths.trim()) billing.maintenanceMonths = Number(form.maintenanceMonths);
   if (form.monthlyAmount.trim()) billing.monthlyAmount = Number(form.monthlyAmount);
   if (form.monthlyMonths.trim()) billing.monthlyMonths = Number(form.monthlyMonths);
   if (form.monthlyStartDate.trim()) billing.monthlyStartDate = form.monthlyStartDate.trim();
 
   const hasValue =
     billing.upfrontAmount != null ||
+    billing.maintenanceAmount != null ||
     billing.monthlyAmount != null ||
     billing.monthlyStartDate != null;
   return hasValue ? billing : undefined;
@@ -94,6 +105,8 @@ export function ProjectFormDialog({
       setForm({
         client: project.client || project.name || "",
         projectType: project.projectType || "",
+        phone: project.phone ?? "",
+        email: project.email ?? "",
         status: project.status,
         ...billingFromProject(project),
       });
@@ -107,16 +120,16 @@ export function ProjectFormDialog({
     if (!form.client.trim()) return;
     const billing = buildBilling(form);
     const saved: Project = {
+      ...(project ?? {}),
       id: project?.id ?? crypto.randomUUID(),
       client: form.client.trim(),
       name: form.client.trim(),
       projectType: form.projectType.trim() || undefined,
+      phone: form.phone.trim() || undefined,
+      email: form.email.trim() || undefined,
       status: form.status,
       billing,
-      revenueValue: billing ? buildRevenueValueFromBilling(billing) : undefined,
-      payments: project?.payments,
-      paymentProofs: project?.paymentProofs,
-      paymentStatus: project?.paymentStatus,
+      revenueValue: billing ? buildRevenueValueFromBilling(billing) : project?.revenueValue,
     };
     onSave(saved);
     onOpenChange(false);
@@ -150,6 +163,24 @@ export function ProjectFormDialog({
               placeholder="Website, CRM, Dashboard…"
             />
           </Field>
+          <Field label="Phone" id="dialog-project-phone">
+            <Input
+              id="dialog-project-phone"
+              type="tel"
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              placeholder="+91 98765 43210"
+            />
+          </Field>
+          <Field label="Email" id="dialog-project-email">
+            <Input
+              id="dialog-project-email"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="client@company.com"
+            />
+          </Field>
           <Field label="Status" id="dialog-status">
             <Select
               value={form.status}
@@ -173,14 +204,34 @@ export function ProjectFormDialog({
               Billing structure
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Upfront (₹)" id="dialog-upfront">
+              <Field label="Upfront / project cost (₹)" id="dialog-upfront">
                 <Input
                   id="dialog-upfront"
                   type="number"
                   min={0}
                   value={form.upfrontAmount}
                   onChange={(e) => setForm((f) => ({ ...f, upfrontAmount: e.target.value }))}
-                  placeholder="One-time payment"
+                  placeholder="One-time project cost"
+                />
+              </Field>
+              <Field label="Maintenance lump sum (₹)" id="dialog-maintenance">
+                <Input
+                  id="dialog-maintenance"
+                  type="number"
+                  min={0}
+                  value={form.maintenanceAmount}
+                  onChange={(e) => setForm((f) => ({ ...f, maintenanceAmount: e.target.value }))}
+                  placeholder="e.g. 14000 for 2 months"
+                />
+              </Field>
+              <Field label="Maintenance duration (months)" id="dialog-maintenance-months">
+                <Input
+                  id="dialog-maintenance-months"
+                  type="number"
+                  min={1}
+                  value={form.maintenanceMonths}
+                  onChange={(e) => setForm((f) => ({ ...f, maintenanceMonths: e.target.value }))}
+                  placeholder="e.g. 2"
                 />
               </Field>
               <Field label="Monthly retainer (₹)" id="dialog-monthly">

@@ -2,6 +2,7 @@ import type { OperationsData } from "@/lib/types";
 import { DEFAULT_PROJECTS, withDefaultProjects } from "@/lib/default-projects";
 import { DEFAULT_PARTNERSHIPS, withDefaultPartnerships } from "@/lib/default-partnerships";
 import { withDefaultFinancialBaseline } from "@/lib/default-financial-baseline";
+import { withDefaultFixedMonthlyExpenses } from "@/lib/default-fixed-monthly-expenses";
 import { normalizeAllProjectPayments } from "./project-payments";
 import { mergeAllProjectBilling } from "./project-billing";
 import { logClientError } from "./client-logger";
@@ -36,10 +37,12 @@ function mergeWithDefaults(data: OperationsData): OperationsData {
     base = withDefaultPartnerships(base);
   }
 
-  return withDefaultFinancialBaseline({
-    ...base,
-    projects: mergeAllProjectBilling(normalizeAllProjectPayments(base.projects)),
-  });
+  return withDefaultFixedMonthlyExpenses(
+    withDefaultFinancialBaseline({
+      ...base,
+      projects: mergeAllProjectBilling(normalizeAllProjectPayments(base.projects)),
+    }),
+  );
 }
 
 function loadOperationsLocal(): OperationsData {

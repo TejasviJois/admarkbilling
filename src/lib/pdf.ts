@@ -1,10 +1,18 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { DEFAULT_PUBLIC_LOGO_URL, COMPANY_WEBSITE_URL } from "./constants";
+import {
+  DEFAULT_LETTERHEAD_URL,
+  DEFAULT_PUBLIC_LOGO_PATH,
+  DEFAULT_PUBLIC_LOGO_URL,
+} from "./constants";
 import type { CompanySettings, Invoice } from "./types";
 import { computeTotals, formatINRForPdf, lineAmount } from "./invoice-calc";
 import { rupeesInWords } from "./number-to-words";
 import { statusPdfPillFill } from "./invoice-status";
+
+/** Letterhead layout — matches `src/assets/admark-letterhead.png` on A4. */
+const LETTERHEAD_HEADER_H = 195;
+const LETTERHEAD_FOOTER_H = 115;
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -15,6 +23,17 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+async function fetchImageDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return blobToDataUrl(blob);
+  } catch {
+    return null;
+  }
+}
+
 /** jsPDF needs a data URL; fetch default `/public` logo when none is stored. */
 async function companyWithResolvedLogoForPdf(c: CompanySettings): Promise<CompanySettings> {
   const existing = c.logoDataUrl?.trim();
@@ -22,29 +41,26 @@ async function companyWithResolvedLogoForPdf(c: CompanySettings): Promise<Compan
     return c;
   }
   const url = existing || DEFAULT_PUBLIC_LOGO_URL;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return c;
-    const blob = await res.blob();
-    const dataUrl = await blobToDataUrl(blob);
-    return { ...c, logoDataUrl: dataUrl };
-  } catch {
-    return c;
+  const urls = [url, DEFAULT_PUBLIC_LOGO_PATH];
+  for (const tryUrl of urls) {
+    const dataUrl = await fetchImageDataUrl(tryUrl);
+    if (dataUrl) return { ...c, logoDataUrl: dataUrl };
   }
+  return c;
+}
+
+export async function resolveLetterheadForPdf(): Promise<string | null> {
+  return fetchImageDataUrl(DEFAULT_LETTERHEAD_URL);
 }
 
 const RED: [number, number, number] = [196, 30, 38];
-/** Near-black for print-friendly contrast on A4 (avoids light gray that fades when printed). */
 const INK: [number, number, number] = [12, 12, 12];
 const LINE: [number, number, number] = [200, 200, 200];
-/** Slightly softer than INK — only for tagline / secondary lines that stay readable when printed. */
 const SUBTLE: [number, number, number] = [52, 52, 52];
-const LINK_BLUE: [number, number, number] = [0, 72, 144];
 const PAYABLE_BG: [number, number, number] = [255, 246, 246];
 const BANK_FILL: [number, number, number] = [252, 252, 252];
 const BANK_BORDER: [number, number, number] = [228, 228, 228];
 
-/** jsPDF `addImage` format must match the data URL; PNG-only breaks JPEG/WebP uploads. */
 function jsPdfImageFormatFromDataUrl(src: string): "PNG" | "JPEG" | "WEBP" {
   const head = src.slice(0, 48).toLowerCase();
   if (head.includes("image/jpeg") || head.includes("image/jpg")) return "JPEG";
@@ -59,82 +75,96 @@ function formatDate(iso: string) {
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export function buildInvoicePdf(invoice: Invoice, company: CompanySettings): jsPDF {
+function paintLetterhead(doc: jsPDF, letterheadDataUrl: string, w: number, h: number) {
+  try {
+    doc.addImage(letterheadDataUrl, "PNG", 0, 0, w, h);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function buildInvoicePdf(
+  invoice: Invoice,
+  company: CompanySettings,
+  letterheadDataUrl?: string | null,
+): jsPDF {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
-  const M = 40;
+  const M = 48;
+  const useLetterhead = Boolean(letterheadDataUrl);
 
-  doc.setFillColor(...RED);
-  doc.rect(0, 0, W, 6, "F");
+  if (useLetterhead && letterheadDataUrl) {
+    paintLetterhead(doc, letterheadDataUrl, W, H);
+  } else {
+    doc.setFillColor(...RED);
+    doc.rect(0, 0, W, 6, "F");
+  }
 
-  const headerTop = 34;
-  const nameX = M + (company.logoDataUrl ? 90 : 0);
-  let headerBottom = headerTop + 54;
+  const headerTop = useLetterhead ? LETTERHEAD_HEADER_H - 8 : 34;
+  const contentBottom = useLetterhead ? H - LETTERHEAD_FOOTER_H - 8 : H - 40;
 
-  if (company.logoDataUrl) {
-    try {
-      const fmt = jsPdfImageFormatFromDataUrl(company.logoDataUrl);
-      doc.addImage(company.logoDataUrl, fmt, M, headerTop - 6, 74, 74);
-      headerBottom = Math.max(headerBottom, headerTop - 6 + 74);
-    } catch {
-      /* ignore */
+  if (!useLetterhead) {
+    const logoW = 118;
+    const logoH = 46;
+    const nameX = M + (company.logoDataUrl ? logoW + 14 : 0);
+
+    if (company.logoDataUrl) {
+      try {
+        const fmt = jsPdfImageFormatFromDataUrl(company.logoDataUrl);
+        doc.addImage(company.logoDataUrl, fmt, M, headerTop - 4, logoW, logoH);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(30);
+    doc.setTextColor(...INK);
+    doc.text(company.name || "Admark", nameX, headerTop + 20);
+
+    if (company.tagline) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(...SUBTLE);
+      doc.text(company.tagline, nameX, headerTop + 42);
     }
   }
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(30);
-  doc.setTextColor(...INK);
-  doc.text(company.name || "Admark", nameX, headerTop + 20);
-
-  if (company.tagline) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...SUBTLE);
-    doc.text(company.tagline, nameX, headerTop + 42);
-  }
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(36);
+  doc.setFontSize(useLetterhead ? 32 : 36);
   doc.setTextColor(...RED);
-  doc.text("INVOICE", W - M, headerTop + 26, { align: "right" });
+  doc.text("INVOICE", W - M, headerTop + 18, { align: "right" });
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10.5);
   doc.setTextColor(...INK);
-  doc.text(invoice.number, W - M, headerTop + 46, { align: "right" });
+  doc.text(invoice.number, W - M, headerTop + 36, { align: "right" });
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.setTextColor(...INK);
-  doc.text(`Date: ${formatDate(invoice.date)}`, W - M, headerTop + 60, { align: "right" });
-  headerBottom = Math.max(headerBottom, headerTop + 66);
+  doc.text(`Date: ${formatDate(invoice.date)}`, W - M, headerTop + 50, { align: "right" });
 
-  let cursorY = headerBottom + 36;
+  let cursorY = useLetterhead ? LETTERHEAD_HEADER_H + 16 : headerTop + 102;
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9.5);
-  doc.setTextColor(...INK);
-  const companyLines = [
-    company.address,
-    company.email && `Email: ${company.email}`,
-    company.phone && `Phone: ${company.phone}`,
-    company.pan && `PAN: ${company.pan}`,
-    company.gstin && `GSTIN: ${company.gstin}`,
-  ].filter(Boolean) as string[];
-  companyLines.forEach((l, i) => doc.text(l, M, cursorY + i * 12));
-  const websiteLineY = cursorY + companyLines.length * 12;
-  doc.setTextColor(...INK);
-  doc.text("Website: ", M, websiteLineY);
-  const siteLabelW = doc.getTextWidth("Website: ");
-  doc.setTextColor(...LINK_BLUE);
-  doc.textWithLink(COMPANY_WEBSITE_URL, M + siteLabelW, websiteLineY, { url: COMPANY_WEBSITE_URL });
-  doc.setTextColor(...INK);
-
-  cursorY += (companyLines.length + 1) * 12 + 32;
-
-  doc.setDrawColor(...LINE);
-  doc.line(M, cursorY, W - M, cursorY);
-  cursorY += 30;
+  if (!useLetterhead) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(...INK);
+    const companyLines = [
+      company.address,
+      company.email && `Email: ${company.email}`,
+      company.phone && `Phone: ${company.phone}`,
+      company.pan && `PAN: ${company.pan}`,
+      company.gstin && `GSTIN: ${company.gstin}`,
+    ].filter(Boolean) as string[];
+    companyLines.forEach((l, i) => doc.text(l, M, cursorY + i * 12));
+    cursorY += companyLines.length * 12 + 32;
+    doc.setDrawColor(...LINE);
+    doc.line(M, cursorY, W - M, cursorY);
+    cursorY += 30;
+  } else {
+    cursorY += 8;
+  }
 
   const billBlockTop = cursorY;
   doc.setFont("helvetica", "bold");
@@ -236,7 +266,13 @@ export function buildInvoicePdf(invoice: Invoice, company: CompanySettings): jsP
       3: { cellWidth: 90, halign: "center", fontStyle: "bold" },
       4: { cellWidth: 100, halign: "right", fontStyle: "bold" },
     },
-    margin: { left: M, right: M },
+    margin: { left: M, right: M, bottom: useLetterhead ? LETTERHEAD_FOOTER_H + 16 : 40 },
+    didDrawPage: (data) => {
+      if (useLetterhead && letterheadDataUrl && data.pageNumber > 1) {
+        paintLetterhead(doc, letterheadDataUrl, W, H);
+      }
+    },
+    pageBreak: "auto",
   });
 
   const totals = computeTotals(invoice);
@@ -310,10 +346,6 @@ export function buildInvoicePdf(invoice: Invoice, company: CompanySettings): jsP
     ty += 16 + r.length * 12;
   }
 
-  const footerTop = Math.max(ty + 32, H - 188);
-  doc.setDrawColor(...LINE);
-  doc.line(M, footerTop, W - M, footerTop);
-
   const bankLines = [
     company.bankName && `Bank: ${company.bankName}`,
     company.accountName && `Account Name: ${company.accountName}`,
@@ -325,9 +357,15 @@ export function buildInvoicePdf(invoice: Invoice, company: CompanySettings): jsP
 
   const bankPad = 14;
   const bankLineGap = 13;
+  const bankBoxH = 26 + bankLines.length * bankLineGap + bankPad;
+  const footerTop = Math.min(Math.max(ty + 32, contentBottom - bankBoxH - 24), contentBottom - bankBoxH);
   const bankBoxY = footerTop + 14;
   const bankBoxW = W * 0.48;
-  const bankBoxH = 26 + bankLines.length * bankLineGap + bankPad;
+
+  if (!useLetterhead) {
+    doc.setDrawColor(...LINE);
+    doc.line(M, footerTop, W - M, footerTop);
+  }
 
   doc.setFillColor(...BANK_FILL);
   doc.setDrawColor(...BANK_BORDER);
@@ -359,20 +397,20 @@ export function buildInvoicePdf(invoice: Invoice, company: CompanySettings): jsP
   doc.setFontSize(9);
   doc.setTextColor(...INK);
   doc.text(`For ${company.name}`, W - M, sigY + 84, { align: "right" });
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...INK);
   doc.text(company.authorizedName || "Authorized Signatory", W - M, sigY + 96, { align: "right" });
 
-  doc.setFillColor(...RED);
-  doc.rect(0, H - 4, W, 4, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
-  doc.setTextColor(...INK);
-  doc.text("We appreciate the opportunity to work with you.", M, H - 30);
-  doc.text("For queries, contact us anytime.", M, H - 18);
-  doc.text(`Generated ${new Date().toLocaleDateString("en-IN")}`, W - M, H - 18, {
-    align: "right",
-  });
+  if (!useLetterhead) {
+    doc.setFillColor(...RED);
+    doc.rect(0, H - 4, W, 4, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...INK);
+    doc.text("We appreciate the opportunity to work with you.", M, H - 30);
+    doc.text("For queries, contact us anytime.", M, H - 18);
+    doc.text(`Generated ${new Date().toLocaleDateString("en-IN")}`, W - M, H - 18, {
+      align: "right",
+    });
+  }
 
   return doc;
 }
@@ -381,8 +419,11 @@ export async function downloadInvoicePdf(
   invoice: Invoice,
   company: CompanySettings,
 ): Promise<void> {
-  const c = await companyWithResolvedLogoForPdf(company);
-  const doc = buildInvoicePdf(invoice, c);
+  const [c, letterhead] = await Promise.all([
+    companyWithResolvedLogoForPdf(company),
+    resolveLetterheadForPdf(),
+  ]);
+  const doc = buildInvoicePdf(invoice, c, letterhead);
   const safe = invoice.number.replace(/[\s/]+/g, "_");
   doc.save(`${safe}.pdf`);
 }

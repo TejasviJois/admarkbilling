@@ -9,43 +9,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 
-/** TanStack Router root route id — must match `src/routes/__root.tsx` / generated `routeTree.gen.ts`. */
-const ROOT_ROUTE_ID = "__root__";
-
-/** If the router generator cannot write `routeTree.gen.ts` (e.g. file lock on Windows), TanStack may leave `TSS_ROUTES_MANIFEST` unset and SSR build fails. Populate a minimal manifest so the build can complete. */
-function ensureTanStackRoutesManifest(): Plugin {
-  const r = (rel: string) => path.join(root, rel);
-  const manifest = {
-    [ROOT_ROUTE_ID]: {
-      filePath: r("src/routes/__root.tsx"),
-      children: ["/", "/history", "/login", "/new", "/settings", "/invoice/$id"],
-    },
-    "/": { filePath: r("src/routes/index.tsx") },
-    "/history": { filePath: r("src/routes/history.tsx") },
-    "/login": { filePath: r("src/routes/login.tsx") },
-    "/new": { filePath: r("src/routes/new.tsx") },
-    "/settings": { filePath: r("src/routes/settings.tsx") },
-    "/invoice/$id": { filePath: r("src/routes/invoice.$id.tsx") },
-  };
-  return {
-    name: "ensure-tss-routes-manifest",
-    enforce: "post",
-    configResolved() {
-      const g = globalThis as unknown as { TSS_ROUTES_MANIFEST?: typeof manifest };
-      if (!g.TSS_ROUTES_MANIFEST) {
-        g.TSS_ROUTES_MANIFEST = manifest;
-      }
-    },
-    generateBundle() {
-      const g = globalThis as unknown as { TSS_ROUTES_MANIFEST?: typeof manifest };
-      if (!g.TSS_ROUTES_MANIFEST) {
-        g.TSS_ROUTES_MANIFEST = manifest;
-      }
-    },
-  };
-}
-
-/** Browsers request `/favicon.ico` by default; we ship SVG and redirect to avoid 404 noise. */
+/** Browsers request `/favicon.ico` by default; redirect to PNG favicon to avoid 404 noise. */
 function faviconIcoRedirect(): Plugin {
   return {
     name: "favicon-ico-redirect",
@@ -54,7 +18,7 @@ function faviconIcoRedirect(): Plugin {
         const url = req.url?.split("?")[0];
         if (url === "/favicon.ico") {
           res.statusCode = 302;
-          res.setHeader("Location", "/favicon.svg");
+          res.setHeader("Location", "/favicon.png");
           res.end();
           return;
         }
@@ -69,6 +33,17 @@ function faviconIcoRedirect(): Plugin {
 export default defineConfig({
   root,
   server: { port: 3000 },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-")) return "recharts";
+          if (id.includes("node_modules/jspdf")) return "jspdf";
+          if (id.includes("node_modules/@supabase")) return "supabase";
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(root, "./src"),
@@ -83,10 +58,26 @@ export default defineConfig({
     nitro({
       preset: "vercel",
       routeRules: {
-        "/favicon.ico": { redirect: "/favicon.svg" },
+        "/**": {
+          headers: {
+            "X-Frame-Options": "DENY",
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "strict-origin-when-cross-origin",
+          },
+        },
+        "/assets/**": {
+          headers: {
+            "Cache-Control": "public, max-age=31536000, immutable",
+          },
+        },
+        "/*.{png,jpg,jpeg,webp,svg,ico,pdf}": {
+          headers: {
+            "Cache-Control": "public, max-age=604800, stale-while-revalidate=86400",
+          },
+        },
+        "/favicon.ico": { redirect: "/favicon.png" },
       },
     }),
     viteReact(),
-    ensureTanStackRoutesManifest(),
   ],
 });

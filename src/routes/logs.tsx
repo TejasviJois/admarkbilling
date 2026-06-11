@@ -6,10 +6,8 @@ import {
   entityLabel,
   formatActivityTimestamp,
 } from "@/lib/activity-log-labels";
-import { loadActivityLogs } from "@/lib/activity-log-storage";
 import { logClientError } from "@/lib/client-logger";
 import type { ActivityEntity, ActivityLogEntry } from "@/lib/types";
-
 export const Route = createFileRoute("/logs")({ component: LogsPage });
 
 const ENTITY_FILTERS: Array<ActivityEntity | "all"> = [
@@ -58,12 +56,12 @@ function LogsPage() {
   const [entityFilter, setEntityFilter] = useState<ActivityEntity | "all">("all");
 
   useEffect(() => {
-    void loadActivityLogs()
+    void import("@/lib/activity-log-storage")
+      .then((m) => m.loadActivityLogs())
       .then(setLogs)
       .catch((e) => logClientError("logs.load", e))
       .finally(() => setLoading(false));
   }, []);
-
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     return logs.filter((entry) => {

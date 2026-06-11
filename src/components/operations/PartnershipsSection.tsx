@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select";
 import type { OperationsData, Partnership, PartnershipStatus } from "@/lib/types";
 import { partnershipStatusBadgeClass, partnershipStatusLabel } from "@/lib/partnership-status";
-import { DataSection, DataTable, EmptyRow, Field, RowDelete, RowEdit } from "./operations-ui";
+import { DataSection, DataTable, EmptyRow, Field, RowDelete, RowEdit, ContactLinks } from "./operations-ui";
 
 const PARTNERSHIP_STATUSES: PartnershipStatus[] = ["active", "prospect", "inactive"];
 
@@ -69,7 +69,7 @@ export function PartnershipsSection({
     return ops.partnerships.filter((p) => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
       if (!q) return true;
-      const haystack = [p.name, p.type, p.opportunityType, partnershipStatusLabel(p.status)]
+      const haystack = [p.name, p.type, p.opportunityType, p.phone, p.email, p.contact, partnershipStatusLabel(p.status)]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -129,12 +129,18 @@ export function PartnershipsSection({
         <EmptyRow message="No partnerships match your search." />
       ) : (
         <DataTable
-          headers={["Partner", "Type", "Status", "Opportunity type", ""]}
+          headers={["Partner", "Type", "Status", "Opportunity type", "Contact", ""]}
           rows={filtered.map((p) => [
             p.name,
             p.type || "—",
             <PartnershipStatusBadge key={`st-${p.id}`} status={p.status} />,
             p.opportunityType || "—",
+            <ContactLinks
+              key={`contact-${p.id}`}
+              phone={p.phone}
+              email={p.email}
+              legacyContact={p.contact}
+            />,
             <div key={`actions-${p.id}`} className="flex items-center justify-end gap-1">
               <RowEdit onClick={() => onEdit(p)} />
               <RowDelete onClick={() => removePartnership(p.id)} />

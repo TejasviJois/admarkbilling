@@ -12,6 +12,10 @@ export function entityLabel(entity: ActivityEntity): string {
       return "Invoice";
     case "settings":
       return "Settings";
+    case "agreement":
+      return "Agreement";
+    case "document":
+      return "Document";
   }
 }
 

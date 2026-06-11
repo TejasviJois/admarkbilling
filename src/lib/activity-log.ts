@@ -61,6 +61,8 @@ function describeProjectFieldChanges(before: Project, after: Project): string[] 
   }
 
   label("Notes", before.notes ?? "", after.notes ?? "");
+  label("Phone", before.phone ?? "", after.phone ?? "");
+  label("Email", before.email ?? "", after.email ?? "");
   return changes;
 }
 
@@ -71,6 +73,8 @@ function describePartnershipFieldChanges(before: Partnership, after: Partnership
   };
 
   label("Name", before.name, after.name);
+  label("Phone", before.phone ?? "", after.phone ?? "");
+  label("Email", before.email ?? "", after.email ?? "");
   label("Contact", before.contact ?? "", after.contact ?? "");
   label("Type", before.type ?? "", after.type ?? "");
   label("Opportunity", before.opportunityType ?? "", after.opportunityType ?? "");

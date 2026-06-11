@@ -1,23 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { FileText, Plus, Search, Settings as SettingsIcon, TrendingUp, Users } from "lucide-react";
-import { loadInvoices, loadCompany, DEFAULT_COMPANY } from "@/lib/storage";
-import { logClientError } from "@/lib/client-logger";
-import { companyLogoSrc } from "@/lib/company-branding";
+import { useEffect } from "react";
+import { FileText, Plus, Search, TrendingUp, Users } from "lucide-react";
+import { NewInvoiceLink } from "@/components/invoice/NewInvoiceLink";
+import { useInvoices } from "@/hooks/use-invoices";
+import { prefetchInvoiceEditor, preloadNewInvoiceRoute } from "@/lib/prefetch-invoice-editor";
 import { computeTotals, formatINR } from "@/lib/invoice-calc";
-import type { CompanySettings, Invoice } from "@/lib/types";
 import { statusBadgeClassDark, statusIndicatorEmoji } from "@/lib/invoice-status";
 
-export const Route = createFileRoute("/invoices")({ component: InvoicesDashboard });
+export const Route = createFileRoute("/invoices")({
+  beforeLoad: ({ context }) => prefetchInvoiceEditor(context.queryClient),
+  component: InvoicesDashboard,
+});
 
 function InvoicesDashboard() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [companySnap, setCompanySnap] = useState<CompanySettings>(DEFAULT_COMPANY);
+  const { invoices } = useInvoices();
+
   useEffect(() => {
-    void loadInvoices().then(setInvoices).catch((e) => logClientError("dashboard.loadInvoices", e));
-  }, []);
-  useEffect(() => {
-    void loadCompany().then(setCompanySnap).catch((e) => logClientError("dashboard.loadCompany", e));
+    preloadNewInvoiceRoute();
   }, []);
 
   const totalRevenue = invoices.reduce((s, i) => s + computeTotals(i).total, 0);
@@ -53,17 +52,16 @@ function InvoicesDashboard() {
               </p>
             </div>
             <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap md:flex-col lg:flex-row">
-              <Link
-                to="/new"
+              <NewInvoiceLink
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-md ring-1 ring-white/15 transition-colors hover:bg-primary/90"
               >
                 <Plus className="h-4 w-4 shrink-0" strokeWidth={2} /> New invoice
-              </Link>
+              </NewInvoiceLink>
               <Link
-                to="/history"
+                to="/documents/invoices"
                 className="inline-flex items-center justify-center gap-2 rounded-md border border-white/25 bg-background/55 px-5 py-2.5 text-sm font-semibold text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background/75"
               >
-                <Search className="h-4 w-4 shrink-0" strokeWidth={2} /> View history
+                <Search className="h-4 w-4 shrink-0" strokeWidth={2} /> All invoices
               </Link>
             </div>
           </div>
@@ -100,7 +98,7 @@ function InvoicesDashboard() {
             <p className="mt-1 text-sm text-muted-foreground">Latest work in this browser.</p>
           </div>
           <Link
-            to="/history"
+            to="/documents/invoices"
             className="text-sm font-medium text-primary hover:underline underline-offset-4"
           >
             View all
@@ -198,50 +196,6 @@ function InvoicesDashboard() {
           </>
         )}
       </section>
-
-      <section className="grid gap-4 sm:grid-cols-2">
-        <Link
-          to="/new"
-          className="group rounded-lg border border-border bg-card p-6 shadow-sm transition-shadow hover:shadow-md"
-        >
-          <Plus className="h-5 w-5 text-primary" strokeWidth={2} />
-          <h3 className="mt-4 text-lg font-semibold tracking-tight">New invoice</h3>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Auto-numbered for the financial year. PDF when you need it.
-          </p>
-        </Link>
-        <Link
-          to="/settings"
-          className="group relative overflow-hidden rounded-lg border border-border bg-card p-6 shadow-sm transition-shadow hover:shadow-md"
-        >
-          {/* Watermark logo + brand gradient (stack under content) */}
-          <div
-            className="pointer-events-none absolute inset-0 bg-[length:min(58%,240px)_auto] bg-[position:right_-8%_center] bg-no-repeat opacity-[0.18] transition-opacity duration-300 group-hover:opacity-[0.26]"
-            style={{ backgroundImage: `url(${companyLogoSrc(companySnap)})` }}
-            aria-hidden
-          />
-          <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/50 from-0% via-primary/15 via-45% to-transparent to-100%"
-            aria-hidden
-          />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" aria-hidden />
-          <div className="relative z-10">
-            <SettingsIcon className="h-5 w-5 text-primary" strokeWidth={2} />
-            <h3 className="mt-3 text-lg font-semibold tracking-tight">Company settings</h3>
-            <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-              {companySnap.address}
-            </p>
-            {(companySnap.bankName || companySnap.accountNumber) && (
-              <p className="mt-1 truncate text-xs text-muted-foreground">
-                {companySnap.bankName}
-                {companySnap.accountNumber
-                  ? ` · A/C ····${companySnap.accountNumber.slice(-4)}`
-                  : ""}
-              </p>
-            )}
-          </div>
-        </Link>
-      </section>
     </div>
   );
 }
@@ -277,12 +231,11 @@ function EmptyState() {
       <FileText className="mx-auto h-10 w-10 text-muted-foreground/60" strokeWidth={1.5} />
       <p className="mt-4 font-medium text-foreground">No invoices yet</p>
       <p className="mt-1 text-sm text-muted-foreground">Create an invoice to see it listed here.</p>
-      <Link
-        to="/new"
+      <NewInvoiceLink
         className="mt-5 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
       >
         <Plus className="h-4 w-4" strokeWidth={2} /> Create invoice
-      </Link>
+      </NewInvoiceLink>
     </div>
   );
 }

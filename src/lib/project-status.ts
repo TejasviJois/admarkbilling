@@ -31,6 +31,13 @@ export function projectClientLabel(p: { client?: string; name?: string }): strin
   return p.client?.trim() || p.name?.trim() || "—";
 }
 
+/** Ongoing and done projects count toward revenue booked — not in discussions, on hold, or cancelled. */
+export const REVENUE_PROJECT_STATUSES: ProjectStatus[] = ["active", "completed"];
+
+export function isRevenueProject(status: ProjectStatus): boolean {
+  return REVENUE_PROJECT_STATUSES.includes(status);
+}
+
 export function projectStatusCounts(projects: { status: ProjectStatus }[]) {
   return {
     completed: projects.filter((p) => p.status === "completed").length,

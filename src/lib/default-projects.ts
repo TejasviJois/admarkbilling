@@ -51,14 +51,14 @@ export const DEFAULT_PROJECTS: Project[] = [
     monthlyAmount: 10_000,
   }),
   p("proj-heatwave", "HeatWave", "Website", "active", "TBD"),
-  p("proj-dev", "Dev", "CRM", "active", "₹60,000 + ₹7K for 2 months", "5,000 token", {
+  p("proj-dev", "Dev", "CRM", "active", "₹60,000 project + ₹7,000/month maintenance for 2 months", "5,000 token", {
     upfrontAmount: 60_000,
-    monthlyAmount: 7_000,
-    monthlyMonths: 2,
+    maintenanceAmount: 14_000,
+    maintenanceMonths: 2,
   }),
-  p("proj-kh-kiran", "k h kiran", "Real estate", "active", "₹20,000/month X 3", "10,000 advance", {
-    monthlyAmount: 20_000,
-    monthlyMonths: 3,
+  p("proj-kh-kiran", "k h kiran", "Real estate", "active", "₹20,000 for 3 months", "10,000 advance", {
+    maintenanceAmount: 20_000,
+    maintenanceMonths: 3,
   }),
   p("proj-towell", "Towell", "ALL AI", "planning", "TBD"),
   p("proj-texa", "Texa", "Tech & Marketing", "planning", "TBD"),

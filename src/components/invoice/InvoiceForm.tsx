@@ -1,19 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Save, Trash2, Eye } from "lucide-react";
-import { DEFAULT_COMPANY } from "@/lib/constants";
 import { logClientError } from "@/lib/client-logger";
-import { upsertInvoice, loadCompany } from "@/lib/storage";
-import { nextInvoiceNumber } from "@/lib/invoice-number";
+import { upsertInvoice } from "@/lib/storage";
+import { nextInvoiceNumberFromList } from "@/lib/invoice-number";
 import { computeTotals, formatINR, lineAmount } from "@/lib/invoice-calc";
 import { rupeesInWords } from "@/lib/number-to-words";
-import { downloadInvoicePdf } from "@/lib/pdf";
-import type { Invoice, LineItem, CompanySettings } from "@/lib/types";
+import type { Invoice, LineItem } from "@/lib/types";
 import { KNOWN_CLIENT_NAMES } from "@/lib/client-directory";
 import { BUSINESS_TYPE_OPTIONS } from "@/lib/business-type-options";
 import { autoFillBusinessTypeForClientName } from "@/lib/client-business-autofill";
 import { KNOWN_CONTACT_PERSON_NAMES } from "@/lib/contact-person-directory";
+import { useCompany } from "@/hooks/use-company";
+import { useInvoices } from "@/hooks/use-invoices";
+import { queryKeys } from "@/lib/query-keys";
+import { writeClientCache } from "@/lib/client-data-cache";
+import { LoadingDog } from "@/components/ui/loading-dog";
 import { cn } from "@/lib/utils";
-import InvoicePreview from "./InvoicePreview";
+
+const InvoicePreview = lazy(() => import("./InvoicePreview"));
 
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -28,6 +33,9 @@ interface Props {
 }
 
 export default function InvoiceForm({ onSaved }: Props) {
+  const queryClient = useQueryClient();
+  const { company } = useCompany();
+  const { invoices } = useInvoices();
   const [number, setNumber] = useState("");
   const [date, setDate] = useState(todayIso());
   const [clientName, setClientName] = useState("");
@@ -46,26 +54,10 @@ export default function InvoiceForm({ onSaved }: Props) {
   const [paymentDate, setPaymentDate] = useState("");
   const [status, setStatus] = useState<Invoice["status"]>("paid");
   const [showPreview, setShowPreview] = useState(false);
-  const [company, setCompany] = useState<CompanySettings>(DEFAULT_COMPANY);
 
   useEffect(() => {
-    void nextInvoiceNumber().then(setNumber).catch((e) => logClientError("invoiceForm.nextNumber", e));
-  }, []);
-
-  useEffect(() => {
-    void loadCompany().then(setCompany).catch((e) => logClientError("invoiceForm.loadCompany", e));
-  }, []);
-
-  useEffect(() => {
-    const refresh = () =>
-      void loadCompany().then(setCompany).catch((e) => logClientError("invoiceForm.loadCompanyFocus", e));
-    window.addEventListener("focus", refresh);
-    return () => window.removeEventListener("focus", refresh);
-  }, []);
-
-  useEffect(() => {
-    if (showPreview) void loadCompany().then(setCompany).catch((e) => logClientError("invoiceForm.preview", e));
-  }, [showPreview]);
+    setNumber(nextInvoiceNumberFromList(invoices, date));
+  }, [date, invoices]);
 
   /** On stacked layouts, bring the preview into view when the user turns it on */
   useEffect(() => {
@@ -150,11 +142,16 @@ export default function InvoiceForm({ onSaved }: Props) {
       alert(err);
       return;
     }
-    const inv: Invoice = { ...draft, id: uid() };
+    const assignedNumber = nextInvoiceNumberFromList(invoices, date);
+    const inv: Invoice = { ...draft, id: uid(), number: assignedNumber };
     try {
       await upsertInvoice(inv);
+      const nextList = [inv, ...invoices.filter((i) => i.id !== inv.id)];
+      queryClient.setQueryData(queryKeys.invoices, nextList);
+      writeClientCache("invoices", nextList);
       then?.(inv);
       onSaved?.(inv);
+      setNumber(nextInvoiceNumberFromList(nextList, date));
     } catch (e) {
       logClientError("invoiceForm.persist", e);
       alert(e instanceof Error ? e.message : "Could not save invoice.");
@@ -165,8 +162,8 @@ export default function InvoiceForm({ onSaved }: Props) {
 
   const handleGenerate = () => {
     void persistInvoice(async (inv) => {
-      const c = await loadCompany();
-      await downloadInvoicePdf(inv, c);
+      const { downloadInvoicePdf } = await import("@/lib/pdf");
+      await downloadInvoicePdf(inv, company);
     });
   };
 
@@ -185,9 +182,13 @@ export default function InvoiceForm({ onSaved }: Props) {
             <Field label="Invoice number">
               <input
                 value={number}
-                onChange={(e) => setNumber(e.target.value)}
-                className={inputCls}
+                readOnly
+                aria-readonly="true"
+                className={`${inputCls} cursor-default bg-muted/40 text-foreground`}
               />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Auto-generated sequentially for the financial year (e.g. AM/26-27/0001).
+              </p>
             </Field>
             <Field label="Date">
               <input
@@ -532,7 +533,9 @@ export default function InvoiceForm({ onSaved }: Props) {
             </div>
             <div className="overflow-x-auto rounded-lg bg-zinc-100/90 p-2 sm:p-4 dark:bg-zinc-950/40">
               <div className="mx-auto min-w-[min(100%,520px)] max-w-[210mm] shadow-md ring-1 ring-black/10">
-                <InvoicePreview invoice={draft} company={company} />
+                <Suspense fallback={<LoadingDog message="Loading preview…" />}>
+                  <InvoicePreview invoice={draft} company={company} />
+                </Suspense>
               </div>
             </div>
           </div>
