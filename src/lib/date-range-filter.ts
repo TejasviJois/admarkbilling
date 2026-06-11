@@ -2,30 +2,42 @@ import type { Project } from "@/lib/types";
 
 export type PeriodKey = "all" | "1mo" | "3mo" | "6mo" | "1y";
 
-/** Default time window — minimum 1 month. */
-export const DEFAULT_PERIOD: PeriodKey = "1mo";
+/** Default — show all data until the user narrows the window. */
+export const DEFAULT_PERIOD: PeriodKey = "all";
 
-/** Month-based periods used across operations views (no day-level windows). */
+/** Month-based periods used across operations views. */
 export const PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = [
+  { value: "all", label: "All time" },
   { value: "1mo", label: "1 month" },
   { value: "3mo", label: "3 months" },
   { value: "6mo", label: "6 months" },
   { value: "1y", label: "12 months" },
 ];
 
-/** Analytics hub — includes all-time plus month windows. */
-export const ANALYTICS_PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = [
-  { value: "all", label: "All time" },
-  ...PERIOD_OPTIONS,
-];
+/** Analytics hub — same options as operations filters. */
+export const ANALYTICS_PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = PERIOD_OPTIONS;
 
 export function periodLabel(period: PeriodKey): string {
   if (period === "all") return "All time";
   return PERIOD_OPTIONS.find((o) => o.value === period)?.label.toLowerCase() ?? "period";
 }
 
-function toISODate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+/** Calendar date in the user's local timezone (YYYY-MM-DD). Avoids UTC drift in production. */
+export function toLocalISODate(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Normalize stored dates (ISO strings, timestamps) for safe comparison. */
+export function normalizeDateString(raw: string | undefined | null): string | null {
+  if (!raw?.trim()) return null;
+  const s = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const parsed = Date.parse(s);
+  if (Number.isNaN(parsed)) return null;
+  return toLocalISODate(new Date(parsed));
 }
 
 export function periodBounds(
@@ -34,7 +46,7 @@ export function periodBounds(
 ): { start: string; end: string } | null {
   if (period === "all") return null;
 
-  const end = asOfDate ?? toISODate(new Date());
+  const end = normalizeDateString(asOfDate) ?? toLocalISODate();
   const endDate = new Date(`${end}T12:00:00`);
   const startDate = new Date(endDate);
 
@@ -53,7 +65,7 @@ export function periodBounds(
       break;
   }
 
-  return { start: toISODate(startDate), end };
+  return { start: toLocalISODate(startDate), end };
 }
 
 export function isWithinPeriod(
@@ -62,8 +74,8 @@ export function isWithinPeriod(
   asOfDate?: string,
 ): boolean {
   if (period === "all") return true;
-  if (!date || date.length < 10) return false;
-  const d = date.slice(0, 10);
+  const d = normalizeDateString(date);
+  if (!d) return false;
   const bounds = periodBounds(period, asOfDate);
   if (!bounds) return true;
   return d >= bounds.start && d <= bounds.end;
@@ -76,7 +88,7 @@ export function matchesAnyDateInPeriod(
   asOfDate?: string,
 ): boolean {
   if (period === "all") return true;
-  const valid = dates.map((d) => d?.slice(0, 10)).filter(Boolean) as string[];
+  const valid = dates.map((d) => normalizeDateString(d)).filter(Boolean) as string[];
   if (valid.length === 0) return false;
   return valid.some((d) => isWithinPeriod(d, period, asOfDate));
 }
@@ -88,9 +100,6 @@ export function projectRelevantDates(project: Project): string[] {
   if (project.billing?.monthlyStartDate) dates.push(project.billing.monthlyStartDate);
   for (const payment of project.payments ?? []) {
     if (payment.date) dates.push(payment.date);
-  }
-  if (project.updatedAt) {
-    dates.push(new Date(project.updatedAt).toISOString().slice(0, 10));
   }
   return dates;
 }

@@ -29,6 +29,12 @@ import {
   buildMoneyOutForPeriod,
 } from "@/lib/analytics";
 import { DEFAULT_PERIOD, periodLabel, type PeriodKey } from "@/lib/date-range-filter";
+import { computeFinancialSummary, formatFinancialINR } from "@/lib/financial";
+import { formatINRWhole } from "@/lib/invoice-calc";
+
+export const Route = createFileRoute("/analytics/")({
+  component: AnalyticsPage,
+});
 
 function AnalyticsPage() {
   const { ops, loading } = useOperations();

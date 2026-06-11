@@ -22,6 +22,7 @@ import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as AccountsRouteImport } from './routes/accounts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DocumentsIndexRouteImport } from './routes/documents/index'
+import { Route as AnalyticsIndexRouteImport } from './routes/analytics/index'
 import { Route as AccountsIndexRouteImport } from './routes/accounts/index'
 import { Route as InvoiceIdRouteImport } from './routes/invoice.$id'
 import { Route as DocumentsInvoicesRouteImport } from './routes/documents/invoices'
@@ -104,6 +105,11 @@ const IndexRoute = IndexRouteImport.update({
 const DocumentsIndexRoute = DocumentsIndexRouteImport.update({
   id: '/documents/',
   path: '/documents/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsIndexRoute = AnalyticsIndexRouteImport.update({
+  id: '/analytics/',
+  path: '/analytics/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccountsIndexRoute = AccountsIndexRouteImport.update({
@@ -227,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/documents/invoices': typeof DocumentsInvoicesRoute
   '/invoice/$id': typeof InvoiceIdRoute
   '/accounts/': typeof AccountsIndexRoute
+  '/analytics/': typeof AnalyticsIndexRoute
   '/documents/': typeof DocumentsIndexRoute
   '/documents/payments/': typeof DocumentsPaymentsIndexRoute
   '/documents/payments/clients/$clientKey': typeof DocumentsPaymentsClientsClientKeyRoute
@@ -259,6 +266,7 @@ export interface FileRoutesByTo {
   '/documents/invoices': typeof DocumentsInvoicesRoute
   '/invoice/$id': typeof InvoiceIdRoute
   '/accounts': typeof AccountsIndexRoute
+  '/analytics': typeof AnalyticsIndexRoute
   '/documents': typeof DocumentsIndexRoute
   '/documents/payments': typeof DocumentsPaymentsIndexRoute
   '/documents/payments/clients/$clientKey': typeof DocumentsPaymentsClientsClientKeyRoute
@@ -293,6 +301,7 @@ export interface FileRoutesById {
   '/documents/invoices': typeof DocumentsInvoicesRoute
   '/invoice/$id': typeof InvoiceIdRoute
   '/accounts/': typeof AccountsIndexRoute
+  '/analytics/': typeof AnalyticsIndexRoute
   '/documents/': typeof DocumentsIndexRoute
   '/documents/payments/': typeof DocumentsPaymentsIndexRoute
   '/documents/payments/clients/$clientKey': typeof DocumentsPaymentsClientsClientKeyRoute
@@ -328,6 +337,7 @@ export interface FileRouteTypes {
     | '/documents/invoices'
     | '/invoice/$id'
     | '/accounts/'
+    | '/analytics/'
     | '/documents/'
     | '/documents/payments/'
     | '/documents/payments/clients/$clientKey'
@@ -360,6 +370,7 @@ export interface FileRouteTypes {
     | '/documents/invoices'
     | '/invoice/$id'
     | '/accounts'
+    | '/analytics'
     | '/documents'
     | '/documents/payments'
     | '/documents/payments/clients/$clientKey'
@@ -393,6 +404,7 @@ export interface FileRouteTypes {
     | '/documents/invoices'
     | '/invoice/$id'
     | '/accounts/'
+    | '/analytics/'
     | '/documents/'
     | '/documents/payments/'
     | '/documents/payments/clients/$clientKey'
@@ -425,6 +437,7 @@ export interface RootRouteChildren {
   DocumentsCompanyRoute: typeof DocumentsCompanyRoute
   DocumentsInvoicesRoute: typeof DocumentsInvoicesRoute
   InvoiceIdRoute: typeof InvoiceIdRoute
+  AnalyticsIndexRoute: typeof AnalyticsIndexRoute
   DocumentsIndexRoute: typeof DocumentsIndexRoute
   DocumentsPaymentsIndexRoute: typeof DocumentsPaymentsIndexRoute
   DocumentsPaymentsClientsClientKeyRoute: typeof DocumentsPaymentsClientsClientKeyRoute
@@ -526,6 +539,13 @@ declare module '@tanstack/react-router' {
       path: '/documents'
       fullPath: '/documents/'
       preLoaderRoute: typeof DocumentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics/': {
+      id: '/analytics/'
+      path: '/analytics'
+      fullPath: '/analytics/'
+      preLoaderRoute: typeof AnalyticsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/accounts/': {
@@ -693,6 +713,7 @@ const rootRouteChildren: RootRouteChildren = {
   DocumentsCompanyRoute: DocumentsCompanyRoute,
   DocumentsInvoicesRoute: DocumentsInvoicesRoute,
   InvoiceIdRoute: InvoiceIdRoute,
+  AnalyticsIndexRoute: AnalyticsIndexRoute,
   DocumentsIndexRoute: DocumentsIndexRoute,
   DocumentsPaymentsIndexRoute: DocumentsPaymentsIndexRoute,
   DocumentsPaymentsClientsClientKeyRoute:

@@ -58,7 +58,7 @@ function OperationsDashboard() {
     () => periodMoneyOutTotal(ops, period),
     [ops, period],
   );
-  const periodHint = `Last ${periodLabel(period)}`;
+  const periodHint = period === "all" ? "All time" : `Last ${periodLabel(period)}`;
 
   const invoiceIncome = useMemo(
 
@@ -94,10 +94,8 @@ function OperationsDashboard() {
 
     <div className="space-y-8">
 
-      <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-
+      <section className="rounded-lg border border-border bg-card shadow-sm">
         <div className="border-l-4 border-primary">
-
           <div className="relative overflow-hidden rounded-r-lg p-5 sm:p-8">
 
             <div

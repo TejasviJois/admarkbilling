@@ -87,6 +87,7 @@ function AnalyticsOngoingPage() {
       />
       <AnalyticsTableSection
         title="Active projects"
+        description="Filter by time period or search by client, billing, or type."
         search={
           <AnalyticsSearch
             value={search}
