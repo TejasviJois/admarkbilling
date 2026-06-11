@@ -9,7 +9,7 @@ import { loadOperations, saveOperations } from "@/lib/operations-storage";
 import { queryKeys } from "@/lib/query-keys";
 import type { OperationsData } from "@/lib/types";
 
-const EMPTY: OperationsData = { projects: [], partnerships: [], expenses: [] };
+const EMPTY: OperationsData = { projects: [], partnerships: [], expenses: [], leads: [] };
 const CACHE_KEY = "operations";
 
 export function useOperations() {

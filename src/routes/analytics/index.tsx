@@ -19,7 +19,6 @@ import {
   AnalyticsPageHeader,
   AnalyticsPeriodFilter,
   AnalyticsQuickLinks,
-  DEFAULT_PERIOD,
 } from "@/components/analytics/analytics-ui";
 import { OperationsLoading } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
@@ -29,15 +28,7 @@ import {
   buildIncomeSourceForPeriod,
   buildMoneyOutForPeriod,
 } from "@/lib/analytics";
-import { PERIOD_OPTIONS, type PeriodKey } from "@/lib/date-range-filter";
-import { computeFinancialSummary, formatFinancialINR } from "@/lib/financial";
-import { formatINRWhole } from "@/lib/invoice-calc";
-
-export const Route = createFileRoute("/analytics/")({ component: AnalyticsPage });
-
-function periodLabel(period: PeriodKey): string {
-  return PERIOD_OPTIONS.find((o) => o.value === period)?.label.toLowerCase() ?? "period";
-}
+import { DEFAULT_PERIOD, periodLabel, type PeriodKey } from "@/lib/date-range-filter";
 
 function AnalyticsPage() {
   const { ops, loading } = useOperations();

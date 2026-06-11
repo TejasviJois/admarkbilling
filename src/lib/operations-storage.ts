@@ -3,6 +3,7 @@ import { DEFAULT_PROJECTS, withDefaultProjects } from "@/lib/default-projects";
 import { DEFAULT_PARTNERSHIPS, withDefaultPartnerships } from "@/lib/default-partnerships";
 import { withDefaultFinancialBaseline } from "@/lib/default-financial-baseline";
 import { withDefaultFixedMonthlyExpenses } from "@/lib/default-fixed-monthly-expenses";
+import { withDefaultLeads, needsLeadSeed } from "@/lib/default-leads";
 import { normalizeAllProjectPayments } from "./project-payments";
 import { mergeAllProjectBilling } from "./project-billing";
 import { logClientError } from "./client-logger";
@@ -37,11 +38,13 @@ function mergeWithDefaults(data: OperationsData): OperationsData {
     base = withDefaultPartnerships(base);
   }
 
-  return withDefaultFixedMonthlyExpenses(
-    withDefaultFinancialBaseline({
-      ...base,
-      projects: mergeAllProjectBilling(normalizeAllProjectPayments(base.projects)),
-    }),
+  return withDefaultLeads(
+    withDefaultFixedMonthlyExpenses(
+      withDefaultFinancialBaseline({
+        ...base,
+        projects: mergeAllProjectBilling(normalizeAllProjectPayments(base.projects)),
+      }),
+    ),
   );
 }
 
@@ -87,8 +90,10 @@ async function persistIfChanged(before: OperationsData, after: OperationsData) {
   const seededPartnerships =
     before.partnerships.length !== after.partnerships.length ||
     needsPartnershipSeed(before.partnerships);
+  const seededLeads =
+    (before.leads?.length ?? 0) !== (after.leads?.length ?? 0) || needsLeadSeed(before.leads);
   const migrated = paymentsFingerprint(before.projects) !== paymentsFingerprint(after.projects);
-  if (!seededProjects && !seededPartnerships && !migrated) return;
+  if (!seededProjects && !seededPartnerships && !seededLeads && !migrated) return;
   try {
     if (await serverApiEnabled()) {
       await saveOperationsFn({ data: after });

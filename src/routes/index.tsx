@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import {
 
@@ -29,9 +29,12 @@ import { computeTotals, formatINRWhole } from "@/lib/invoice-calc";
 import { useOperations } from "@/hooks/use-operations";
 import { useInvoices } from "@/hooks/use-invoices";
 
+import { AnalyticsPeriodFilter } from "@/components/analytics/analytics-ui";
 import {
-  sumAllProjectIncome,
+  periodMoneyOutTotal,
+  periodProjectIncome,
 } from "@/lib/analytics";
+import { DEFAULT_PERIOD, periodLabel, type PeriodKey } from "@/lib/date-range-filter";
 import { computeFinancialSummary, formatFinancialINR } from "@/lib/financial";
 
 export const Route = createFileRoute("/")({ component: OperationsDashboard });
@@ -42,14 +45,20 @@ function OperationsDashboard() {
 
   const { ops, loading: opsLoading } = useOperations();
   const { invoices, loading: invoicesLoading } = useInvoices();
+  const [period, setPeriod] = useState<PeriodKey>(DEFAULT_PERIOD);
 
   const loading = opsLoading || invoicesLoading;
 
-
-
-  const totalIncome = sumAllProjectIncome(ops.projects);
-
-  const financial = computeFinancialSummary(ops);
+  const financial = useMemo(() => computeFinancialSummary(ops), [ops]);
+  const periodIncome = useMemo(
+    () => periodProjectIncome(ops.projects, period),
+    [ops.projects, period],
+  );
+  const periodExpenses = useMemo(
+    () => periodMoneyOutTotal(ops, period),
+    [ops, period],
+  );
+  const periodHint = `Last ${periodLabel(period)}`;
 
   const invoiceIncome = useMemo(
 
@@ -117,8 +126,9 @@ function OperationsDashboard() {
 
             />
 
-            <div className="relative z-10">
+            <div className="relative z-10 flex flex-wrap items-start justify-between gap-4">
 
+              <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-widest text-primary">
 
                 Admark Digitals
@@ -137,6 +147,10 @@ function OperationsDashboard() {
                 in revenue after their start date is set.
 
               </p>
+
+              </div>
+
+              <AnalyticsPeriodFilter period={period} onPeriodChange={setPeriod} />
 
             </div>
 
@@ -158,7 +172,9 @@ function OperationsDashboard() {
 
           label="Total income"
 
-          value={formatINRWhole(totalIncome)}
+          value={formatINRWhole(periodIncome)}
+
+          hint={periodHint}
 
           tone="positive"
 
@@ -186,7 +202,9 @@ function OperationsDashboard() {
 
           label="Total expenses"
 
-          value={formatFinancialINR(financial.totalExpense)}
+          value={formatFinancialINR(periodExpenses)}
+
+          hint={periodHint}
 
           tone="negative"
 
@@ -213,6 +231,8 @@ function OperationsDashboard() {
           label="Cash balance"
 
           value={formatFinancialINR(financial.currentCashBalance)}
+
+          hint="All-time position"
 
           tone={financial.currentCashBalance >= 0 ? "positive" : "negative"}
 
@@ -282,7 +302,7 @@ function OperationsDashboard() {
 
           title="Accounts"
 
-          description={`${formatINRWhole(totalIncome)} income · ${formatFinancialINR(financial.totalExpense)} expenses`}
+          description={`${formatINRWhole(periodIncome)} income · ${formatFinancialINR(periodExpenses)} expenses · ${periodHint}`}
 
         />
 
@@ -388,6 +408,8 @@ function StatCard({
 
   value,
 
+  hint,
+
   tone,
 
 }: {
@@ -401,6 +423,8 @@ function StatCard({
   label: string;
 
   value: string;
+
+  hint?: string;
 
   tone?: "positive" | "negative";
 
@@ -443,6 +467,10 @@ function StatCard({
         {value}
 
       </p>
+
+      {hint ? (
+        <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+      ) : null}
 
       <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
 

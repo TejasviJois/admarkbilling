@@ -70,6 +70,21 @@ export default defineConfig({
             "Cache-Control": "public, max-age=31536000, immutable",
           },
         },
+        "/favicon.png": {
+          headers: {
+            "Cache-Control": "public, max-age=604800, stale-while-revalidate=86400",
+          },
+        },
+        "/favicon-32.png": {
+          headers: {
+            "Cache-Control": "public, max-age=604800, stale-while-revalidate=86400",
+          },
+        },
+        "/apple-touch-icon.png": {
+          headers: {
+            "Cache-Control": "public, max-age=604800, stale-while-revalidate=86400",
+          },
+        },
         "/*.{png,jpg,jpeg,webp,svg,ico,pdf}": {
           headers: {
             "Cache-Control": "public, max-age=604800, stale-while-revalidate=86400",

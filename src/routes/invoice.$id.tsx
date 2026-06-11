@@ -151,7 +151,9 @@ function InvoicePage() {
         </div>
       </div>
 
-      <InvoicePreview invoice={invoice} company={company} />
+      <div className="invoice-preview-shell -mx-4 overflow-x-auto px-4 sm:mx-0 sm:overflow-visible sm:px-0">
+        <InvoicePreview invoice={invoice} company={company} />
+      </div>
     </div>
   );
 }

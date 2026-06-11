@@ -11,6 +11,27 @@ export function statusIndicatorEmoji(status: Invoice["status"]): string {
   return map[status];
 }
 
+/** Simple text color for status on light invoice surface. */
+export function statusTextClassLight(status: Invoice["status"]): string {
+  const map: Record<Invoice["status"], string> = {
+    paid: "text-emerald-700",
+    pending: "text-amber-700",
+    partial: "text-sky-700",
+    overdue: "text-red-700",
+  };
+  return map[status];
+}
+
+/** RGB text color for simple status label in PDF. */
+export function statusPdfTextColor(status: string): [number, number, number] {
+  const s = status.toLowerCase();
+  if (s === "paid") return [21, 128, 61];
+  if (s === "pending") return [180, 83, 9];
+  if (s === "partial") return [29, 78, 216];
+  if (s === "overdue") return [185, 28, 28];
+  return [52, 52, 52];
+}
+
 /** Solid fill for status pill in PDF (white label text on top). */
 export function statusPdfPillFill(status: string): [number, number, number] {
   const s = status.toLowerCase();

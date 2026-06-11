@@ -15,13 +15,13 @@ import { Route as PartnershipsRouteImport } from './routes/partnerships'
 import { Route as NewRouteImport } from './routes/new'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as AccountsRouteImport } from './routes/accounts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DocumentsIndexRouteImport } from './routes/documents/index'
-import { Route as AnalyticsIndexRouteImport } from './routes/analytics/index'
 import { Route as AccountsIndexRouteImport } from './routes/accounts/index'
 import { Route as InvoiceIdRouteImport } from './routes/invoice.$id'
 import { Route as DocumentsInvoicesRouteImport } from './routes/documents/invoices'
@@ -71,6 +71,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LeadsRoute = LeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InvoicesRoute = InvoicesRouteImport.update({
   id: '/invoices',
   path: '/invoices',
@@ -99,11 +104,6 @@ const IndexRoute = IndexRouteImport.update({
 const DocumentsIndexRoute = DocumentsIndexRouteImport.update({
   id: '/documents/',
   path: '/documents/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AnalyticsIndexRoute = AnalyticsIndexRouteImport.update({
-  id: '/analytics/',
-  path: '/analytics/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccountsIndexRoute = AccountsIndexRouteImport.update({
@@ -209,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/expenses': typeof ExpensesRoute
   '/history': typeof HistoryRoute
   '/invoices': typeof InvoicesRoute
+  '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
@@ -226,7 +227,6 @@ export interface FileRoutesByFullPath {
   '/documents/invoices': typeof DocumentsInvoicesRoute
   '/invoice/$id': typeof InvoiceIdRoute
   '/accounts/': typeof AccountsIndexRoute
-  '/analytics/': typeof AnalyticsIndexRoute
   '/documents/': typeof DocumentsIndexRoute
   '/documents/payments/': typeof DocumentsPaymentsIndexRoute
   '/documents/payments/clients/$clientKey': typeof DocumentsPaymentsClientsClientKeyRoute
@@ -241,6 +241,7 @@ export interface FileRoutesByTo {
   '/expenses': typeof ExpensesRoute
   '/history': typeof HistoryRoute
   '/invoices': typeof InvoicesRoute
+  '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
@@ -258,7 +259,6 @@ export interface FileRoutesByTo {
   '/documents/invoices': typeof DocumentsInvoicesRoute
   '/invoice/$id': typeof InvoiceIdRoute
   '/accounts': typeof AccountsIndexRoute
-  '/analytics': typeof AnalyticsIndexRoute
   '/documents': typeof DocumentsIndexRoute
   '/documents/payments': typeof DocumentsPaymentsIndexRoute
   '/documents/payments/clients/$clientKey': typeof DocumentsPaymentsClientsClientKeyRoute
@@ -275,6 +275,7 @@ export interface FileRoutesById {
   '/expenses': typeof ExpensesRoute
   '/history': typeof HistoryRoute
   '/invoices': typeof InvoicesRoute
+  '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
@@ -292,7 +293,6 @@ export interface FileRoutesById {
   '/documents/invoices': typeof DocumentsInvoicesRoute
   '/invoice/$id': typeof InvoiceIdRoute
   '/accounts/': typeof AccountsIndexRoute
-  '/analytics/': typeof AnalyticsIndexRoute
   '/documents/': typeof DocumentsIndexRoute
   '/documents/payments/': typeof DocumentsPaymentsIndexRoute
   '/documents/payments/clients/$clientKey': typeof DocumentsPaymentsClientsClientKeyRoute
@@ -310,6 +310,7 @@ export interface FileRouteTypes {
     | '/expenses'
     | '/history'
     | '/invoices'
+    | '/leads'
     | '/login'
     | '/logs'
     | '/new'
@@ -327,7 +328,6 @@ export interface FileRouteTypes {
     | '/documents/invoices'
     | '/invoice/$id'
     | '/accounts/'
-    | '/analytics/'
     | '/documents/'
     | '/documents/payments/'
     | '/documents/payments/clients/$clientKey'
@@ -342,6 +342,7 @@ export interface FileRouteTypes {
     | '/expenses'
     | '/history'
     | '/invoices'
+    | '/leads'
     | '/login'
     | '/logs'
     | '/new'
@@ -359,7 +360,6 @@ export interface FileRouteTypes {
     | '/documents/invoices'
     | '/invoice/$id'
     | '/accounts'
-    | '/analytics'
     | '/documents'
     | '/documents/payments'
     | '/documents/payments/clients/$clientKey'
@@ -375,6 +375,7 @@ export interface FileRouteTypes {
     | '/expenses'
     | '/history'
     | '/invoices'
+    | '/leads'
     | '/login'
     | '/logs'
     | '/new'
@@ -392,7 +393,6 @@ export interface FileRouteTypes {
     | '/documents/invoices'
     | '/invoice/$id'
     | '/accounts/'
-    | '/analytics/'
     | '/documents/'
     | '/documents/payments/'
     | '/documents/payments/clients/$clientKey'
@@ -409,6 +409,7 @@ export interface RootRouteChildren {
   ExpensesRoute: typeof ExpensesRoute
   HistoryRoute: typeof HistoryRoute
   InvoicesRoute: typeof InvoicesRoute
+  LeadsRoute: typeof LeadsRoute
   LoginRoute: typeof LoginRoute
   LogsRoute: typeof LogsRoute
   NewRoute: typeof NewRoute
@@ -424,7 +425,6 @@ export interface RootRouteChildren {
   DocumentsCompanyRoute: typeof DocumentsCompanyRoute
   DocumentsInvoicesRoute: typeof DocumentsInvoicesRoute
   InvoiceIdRoute: typeof InvoiceIdRoute
-  AnalyticsIndexRoute: typeof AnalyticsIndexRoute
   DocumentsIndexRoute: typeof DocumentsIndexRoute
   DocumentsPaymentsIndexRoute: typeof DocumentsPaymentsIndexRoute
   DocumentsPaymentsClientsClientKeyRoute: typeof DocumentsPaymentsClientsClientKeyRoute
@@ -479,6 +479,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/leads': {
+      id: '/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof LeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/invoices': {
       id: '/invoices'
       path: '/invoices'
@@ -519,13 +526,6 @@ declare module '@tanstack/react-router' {
       path: '/documents'
       fullPath: '/documents/'
       preLoaderRoute: typeof DocumentsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/analytics/': {
-      id: '/analytics/'
-      path: '/analytics'
-      fullPath: '/analytics/'
-      preLoaderRoute: typeof AnalyticsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/accounts/': {
@@ -677,6 +677,7 @@ const rootRouteChildren: RootRouteChildren = {
   ExpensesRoute: ExpensesRoute,
   HistoryRoute: HistoryRoute,
   InvoicesRoute: InvoicesRoute,
+  LeadsRoute: LeadsRoute,
   LoginRoute: LoginRoute,
   LogsRoute: LogsRoute,
   NewRoute: NewRoute,
@@ -692,7 +693,6 @@ const rootRouteChildren: RootRouteChildren = {
   DocumentsCompanyRoute: DocumentsCompanyRoute,
   DocumentsInvoicesRoute: DocumentsInvoicesRoute,
   InvoiceIdRoute: InvoiceIdRoute,
-  AnalyticsIndexRoute: AnalyticsIndexRoute,
   DocumentsIndexRoute: DocumentsIndexRoute,
   DocumentsPaymentsIndexRoute: DocumentsPaymentsIndexRoute,
   DocumentsPaymentsClientsClientKeyRoute:

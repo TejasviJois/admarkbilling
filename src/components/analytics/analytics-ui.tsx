@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { SearchWithPeriodFilter } from "@/components/operations/SearchWithPeriodFilter";
 import { DataTable } from "@/components/operations/operations-ui";
-import { DEFAULT_PERIOD, PERIOD_OPTIONS, type PeriodKey } from "@/lib/date-range-filter";
+import { DEFAULT_PERIOD, ANALYTICS_PERIOD_OPTIONS, type PeriodKey } from "@/lib/date-range-filter";
 import { cn } from "@/lib/utils";
 
 export function AnalyticsPageHeader({
@@ -60,11 +60,11 @@ export function AnalyticsPeriodFilter({
 }) {
   return (
     <Select value={period} onValueChange={(v) => onPeriodChange(v as PeriodKey)}>
-      <SelectTrigger className={cn("h-9 w-[8.5rem]", className)} aria-label="Time period">
+      <SelectTrigger className={cn("h-9 w-[9rem]", className)} aria-label="Time period">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {PERIOD_OPTIONS.map((opt) => (
+        {ANALYTICS_PERIOD_OPTIONS.map((opt) => (
           <SelectItem key={opt.value} value={opt.value}>
             {opt.label}
           </SelectItem>

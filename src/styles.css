@@ -121,6 +121,45 @@
   --ring: oklch(0.52 0.21 27);
 }
 
+.invoice-receipt-surface .invoice-line-items thead {
+  background-color: #121212;
+  color: #ffffff;
+}
+
+.invoice-receipt-surface .invoice-line-items thead th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.invoice-receipt-surface .invoice-page-footer {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.invoice-preview-shell {
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 639px) {
+  .invoice-preview-shell .invoice-receipt-surface {
+    border-radius: 0.5rem;
+  }
+
+  .invoice-preview-shell .invoice-line-items {
+    font-size: 0.75rem;
+  }
+}
+
+@media print {
+  .invoice-receipt-surface {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+}
+
 .dark {
   --background: oklch(0.05 0.012 270);
   --foreground: oklch(0.92 0.008 270);

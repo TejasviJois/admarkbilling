@@ -8,7 +8,7 @@ import {
 import type { CompanySettings, Invoice } from "./types";
 import { computeTotals, formatINRForPdf, lineAmount } from "./invoice-calc";
 import { rupeesInWords } from "./number-to-words";
-import { statusPdfPillFill } from "./invoice-status";
+import { statusPdfTextColor } from "./invoice-status";
 
 /** Letterhead layout — matches `src/assets/admark-letterhead.png` on A4. */
 const LETTERHEAD_HEADER_H = 195;
@@ -134,15 +134,15 @@ export function buildInvoicePdf(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(useLetterhead ? 32 : 36);
   doc.setTextColor(...RED);
-  doc.text("INVOICE", W - M, headerTop + 18, { align: "right" });
+  doc.text("INVOICE", M, headerTop + 18);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10.5);
   doc.setTextColor(...INK);
-  doc.text(invoice.number, W - M, headerTop + 36, { align: "right" });
+  doc.text(invoice.number, M, headerTop + 36);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.text(`Date: ${formatDate(invoice.date)}`, W - M, headerTop + 50, { align: "right" });
+  doc.text(`Date: ${formatDate(invoice.date)}`, M, headerTop + 50);
 
   let cursorY = useLetterhead ? LETTERHEAD_HEADER_H + 16 : headerTop + 102;
 
@@ -220,19 +220,9 @@ export function buildInvoicePdf(
     doc.setTextColor(...INK);
     doc.text(k, metaX, metaY);
     if (k === "Status") {
-      const statusText = invoice.status.toUpperCase();
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      const tw = doc.getTextWidth(statusText);
-      const padX = 10;
-      const ph = 15;
-      const pw = tw + padX * 2;
-      const px = W - M - pw;
-      const py = metaY - 11;
-      doc.setFillColor(...statusPdfPillFill(invoice.status));
-      doc.roundedRect(px, py, pw, ph, 4, 4, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.text(statusText, px + pw / 2, py + ph - 4, { align: "center" });
+      doc.setTextColor(...statusPdfTextColor(invoice.status));
+      doc.text(String(v), W - M, metaY, { align: "right" });
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
       doc.setTextColor(...INK);
@@ -358,7 +348,20 @@ export function buildInvoicePdf(
   const bankPad = 14;
   const bankLineGap = 13;
   const bankBoxH = 26 + bankLines.length * bankLineGap + bankPad;
-  const footerTop = Math.min(Math.max(ty + 32, contentBottom - bankBoxH - 24), contentBottom - bankBoxH);
+  const sigBlockH = company.signatureDataUrl ? 96 : 72;
+  const footerBlockH = Math.max(bankBoxH, sigBlockH) + 24;
+
+  let footerTop = ty + 32;
+  if (footerTop + footerBlockH > contentBottom) {
+    doc.addPage();
+    if (useLetterhead && letterheadDataUrl) {
+      paintLetterhead(doc, letterheadDataUrl, W, H);
+    }
+    footerTop = useLetterhead ? LETTERHEAD_HEADER_H + 16 : M + 40;
+  } else {
+    footerTop = Math.max(footerTop, contentBottom - footerBlockH);
+  }
+
   const bankBoxY = footerTop + 14;
   const bankBoxW = W * 0.48;
 

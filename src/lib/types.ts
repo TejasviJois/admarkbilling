@@ -135,6 +135,19 @@ export interface Partnership {
   notes?: string;
 }
 
+export type LeadStatus = "new" | "contacted" | "qualified" | "won" | "lost";
+
+/** Sales / outreach lead — name, business line, optional phone. */
+export interface Lead {
+  id: string;
+  name: string;
+  business: string;
+  phone?: string;
+  notes?: string;
+  status: LeadStatus;
+  createdAt?: string;
+}
+
 export type AssetCategory = "equipment" | "digital" | "cash" | "investment" | "other";
 
 /** Company asset — equipment, cash, investments, etc. */
@@ -189,6 +202,7 @@ export interface OperationsData {
   projects: Project[];
   partnerships: Partnership[];
   expenses: ExpenseEntry[];
+  leads?: Lead[];
   assets?: AssetEntry[];
   financialBaseline?: FinancialBaseline;
   /** Recurring monthly obligations — loan repayments, rent, subscriptions, etc. */

@@ -16,7 +16,13 @@ import { useInvoices } from "@/hooks/use-invoices";
 import { queryKeys } from "@/lib/query-keys";
 import { writeClientCache } from "@/lib/client-data-cache";
 import { LoadingDog } from "@/components/ui/loading-dog";
-import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const InvoicePreview = lazy(() => import("./InvoicePreview"));
 
@@ -58,17 +64,6 @@ export default function InvoiceForm({ onSaved }: Props) {
   useEffect(() => {
     setNumber(nextInvoiceNumberFromList(invoices, date));
   }, [date, invoices]);
-
-  /** On stacked layouts, bring the preview into view when the user turns it on */
-  useEffect(() => {
-    if (!showPreview) return;
-    const el = document.getElementById("invoice-live-preview");
-    if (!el || typeof window === "undefined") return;
-    if (!window.matchMedia("(max-width: 1279.98px)").matches) return;
-    requestAnimationFrame(() => {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }, [showPreview]);
 
   /** When client / company name matches partner or client sheet, fill Type of business */
   useEffect(() => {
@@ -158,8 +153,6 @@ export default function InvoiceForm({ onSaved }: Props) {
     }
   };
 
-  const handlePreviewToggle = () => setShowPreview((s) => !s);
-
   const handleGenerate = () => {
     void persistInvoice(async (inv) => {
       const { downloadInvoicePdf } = await import("@/lib/pdf");
@@ -168,14 +161,44 @@ export default function InvoiceForm({ onSaved }: Props) {
   };
 
   return (
-    <div
-      className={cn(
-        "grid min-w-0 gap-6",
-        showPreview
-          ? "lg:grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(260px,320px)_minmax(300px,1fr)]"
-          : "lg:grid-cols-[minmax(0,1fr)_minmax(260px,360px)]",
-      )}
-    >
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            Step 1 — Details
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Create new invoice</h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Invoice number is assigned automatically in sequence for the financial year
+            (AM/YY-YY/0001).
+          </p>
+        </div>
+        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+          <button
+            type="button"
+            onClick={handleGenerate}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 sm:w-auto"
+          >
+            <Save className="h-4 w-4" /> Download
+          </button>
+          <button
+            type="button"
+            onClick={() => void persistInvoice()}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-card px-4 py-2.5 text-sm font-semibold hover:bg-secondary sm:w-auto"
+          >
+            Save only
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPreview(true)}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-card px-4 py-2.5 text-sm hover:bg-secondary sm:w-auto"
+          >
+            <Eye className="h-4 w-4" /> Show preview
+          </button>
+        </div>
+      </div>
+
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,360px)]">
       <div className="min-w-0 space-y-6">
         <Section title="Invoice info">
           <div className="grid gap-4 sm:grid-cols-3">
@@ -466,12 +489,7 @@ export default function InvoiceForm({ onSaved }: Props) {
         </Section>
       </div>
 
-      <aside
-        className={cn(
-          "space-y-4 lg:self-start",
-          showPreview ? "xl:sticky xl:top-20" : "lg:sticky lg:top-20",
-        )}
-      >
+      <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
         <div className="rounded-xl border border-border bg-card p-5">
           <h3 className="text-lg font-semibold tracking-tight">Totals</h3>
           <dl className="mt-4 space-y-2 text-sm">
@@ -485,62 +503,26 @@ export default function InvoiceForm({ onSaved }: Props) {
             {rupeesInWords(totals.payable)}
           </p>
         </div>
-
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={handleGenerate}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-          >
-            <Save className="h-4 w-4" /> Generate & download PDF
-          </button>
-          <button
-            type="button"
-            onClick={() => void persistInvoice()}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-input bg-card px-4 py-2 text-sm font-semibold hover:bg-secondary"
-          >
-            Save only
-          </button>
-          <button
-            type="button"
-            onClick={handlePreviewToggle}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-input bg-card px-4 py-2 text-sm hover:bg-secondary"
-          >
-            <Eye className="h-4 w-4" /> {showPreview ? "Hide preview" : "Show preview"}
-          </button>
-        </div>
       </aside>
+      </div>
 
-      {showPreview && (
-        <div
-          id="invoice-live-preview"
-          className={cn(
-            "min-w-0",
-            "xl:sticky xl:top-20 xl:max-h-[calc(100vh-5rem)] xl:overflow-y-auto xl:overflow-x-hidden xl:self-start",
-          )}
-        >
-          <div className="rounded-2xl border border-border bg-muted/30 p-3 shadow-inner ring-1 ring-black/5 sm:p-5 dark:bg-muted/20 dark:ring-white/10">
-            <div className="mb-3 flex flex-wrap items-end justify-between gap-2 border-b border-border/70 pb-3">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Live preview
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Same layout as the PDF — updates as you edit.
-                </p>
-              </div>
-              <p className="text-[11px] text-muted-foreground xl:hidden">Scroll down after totals.</p>
-            </div>
-            <div className="overflow-x-auto rounded-lg bg-zinc-100/90 p-2 sm:p-4 dark:bg-zinc-950/40">
-              <div className="mx-auto min-w-[min(100%,520px)] max-w-[210mm] shadow-md ring-1 ring-black/10">
-                <Suspense fallback={<LoadingDog message="Loading preview…" />}>
-                  <InvoicePreview invoice={draft} company={company} />
-                </Suspense>
-              </div>
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] gap-3 overflow-y-auto p-3 sm:w-[min(95vw,920px)] sm:max-w-none sm:gap-4 sm:p-6">
+          <DialogHeader className="text-left">
+            <DialogTitle>Live preview</DialogTitle>
+            <DialogDescription>
+              Same layout as the PDF — updates as you edit.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="invoice-preview-shell overflow-x-auto rounded-lg bg-zinc-100/90 p-1.5 dark:bg-zinc-950/40 sm:p-4">
+            <div className="mx-auto w-full min-w-0 max-w-[210mm] shadow-md ring-1 ring-black/10">
+              <Suspense fallback={<LoadingDog message="Loading preview…" />}>
+                <InvoicePreview invoice={draft} company={company} />
+              </Suspense>
             </div>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -550,7 +532,7 @@ const inputCls =
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-6">
+    <section className="rounded-xl border border-border bg-card p-4 sm:p-6">
       <h2 className="mb-4 text-lg font-semibold tracking-tight">{title}</h2>
       {children}
     </section>

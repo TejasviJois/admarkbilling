@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { FinancialBaseline, FixedMonthlyExpense, OperationsData } from "@/lib/types";
+import type { FinancialBaseline, FixedMonthlyExpense, Lead, OperationsData } from "@/lib/types";
 import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
 import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
@@ -51,6 +51,30 @@ function parseFixedMonthlyExpense(raw: unknown): FixedMonthlyExpense | null {
   };
 }
 
+function parseLead(raw: unknown): Lead | null {
+  if (!raw || typeof raw !== "object") return null;
+  const l = raw as Partial<Lead>;
+  if (typeof l.id !== "string" || typeof l.name !== "string" || typeof l.business !== "string") {
+    return null;
+  }
+  const status =
+    l.status === "contacted" ||
+    l.status === "qualified" ||
+    l.status === "won" ||
+    l.status === "lost"
+      ? l.status
+      : "new";
+  return {
+    id: l.id,
+    name: l.name,
+    business: l.business,
+    phone: typeof l.phone === "string" ? l.phone : undefined,
+    notes: typeof l.notes === "string" ? l.notes : undefined,
+    status,
+    createdAt: typeof l.createdAt === "string" ? l.createdAt : undefined,
+  };
+}
+
 function parseOperationsPayload(payload: unknown): OperationsData {
   if (!payload || typeof payload !== "object") return EMPTY_OPERATIONS;
   const raw = payload as Partial<OperationsData>;
@@ -58,10 +82,14 @@ function parseOperationsPayload(payload: unknown): OperationsData {
     ? raw.fixedMonthlyExpenses.map(parseFixedMonthlyExpense).filter((e): e is FixedMonthlyExpense => e != null)
     : undefined;
   const assets = Array.isArray(raw.assets) ? raw.assets : [];
+  const leads = Array.isArray(raw.leads)
+    ? raw.leads.map(parseLead).filter((l): l is Lead => l != null)
+    : undefined;
   return {
     projects: Array.isArray(raw.projects) ? raw.projects : [],
     partnerships: Array.isArray(raw.partnerships) ? raw.partnerships : [],
     expenses: Array.isArray(raw.expenses) ? raw.expenses : [],
+    leads,
     assets,
     financialBaseline: parseFinancialBaseline(raw.financialBaseline) ?? DEFAULT_FINANCIAL_BASELINE,
     fixedMonthlyExpenses,

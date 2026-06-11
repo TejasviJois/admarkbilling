@@ -19,6 +19,7 @@ export function SearchWithPeriodFilter({
   placeholder = "Search…",
   className,
   inputClassName,
+  periodOptions = PERIOD_OPTIONS,
 }: {
   id?: string;
   search: string;
@@ -28,6 +29,7 @@ export function SearchWithPeriodFilter({
   placeholder?: string;
   className?: string;
   inputClassName?: string;
+  periodOptions?: { value: PeriodKey; label: string }[];
 }) {
   return (
     <div className={cn("flex flex-col gap-2 sm:flex-row sm:items-center", className)}>
@@ -46,11 +48,11 @@ export function SearchWithPeriodFilter({
         />
       </div>
       <Select value={period} onValueChange={(v) => onPeriodChange(v as PeriodKey)}>
-        <SelectTrigger className="h-9 w-full shrink-0 sm:w-[7.5rem]" aria-label="Time period">
+        <SelectTrigger className="h-9 w-full shrink-0 sm:w-[8.75rem]" aria-label="Time period">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {PERIOD_OPTIONS.map((opt) => (
+          {periodOptions.map((opt) => (
             <SelectItem key={opt.value} value={opt.value}>
               {opt.label}
             </SelectItem>

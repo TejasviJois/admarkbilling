@@ -1,19 +1,28 @@
 import type { Project } from "@/lib/types";
 
-export type PeriodKey = "all" | "5d" | "10d" | "30d" | "3mo" | "6mo" | "1y";
+export type PeriodKey = "all" | "1mo" | "3mo" | "6mo" | "1y";
 
-/** Default time window for list filters across the app. */
-export const DEFAULT_PERIOD: PeriodKey = "5d";
+/** Default time window — minimum 1 month. */
+export const DEFAULT_PERIOD: PeriodKey = "1mo";
 
+/** Month-based periods used across operations views (no day-level windows). */
 export const PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = [
-  { value: "all", label: "All time" },
-  { value: "5d", label: "5 days" },
-  { value: "10d", label: "10 days" },
-  { value: "30d", label: "30 days" },
+  { value: "1mo", label: "1 month" },
   { value: "3mo", label: "3 months" },
   { value: "6mo", label: "6 months" },
-  { value: "1y", label: "1 year" },
+  { value: "1y", label: "12 months" },
 ];
+
+/** Analytics hub — includes all-time plus month windows. */
+export const ANALYTICS_PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = [
+  { value: "all", label: "All time" },
+  ...PERIOD_OPTIONS,
+];
+
+export function periodLabel(period: PeriodKey): string {
+  if (period === "all") return "All time";
+  return PERIOD_OPTIONS.find((o) => o.value === period)?.label.toLowerCase() ?? "period";
+}
 
 function toISODate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -30,14 +39,8 @@ export function periodBounds(
   const startDate = new Date(endDate);
 
   switch (period) {
-    case "5d":
-      startDate.setDate(startDate.getDate() - 5);
-      break;
-    case "10d":
-      startDate.setDate(startDate.getDate() - 10);
-      break;
-    case "30d":
-      startDate.setDate(startDate.getDate() - 30);
+    case "1mo":
+      startDate.setMonth(startDate.getMonth() - 1);
       break;
     case "3mo":
       startDate.setMonth(startDate.getMonth() - 3);
