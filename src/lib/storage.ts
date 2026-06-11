@@ -1,5 +1,6 @@
 import type { CompanySettings, Invoice } from "./types";
 import { DEFAULT_COMPANY } from "./constants";
+import type { LogDraft } from "./activity-log";
 import {
   deleteInvoiceFn,
   getCompanyFn,
@@ -53,6 +54,11 @@ function saveCompanyLocal(c: CompanySettings) {
 
 let serverConfiguredCache: boolean | null = null;
 
+async function recordActivity(draft: LogDraft) {
+  const { appendActivityLog } = await import("./activity-log-storage");
+  await appendActivityLog(draft);
+}
+
 async function serverApiEnabled(): Promise<boolean> {
   if (serverConfiguredCache !== null) return serverConfiguredCache;
   try {
@@ -76,6 +82,17 @@ export async function loadInvoices(): Promise<Invoice[]> {
 }
 
 export async function upsertInvoice(inv: Invoice) {
+  const existing = await getInvoice(inv.id);
+  await recordActivity({
+    entity: "invoice",
+    action: existing ? "updated" : "created",
+    entityId: inv.id,
+    entityName: inv.number,
+    summary: existing
+      ? `Updated invoice ${inv.number} for ${inv.clientName}`
+      : `Created invoice ${inv.number} for ${inv.clientName}`,
+  });
+
   if (!(await serverApiEnabled())) {
     const all = loadInvoicesLocal();
     const idx = all.findIndex((i) => i.id === inv.id);
@@ -88,6 +105,17 @@ export async function upsertInvoice(inv: Invoice) {
 }
 
 export async function deleteInvoice(id: string) {
+  const existing = await getInvoice(id);
+  if (existing) {
+    await appendActivityLog({
+      entity: "invoice",
+      action: "deleted",
+      entityId: existing.id,
+      entityName: existing.number,
+      summary: `Deleted invoice ${existing.number} for ${existing.clientName}`,
+    });
+  }
+
   if (!(await serverApiEnabled())) {
     saveInvoicesLocal(loadInvoicesLocal().filter((i) => i.id !== id));
     return;
@@ -109,6 +137,12 @@ export async function loadCompany(): Promise<CompanySettings> {
 }
 
 export async function saveCompany(c: CompanySettings) {
+  await appendActivityLog({
+    entity: "settings",
+    action: "updated",
+    summary: "Updated company settings",
+  });
+
   if (!(await serverApiEnabled())) {
     saveCompanyLocal(c);
     return;

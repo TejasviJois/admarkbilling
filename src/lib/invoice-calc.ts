@@ -21,6 +21,15 @@ export function formatINR(n: number): string {
   }).format(n || 0);
 }
 
+/** Whole rupees — for operations tables (no .00). */
+export function formatINRWhole(n: number): string {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(Math.round(n || 0));
+}
+
 /**
  * INR for jsPDF built-in fonts (Helvetica): ASCII-only — no ₹ or narrow spaces,
  * which WinAnsi cannot encode and show as garbled glyphs in PDFs.

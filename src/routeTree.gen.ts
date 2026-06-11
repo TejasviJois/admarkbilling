@@ -10,15 +10,36 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as PartnershipsRouteImport } from './routes/partnerships'
 import { Route as NewRouteImport } from './routes/new'
+import { Route as LogsRouteImport } from './routes/logs'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AnalyticsIndexRouteImport } from './routes/analytics/index'
 import { Route as InvoiceIdRouteImport } from './routes/invoice.$id'
+import { Route as AnalyticsRevenueRouteImport } from './routes/analytics/revenue'
+import { Route as AnalyticsOngoingRouteImport } from './routes/analytics/ongoing'
+import { Route as AnalyticsIncomeRouteImport } from './routes/analytics/income'
+import { Route as AnalyticsExpensesRouteImport } from './routes/analytics/expenses'
+import { Route as AnalyticsBalanceRouteImport } from './routes/analytics/balance'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsRoute = ProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartnershipsRoute = PartnershipsRouteImport.update({
+  id: '/partnerships',
+  path: '/partnerships',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NewRoute = NewRouteImport.update({
@@ -26,9 +47,19 @@ const NewRoute = NewRouteImport.update({
   path: '/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LogsRoute = LogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InvoicesRoute = InvoicesRouteImport.update({
+  id: '/invoices',
+  path: '/invoices',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HistoryRoute = HistoryRouteImport.update({
@@ -36,9 +67,19 @@ const HistoryRoute = HistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExpensesRoute = ExpensesRouteImport.update({
+  id: '/expenses',
+  path: '/expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsIndexRoute = AnalyticsIndexRouteImport.update({
+  id: '/analytics/',
+  path: '/analytics/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InvoiceIdRoute = InvoiceIdRouteImport.update({
@@ -46,54 +87,168 @@ const InvoiceIdRoute = InvoiceIdRouteImport.update({
   path: '/invoice/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AnalyticsRevenueRoute = AnalyticsRevenueRouteImport.update({
+  id: '/analytics/revenue',
+  path: '/analytics/revenue',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsOngoingRoute = AnalyticsOngoingRouteImport.update({
+  id: '/analytics/ongoing',
+  path: '/analytics/ongoing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsIncomeRoute = AnalyticsIncomeRouteImport.update({
+  id: '/analytics/income',
+  path: '/analytics/income',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsExpensesRoute = AnalyticsExpensesRouteImport.update({
+  id: '/analytics/expenses',
+  path: '/analytics/expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsBalanceRoute = AnalyticsBalanceRouteImport.update({
+  id: '/analytics/balance',
+  path: '/analytics/balance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/expenses': typeof ExpensesRoute
   '/history': typeof HistoryRoute
+  '/invoices': typeof InvoicesRoute
   '/login': typeof LoginRoute
+  '/logs': typeof LogsRoute
   '/new': typeof NewRoute
+  '/partnerships': typeof PartnershipsRoute
+  '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
+  '/analytics/balance': typeof AnalyticsBalanceRoute
+  '/analytics/expenses': typeof AnalyticsExpensesRoute
+  '/analytics/income': typeof AnalyticsIncomeRoute
+  '/analytics/ongoing': typeof AnalyticsOngoingRoute
+  '/analytics/revenue': typeof AnalyticsRevenueRoute
   '/invoice/$id': typeof InvoiceIdRoute
+  '/analytics/': typeof AnalyticsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/expenses': typeof ExpensesRoute
   '/history': typeof HistoryRoute
+  '/invoices': typeof InvoicesRoute
   '/login': typeof LoginRoute
+  '/logs': typeof LogsRoute
   '/new': typeof NewRoute
+  '/partnerships': typeof PartnershipsRoute
+  '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
+  '/analytics/balance': typeof AnalyticsBalanceRoute
+  '/analytics/expenses': typeof AnalyticsExpensesRoute
+  '/analytics/income': typeof AnalyticsIncomeRoute
+  '/analytics/ongoing': typeof AnalyticsOngoingRoute
+  '/analytics/revenue': typeof AnalyticsRevenueRoute
   '/invoice/$id': typeof InvoiceIdRoute
+  '/analytics': typeof AnalyticsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/expenses': typeof ExpensesRoute
   '/history': typeof HistoryRoute
+  '/invoices': typeof InvoicesRoute
   '/login': typeof LoginRoute
+  '/logs': typeof LogsRoute
   '/new': typeof NewRoute
+  '/partnerships': typeof PartnershipsRoute
+  '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
+  '/analytics/balance': typeof AnalyticsBalanceRoute
+  '/analytics/expenses': typeof AnalyticsExpensesRoute
+  '/analytics/income': typeof AnalyticsIncomeRoute
+  '/analytics/ongoing': typeof AnalyticsOngoingRoute
+  '/analytics/revenue': typeof AnalyticsRevenueRoute
   '/invoice/$id': typeof InvoiceIdRoute
+  '/analytics/': typeof AnalyticsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/history' | '/login' | '/new' | '/settings' | '/invoice/$id'
+  fullPaths:
+    | '/'
+    | '/expenses'
+    | '/history'
+    | '/invoices'
+    | '/login'
+    | '/logs'
+    | '/new'
+    | '/partnerships'
+    | '/projects'
+    | '/settings'
+    | '/analytics/balance'
+    | '/analytics/expenses'
+    | '/analytics/income'
+    | '/analytics/ongoing'
+    | '/analytics/revenue'
+    | '/invoice/$id'
+    | '/analytics/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/history' | '/login' | '/new' | '/settings' | '/invoice/$id'
+  to:
+    | '/'
+    | '/expenses'
+    | '/history'
+    | '/invoices'
+    | '/login'
+    | '/logs'
+    | '/new'
+    | '/partnerships'
+    | '/projects'
+    | '/settings'
+    | '/analytics/balance'
+    | '/analytics/expenses'
+    | '/analytics/income'
+    | '/analytics/ongoing'
+    | '/analytics/revenue'
+    | '/invoice/$id'
+    | '/analytics'
   id:
     | '__root__'
     | '/'
+    | '/expenses'
     | '/history'
+    | '/invoices'
     | '/login'
+    | '/logs'
     | '/new'
+    | '/partnerships'
+    | '/projects'
     | '/settings'
+    | '/analytics/balance'
+    | '/analytics/expenses'
+    | '/analytics/income'
+    | '/analytics/ongoing'
+    | '/analytics/revenue'
     | '/invoice/$id'
+    | '/analytics/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ExpensesRoute: typeof ExpensesRoute
   HistoryRoute: typeof HistoryRoute
+  InvoicesRoute: typeof InvoicesRoute
   LoginRoute: typeof LoginRoute
+  LogsRoute: typeof LogsRoute
   NewRoute: typeof NewRoute
+  PartnershipsRoute: typeof PartnershipsRoute
+  ProjectsRoute: typeof ProjectsRoute
   SettingsRoute: typeof SettingsRoute
+  AnalyticsBalanceRoute: typeof AnalyticsBalanceRoute
+  AnalyticsExpensesRoute: typeof AnalyticsExpensesRoute
+  AnalyticsIncomeRoute: typeof AnalyticsIncomeRoute
+  AnalyticsOngoingRoute: typeof AnalyticsOngoingRoute
+  AnalyticsRevenueRoute: typeof AnalyticsRevenueRoute
   InvoiceIdRoute: typeof InvoiceIdRoute
+  AnalyticsIndexRoute: typeof AnalyticsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -105,11 +260,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects': {
+      id: '/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partnerships': {
+      id: '/partnerships'
+      path: '/partnerships'
+      fullPath: '/partnerships'
+      preLoaderRoute: typeof PartnershipsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/new': {
       id: '/new'
       path: '/new'
       fullPath: '/new'
       preLoaderRoute: typeof NewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/logs': {
+      id: '/logs'
+      path: '/logs'
+      fullPath: '/logs'
+      preLoaderRoute: typeof LogsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -119,11 +295,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/invoices': {
+      id: '/invoices'
+      path: '/invoices'
+      fullPath: '/invoices'
+      preLoaderRoute: typeof InvoicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/history': {
       id: '/history'
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expenses': {
+      id: '/expenses'
+      path: '/expenses'
+      fullPath: '/expenses'
+      preLoaderRoute: typeof ExpensesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -133,6 +323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/analytics/': {
+      id: '/analytics/'
+      path: '/analytics'
+      fullPath: '/analytics/'
+      preLoaderRoute: typeof AnalyticsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/invoice/$id': {
       id: '/invoice/$id'
       path: '/invoice/$id'
@@ -140,16 +337,62 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvoiceIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/analytics/revenue': {
+      id: '/analytics/revenue'
+      path: '/analytics/revenue'
+      fullPath: '/analytics/revenue'
+      preLoaderRoute: typeof AnalyticsRevenueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics/ongoing': {
+      id: '/analytics/ongoing'
+      path: '/analytics/ongoing'
+      fullPath: '/analytics/ongoing'
+      preLoaderRoute: typeof AnalyticsOngoingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics/income': {
+      id: '/analytics/income'
+      path: '/analytics/income'
+      fullPath: '/analytics/income'
+      preLoaderRoute: typeof AnalyticsIncomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics/expenses': {
+      id: '/analytics/expenses'
+      path: '/analytics/expenses'
+      fullPath: '/analytics/expenses'
+      preLoaderRoute: typeof AnalyticsExpensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics/balance': {
+      id: '/analytics/balance'
+      path: '/analytics/balance'
+      fullPath: '/analytics/balance'
+      preLoaderRoute: typeof AnalyticsBalanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ExpensesRoute: ExpensesRoute,
   HistoryRoute: HistoryRoute,
+  InvoicesRoute: InvoicesRoute,
   LoginRoute: LoginRoute,
+  LogsRoute: LogsRoute,
   NewRoute: NewRoute,
+  PartnershipsRoute: PartnershipsRoute,
+  ProjectsRoute: ProjectsRoute,
   SettingsRoute: SettingsRoute,
+  AnalyticsBalanceRoute: AnalyticsBalanceRoute,
+  AnalyticsExpensesRoute: AnalyticsExpensesRoute,
+  AnalyticsIncomeRoute: AnalyticsIncomeRoute,
+  AnalyticsOngoingRoute: AnalyticsOngoingRoute,
+  AnalyticsRevenueRoute: AnalyticsRevenueRoute,
   InvoiceIdRoute: InvoiceIdRoute,
+  AnalyticsIndexRoute: AnalyticsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

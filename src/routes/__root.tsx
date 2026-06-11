@@ -86,8 +86,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Admark Billing — Invoice Generator" },
-      { name: "description", content: "Internal billing & invoice automation for Admark." },
+      { title: "Admark Billing — Operations" },
+      { name: "description", content: "Internal operations, billing & invoice automation for Admark." },
     ],
     links: [
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
@@ -124,12 +124,25 @@ function RootShell({ children }: { children: React.ReactNode }) {
 const navLinkClass = (active: boolean, dense?: boolean) => {
   const base = dense
     ? "inline-flex w-full items-center justify-start gap-2 rounded-md px-4 py-3 text-base font-medium transition-colors"
-    : "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors";
+    : "inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors md:px-2.5 md:py-2 lg:gap-2 lg:px-3 lg:text-sm";
   const tone = active
     ? "bg-primary/15 text-primary"
     : "text-muted-foreground hover:bg-muted hover:text-foreground";
   return `${base} ${tone}`;
 };
+
+type NavLinkItem = { to: string; label: string; exact?: boolean };
+
+const MAIN_NAV_LINKS: NavLinkItem[] = [
+  { to: "/", label: "Dashboard", exact: true },
+  { to: "/analytics", label: "Analytics" },
+  { to: "/projects", label: "Projects" },
+  { to: "/partnerships", label: "Partnerships" },
+  { to: "/expenses", label: "Expenses" },
+  { to: "/invoices", label: "Invoices" },
+  { to: "/logs", label: "Logs" },
+  { to: "/settings", label: "Settings" },
+];
 
 function TopNav() {
   const router = useRouter();
@@ -155,12 +168,13 @@ function TopNav() {
 
   if (path === "/login") return null;
 
-  const isActive = (to: string) => (to === "/" ? path === "/" : path.startsWith(to));
+  const isActive = (to: string, exact?: boolean) =>
+    exact ? path === to : path === to || path.startsWith(`${to}/`);
   const homeIsExternal = /^https?:\/\//i.test(PUBLIC_HOME_URL);
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/95 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:h-16 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-4 sm:h-16 sm:gap-3 sm:px-6">
         <Link
           to="/"
           aria-label="Dashboard"
@@ -168,17 +182,17 @@ function TopNav() {
         >
           <img
             src={brandLogo}
-            alt=""
+            alt="Admark Digitals"
             className="h-9 w-auto max-h-9 object-contain sm:h-11 sm:max-h-11"
           />
         </Link>
 
-        {/* Desktop / tablet navigation */}
+        {/* Tablet / desktop navigation — visible from md (768px) up */}
         <nav
           aria-label="Main"
-          className="hidden items-center gap-1 lg:flex lg:gap-1.5"
+          className="hidden min-w-0 flex-1 items-center justify-end gap-0.5 md:flex lg:gap-1"
         >
-          {homeIsExternal ? (
+          {homeIsExternal && (
             <a
               href={PUBLIC_HOME_URL}
               rel="noopener noreferrer"
@@ -188,28 +202,12 @@ function TopNav() {
               <Home className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
               Home
             </a>
-          ) : (
-            <Link
-              to={PUBLIC_HOME_URL}
-              className={navLinkClass(isActive(PUBLIC_HOME_URL))}
-              aria-label="Home"
-            >
-              <Home className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
-              Home
-            </Link>
           )}
-          <Link to="/" className={navLinkClass(isActive("/"))}>
-            Dashboard
-          </Link>
-          <Link to="/new" className={navLinkClass(isActive("/new"))}>
-            New invoice
-          </Link>
-          <Link to="/history" className={navLinkClass(isActive("/history"))}>
-            History
-          </Link>
-          <Link to="/settings" className={navLinkClass(isActive("/settings"))}>
-            Settings
-          </Link>
+          {MAIN_NAV_LINKS.map(({ to, label, exact }) => (
+            <Link key={to} to={to} className={navLinkClass(isActive(to, exact))}>
+              {label}
+            </Link>
+          ))}
           <button
             type="button"
             onClick={handleSignOut}
@@ -217,16 +215,16 @@ function TopNav() {
             aria-label="Sign out"
           >
             <LogOut className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
-            Sign out
+            <span className="hidden lg:inline">Sign out</span>
           </button>
         </nav>
 
-        {/* Mobile menu */}
+        {/* Mobile menu — phones only (below md) */}
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
           <SheetTrigger asChild>
             <button
               type="button"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-card text-foreground shadow-sm transition-colors hover:bg-muted lg:hidden"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-card text-foreground shadow-sm transition-colors hover:bg-muted md:hidden"
               aria-expanded={menuOpen}
               aria-controls="mobile-main-nav"
               aria-label="Open menu"
@@ -241,7 +239,7 @@ function TopNav() {
               className="mt-6 flex flex-col gap-1"
               aria-label="Main mobile"
             >
-              {homeIsExternal ? (
+              {homeIsExternal && (
                 <a
                   href={PUBLIC_HOME_URL}
                   rel="noopener noreferrer"
@@ -251,44 +249,17 @@ function TopNav() {
                   <Home className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
                   Home
                 </a>
-              ) : (
+              )}
+              {MAIN_NAV_LINKS.map(({ to, label, exact }) => (
                 <Link
-                  to={PUBLIC_HOME_URL}
-                  className={navLinkClass(isActive(PUBLIC_HOME_URL), true)}
+                  key={to}
+                  to={to}
+                  className={navLinkClass(isActive(to, exact), true)}
                   onClick={() => setMenuOpen(false)}
                 >
-                  <Home className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
-                  Home
+                  {label}
                 </Link>
-              )}
-              <Link
-                to="/"
-                className={navLinkClass(isActive("/"), true)}
-                onClick={() => setMenuOpen(false)}
-              >
-                Dashboard
-              </Link>
-              <Link
-                to="/new"
-                className={navLinkClass(isActive("/new"), true)}
-                onClick={() => setMenuOpen(false)}
-              >
-                New invoice
-              </Link>
-              <Link
-                to="/history"
-                className={navLinkClass(isActive("/history"), true)}
-                onClick={() => setMenuOpen(false)}
-              >
-                History
-              </Link>
-              <Link
-                to="/settings"
-                className={navLinkClass(isActive("/settings"), true)}
-                onClick={() => setMenuOpen(false)}
-              >
-                Settings
-              </Link>
+              ))}
               <button
                 type="button"
                 className={navLinkClass(false, true)}

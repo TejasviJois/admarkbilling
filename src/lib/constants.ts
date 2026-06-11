@@ -1,8 +1,8 @@
 import type { CompanySettings } from "./types";
 
-import admarkDigitalsLogoUrl from "../assets/logo admark digitals.png?url";
+import admarkDigitalsLogoUrl from "../assets/admark-digitals-logo.png?url";
 
-/** Bundled logo (header, preview, PDF when no custom upload). Matches `src/assets/logo admark digitals.png`. */
+/** Bundled logo (header, preview, PDF when no custom upload). Matches `src/assets/admark-digitals-logo.png`. */
 export const DEFAULT_PUBLIC_LOGO_URL = admarkDigitalsLogoUrl;
 
 /** Bundled Udyam / MSME certificate (`public/admark-udyam-certificate.pdf`; source: `src/assets/ADMARK UDYAM CERTIFICATE.pdf`). */

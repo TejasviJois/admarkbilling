@@ -50,7 +50,7 @@ function LoginPage() {
     <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-md flex-col justify-center px-4 py-10">
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <img src={DEFAULT_PUBLIC_LOGO_URL} alt="" className="h-14 w-auto object-contain" />
+          <img src={DEFAULT_PUBLIC_LOGO_URL} alt="Admark Digitals" className="h-14 w-auto object-contain" />
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Sign in</h1>
             <p className="mt-1 text-sm text-muted-foreground">Admark Billing — internal access</p>
