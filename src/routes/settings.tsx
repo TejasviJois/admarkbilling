@@ -13,9 +13,12 @@ import {
 import { DEFAULT_COMPANY, DEFAULT_PUBLIC_LOGO_URL } from "@/lib/constants";
 import { companyLogoSrc } from "@/lib/company-branding";
 import { logClientError } from "@/lib/client-logger";
+import { readAndPersistFile } from "@/lib/remote-file";
 import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
 import { loadCompany, normalizeCompanySettings, saveCompany } from "@/lib/storage";
 import { getDataBackendStatus } from "@/server/invoice-fns";
+import { getBackendHealthFn } from "@/server/backend-health-fns";
+import { pushLocalDataToCloud, hasLocalDataToSync } from "@/lib/sync-to-cloud";
 import { logoutFn } from "@/server/auth-fns";
 import type { CompanyMember, CompanySettings } from "@/lib/types";
 
@@ -28,6 +31,9 @@ function SettingsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [backendLabel, setBackendLabel] = useState<string>("Checking storage…");
+  const [backendReady, setBackendReady] = useState<boolean | null>(null);
+  const [backendErrors, setBackendErrors] = useState<string[]>([]);
+  const [syncingCloud, setSyncingCloud] = useState(false);
   const latestRef = useRef<CompanySettings | null>(null);
   latestRef.current = c;
 
@@ -61,6 +67,15 @@ function SettingsPage() {
         ),
       )
       .catch(() => setBackendLabel("Storage status unknown"));
+    void getBackendHealthFn()
+      .then((health) => {
+        setBackendReady(health.ready);
+        setBackendErrors("errors" in health && health.errors ? health.errors : []);
+      })
+      .catch(() => {
+        setBackendReady(null);
+        setBackendErrors([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -102,13 +117,15 @@ function SettingsPage() {
         alert("Image too large (max 2MB)");
         return;
       }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const data = String(reader.result);
-        setC((prev) => ({ ...prev, [key]: data }));
-        setSaved(false);
-      };
-      reader.readAsDataURL(file);
+      void readAndPersistFile(file, `company/${key === "logoDataUrl" ? "logo" : "signature"}`)
+        .then(({ url }) => {
+          setC((prev) => ({ ...prev, [key]: url }));
+          setSaved(false);
+        })
+        .catch((err) => {
+          logClientError("settings.imageUpload", err);
+          alert(err instanceof Error ? err.message : "Could not upload image.");
+        });
     };
 
   const handleUdyamPdf = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,13 +141,46 @@ function SettingsPage() {
       e.target.value = "";
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setC((prev) => ({ ...prev, udyamCertificateDataUrl: String(reader.result) }));
-      setSaved(false);
-      e.target.value = "";
-    };
-    reader.readAsDataURL(file);
+    void readAndPersistFile(file, "company/udyam")
+      .then(({ url }) => {
+        setC((prev) => ({ ...prev, udyamCertificateDataUrl: url }));
+        setSaved(false);
+        e.target.value = "";
+      })
+      .catch((err) => {
+        logClientError("settings.udyamUpload", err);
+        alert(err instanceof Error ? err.message : "Could not upload PDF.");
+        e.target.value = "";
+      });
+  };
+
+  const handlePushLocalToCloud = () => {
+    if (!hasLocalDataToSync()) {
+      alert("No local browser data found to upload.");
+      return;
+    }
+    if (
+      !confirm(
+        "Upload all data saved in this browser to Supabase? This overwrites cloud copies with your local data.",
+      )
+    ) {
+      return;
+    }
+    setSyncingCloud(true);
+    void pushLocalDataToCloud()
+      .then(({ synced }) => {
+        alert(`Synced to Supabase:\n• ${synced.join("\n• ")}`);
+        return getBackendHealthFn();
+      })
+      .then((health) => {
+        setBackendReady(health.ready);
+        setBackendErrors("errors" in health && health.errors ? health.errors : []);
+      })
+      .catch((err) => {
+        logClientError("settings.syncToCloud", err);
+        alert(err instanceof Error ? err.message : "Cloud sync failed.");
+      })
+      .finally(() => setSyncingCloud(false));
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -378,9 +428,25 @@ function SettingsPage() {
             ) : (
               <Database className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
             )}
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-medium text-foreground">Data storage</p>
               <p className="mt-0.5 text-xs text-muted-foreground">{backendLabel}</p>
+              {backendLabel.includes("Supabase") && backendReady != null && (
+                <p
+                  className={`mt-1 text-xs ${backendReady ? "text-emerald-400/90" : "text-amber-400/90"}`}
+                >
+                  {backendReady
+                    ? "Backend ready — tables and file storage bucket connected."
+                    : "Backend incomplete — run supabase/admark_billing.sql in Supabase SQL editor."}
+                </p>
+              )}
+              {backendErrors.length > 0 && (
+                <ul className="mt-1 list-inside list-disc text-[11px] text-amber-400/80">
+                  {backendErrors.map((err) => (
+                    <li key={err}>{err}</li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
           <div className="rounded-lg border border-border bg-muted/10 p-4">
@@ -391,6 +457,25 @@ function SettingsPage() {
             </p>
           </div>
         </div>
+
+        {backendLabel.includes("Supabase") && (
+          <div className="mb-6 rounded-lg border border-border bg-muted/10 p-4">
+            <p className="text-sm font-medium text-foreground">Sync local data to cloud</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              If you entered data on this device before Supabase was set up, push everything from
+              this browser (operations, invoices, documents, images) to the server in one step.
+            </p>
+            <button
+              type="button"
+              disabled={syncingCloud}
+              onClick={handlePushLocalToCloud}
+              className="mt-3 inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
+            >
+              <Cloud className="h-4 w-4" />
+              {syncingCloud ? "Uploading…" : "Push local data to Supabase"}
+            </button>
+          </div>
+        )}
 
         <SettingsQuickLinks
           links={[

@@ -176,7 +176,7 @@ export function ExpensesTable({
 
   const uploadProof = useCallback(
     async (expenseId: string, file: File) => {
-      const proof = await proofFromFile(file);
+      const proof = await proofFromFile(file, `proofs/expenses/${expenseId}`);
       persist(attachExpenseProof(ops, expenseId, proof));
     },
     [ops, persist],

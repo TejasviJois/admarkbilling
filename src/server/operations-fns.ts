@@ -4,6 +4,7 @@ import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
 import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
+import { externalizeOperationsData } from "./payload-files";
 
 export const EMPTY_OPERATIONS: OperationsData = {
   projects: [],
@@ -118,9 +119,10 @@ export const saveOperationsFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await assertAppSession();
     const sb = requireServerSupabase();
+    const payload = await externalizeOperationsData(sb, data);
     const { error } = await sb.from("operations_data").upsert({
       id: "default",
-      payload: data,
+      payload,
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;

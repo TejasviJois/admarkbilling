@@ -32,7 +32,7 @@ export function ClientPaymentHistoryTable({
 
   const uploadProof = useCallback(
     async (row: IncomeRow, file: File) => {
-      const proof = await proofFromFile(file);
+      const proof = await proofFromFile(file, `proofs/projects/${row.projectId}/payments/${row.id}`);
       persist(attachProjectPaymentProof(ops, row.projectId, row.id, proof));
     },
     [ops, persist],
@@ -99,7 +99,7 @@ export function OutgoingPaymentHistoryTable({
 
   const uploadProof = useCallback(
     async (row: OutgoingPaymentRow, file: File) => {
-      const proof = await proofFromFile(file);
+      const proof = await proofFromFile(file, `proofs/expenses/${row.id}`);
       persist(attachExpenseProof(ops, row.id, proof));
     },
     [ops, persist],

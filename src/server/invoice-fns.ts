@@ -6,6 +6,7 @@ import { getSupabaseServerConfig } from "./env";
 import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
+import { externalizeCompanySettings } from "./payload-files";
 
 function parseInvoicePayload(payload: unknown): Invoice | null {
   if (!payload || typeof payload !== "object") return null;
@@ -110,9 +111,10 @@ export const saveCompanyFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await assertAppSession();
     const sb = requireServerSupabase();
+    const payload = await externalizeCompanySettings(sb, data);
     const { error } = await sb.from("company_settings").upsert({
       id: "default",
-      payload: data,
+      payload,
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;

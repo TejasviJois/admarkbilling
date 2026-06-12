@@ -56,7 +56,7 @@ export function IncomeSection({
 
   const uploadProof = useCallback(
     async (row: IncomeRow, file: File) => {
-      const proof = await proofFromFile(file);
+      const proof = await proofFromFile(file, `proofs/projects/${row.projectId}/payments/${row.id}`);
       persist(attachProjectPaymentProof(ops, row.projectId, row.id, proof));
     },
     [ops, persist],

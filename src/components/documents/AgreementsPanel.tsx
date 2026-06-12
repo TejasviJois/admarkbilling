@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import { FileText, Link2, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { fileFromUpload } from "@/components/documents/proof-ui";
+import { logClientError } from "@/lib/client-logger";
 import type { Agreement, AgreementCounterpartyType } from "@/lib/types";
 
 const MAX_FILE_BYTES = 6 * 1024 * 1024;
@@ -152,17 +154,21 @@ export function AgreementsPanel({
       alert("File too large (max 6MB).");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setForm((prev) => ({
-        ...prev,
-        fileDataUrl: String(reader.result),
-        fileName: file.name,
-        mimeType: file.type || undefined,
-        externalUrl: undefined,
-      }));
-    };
-    reader.readAsDataURL(file);
+    const agreementId = editingId ?? newAgreementId();
+    void fileFromUpload(file, `documents/agreements/${agreementId}`)
+      .then(({ fileDataUrl, fileName, mimeType }) => {
+        setForm((prev) => ({
+          ...prev,
+          fileDataUrl,
+          fileName,
+          mimeType,
+          externalUrl: undefined,
+        }));
+      })
+      .catch((err) => {
+        logClientError("agreements.fileUpload", err);
+        alert(err instanceof Error ? err.message : "Could not upload file.");
+      });
   };
 
   return (

@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { FileText, Link2, Trash2, Upload } from "lucide-react";
 import type { CompanySettings, ComplianceDocument } from "@/lib/types";
 import { udyamCertificateSrc } from "@/lib/company-branding";
+import { fileFromUpload } from "@/components/documents/proof-ui";
+import { logClientError } from "@/lib/client-logger";
 
 const MAX_FILE_BYTES = 6 * 1024 * 1024;
 const MAX_ITEMS = 25;
@@ -94,21 +96,25 @@ export function ComplianceDocumentsPanel({
       alert(`You can add up to ${MAX_ITEMS} items.`);
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      onDocumentsChange([
-        ...docs,
-        {
-          id: newComplianceId(),
-          title,
-          fileDataUrl: String(reader.result),
-          fileName: file.name,
-          mimeType: file.type || undefined,
-        },
-      ]);
-      setNewTitle("");
-    };
-    reader.readAsDataURL(file);
+    const docId = newComplianceId();
+    void fileFromUpload(file, `company/compliance/${docId}`)
+      .then(({ fileDataUrl, fileName, mimeType }) => {
+        onDocumentsChange([
+          ...docs,
+          {
+            id: docId,
+            title,
+            fileDataUrl,
+            fileName,
+            mimeType,
+          },
+        ]);
+        setNewTitle("");
+      })
+      .catch((err) => {
+        logClientError("compliance.fileUpload", err);
+        alert(err instanceof Error ? err.message : "Could not upload file.");
+      });
   };
 
   return (

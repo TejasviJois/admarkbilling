@@ -3,6 +3,7 @@ import type { Agreement, DocumentsData } from "@/lib/types";
 import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
+import { externalizeDocumentsData } from "./payload-files";
 
 export const EMPTY_DOCUMENTS: DocumentsData = { agreements: [] };
 
@@ -62,9 +63,10 @@ export const saveDocumentsFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await assertAppSession();
     const sb = requireServerSupabase();
+    const payload = await externalizeDocumentsData(sb, data);
     const { error } = await sb.from("operations_data").upsert({
       id: "documents",
-      payload: data,
+      payload,
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;

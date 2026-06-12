@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { ImagePlus } from "lucide-react";
 import { readImageAsDataUrl } from "@/lib/payment-proof";
+import { persistDataUrl, readAndPersistFile } from "@/lib/remote-file";
 
 export function ProofThumbnail({
   imageUrl,
@@ -84,7 +85,14 @@ export function proofCountLabel(proofCount: number, paymentCount: number): strin
   return `${proofCount} of ${paymentCount} with proof`;
 }
 
-export async function proofFromFile(file: File) {
+export async function proofFromFile(file: File, folder = "proofs/uploads") {
   const { dataUrl, fileName, mimeType } = await readImageAsDataUrl(file);
-  return { imageDataUrl: dataUrl, fileName, mimeType };
+  const imageDataUrl = await persistDataUrl(dataUrl, folder, fileName);
+  return { imageDataUrl, fileName, mimeType };
+}
+
+/** For non-image files (PDF agreements, compliance docs). */
+export async function fileFromUpload(file: File, folder: string) {
+  const { url, fileName, mimeType } = await readAndPersistFile(file, folder);
+  return { fileDataUrl: url, fileName, mimeType };
 }
