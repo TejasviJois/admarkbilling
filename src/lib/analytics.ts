@@ -206,6 +206,17 @@ export function periodProjectIncome(projects: Project[], period: PeriodKey): num
     .reduce((sum, row) => sum + row.amount, 0);
 }
 
+/**
+ * Money in for a period — matches cash/expense math.
+ * All time includes the reconciled financial baseline plus post-baseline project payments.
+ */
+export function periodTotalIncome(ops: OperationsData, period: PeriodKey): number {
+  if (period === "all") {
+    return computeFinancialSummary(ops).totalRevenueReceived;
+  }
+  return periodProjectIncome(ops.projects, period);
+}
+
 export function periodLoggedExpenses(ops: OperationsData, period: PeriodKey): number {
   return ops.expenses
     .filter((e) => !e.isBaseline && isWithinPeriod(e.date, period))
@@ -325,7 +336,7 @@ export type AnalyticsSnapshot = {
 
 export function buildAnalyticsSnapshot(ops: OperationsData, period: PeriodKey): AnalyticsSnapshot {
   const financial = computeFinancialSummary(ops);
-  const periodIncome = periodProjectIncome(ops.projects, period);
+  const periodIncome = periodTotalIncome(ops, period);
   const periodExpenses = periodMoneyOutTotal(ops, period);
   return {
     periodIncome,

@@ -117,9 +117,8 @@ export async function loadOperations(): Promise<OperationsData> {
 
   try {
     const remote = await getOperationsFn();
-    const before = withDefaultProjects(remote);
-    const merged = mergeWithDefaults(before);
-    void persistIfChanged(before, merged);
+    const merged = mergeWithDefaults(remote);
+    void persistIfChanged(remote, merged);
     return merged;
   } catch (e) {
     logClientError("operations-storage.loadRemote", e);

@@ -32,7 +32,7 @@ import { useInvoices } from "@/hooks/use-invoices";
 import { AnalyticsPeriodFilter } from "@/components/analytics/analytics-ui";
 import {
   periodMoneyOutTotal,
-  periodProjectIncome,
+  periodTotalIncome,
 } from "@/lib/analytics";
 import { DEFAULT_PERIOD, periodLabel, type PeriodKey } from "@/lib/date-range-filter";
 import { computeFinancialSummary, formatFinancialINR } from "@/lib/financial";
@@ -51,8 +51,8 @@ function OperationsDashboard() {
 
   const financial = useMemo(() => computeFinancialSummary(ops), [ops]);
   const periodIncome = useMemo(
-    () => periodProjectIncome(ops.projects, period),
-    [ops.projects, period],
+    () => periodTotalIncome(ops, period),
+    [ops, period],
   );
   const periodExpenses = useMemo(
     () => periodMoneyOutTotal(ops, period),
