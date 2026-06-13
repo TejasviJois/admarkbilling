@@ -1,5 +1,6 @@
 import { getDataBackendStatus } from "@/server/invoice-fns";
 import { uploadFileFn } from "@/server/storage-fns";
+import { logClientError } from "@/lib/client-logger";
 
 let backendConfigured: boolean | null = null;
 
@@ -23,8 +24,14 @@ export async function persistDataUrl(
 ): Promise<string> {
   if (!dataUrl.startsWith("data:")) return dataUrl;
   if (!(await remoteEnabled())) return dataUrl;
-  const { url } = await uploadFileFn({ data: { dataUrl, folder, fileName } });
-  return url;
+  try {
+    const { url } = await uploadFileFn({ data: { dataUrl, folder, fileName } });
+    return url;
+  } catch (e) {
+    logClientError("remote-file.upload", e);
+    // Supabase unreachable or bucket missing — keep embedded image so local save still works.
+    return dataUrl;
+  }
 }
 
 export function readFileAsDataUrl(file: File): Promise<string> {

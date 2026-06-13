@@ -84,6 +84,23 @@ function paymentsFingerprint(projects: OperationsData["projects"]): string {
   );
 }
 
+function proofCount(data: OperationsData): number {
+  let count = 0;
+  for (const project of data.projects) {
+    for (const payment of project.payments ?? []) {
+      if (payment.proof?.imageDataUrl) count += 1;
+    }
+  }
+  for (const expense of data.expenses) {
+    if (expense.proof?.imageDataUrl) count += 1;
+  }
+  return count;
+}
+
+function localHasRicherProofs(local: OperationsData, remote: OperationsData): boolean {
+  return proofCount(local) > proofCount(remote);
+}
+
 async function persistIfChanged(before: OperationsData, after: OperationsData) {
   const seededProjects =
     before.projects.length !== after.projects.length || needsProjectSeed(before.projects);
@@ -119,6 +136,14 @@ export async function loadOperations(): Promise<OperationsData> {
     const remote = await getOperationsFn();
     const merged = mergeWithDefaults(remote);
     void persistIfChanged(remote, merged);
+    if (isBrowser()) {
+      const local = loadOperationsLocal();
+      const localRaw = localStorage.getItem(OPERATIONS_KEY);
+      if (localRaw && localHasRicherProofs(local, merged)) {
+        saveOperationsLocal(local);
+        return local;
+      }
+    }
     return merged;
   } catch (e) {
     logClientError("operations-storage.loadRemote", e);
@@ -127,14 +152,11 @@ export async function loadOperations(): Promise<OperationsData> {
 }
 
 export async function saveOperations(data: OperationsData) {
-  if (!(await serverApiEnabled())) {
-    saveOperationsLocal(data);
-    return;
-  }
+  saveOperationsLocal(data);
+  if (!(await serverApiEnabled())) return;
   try {
     await saveOperationsFn({ data });
   } catch (e) {
     logClientError("operations-storage.saveRemote", e);
-    saveOperationsLocal(data);
   }
 }
