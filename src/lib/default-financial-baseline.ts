@@ -6,11 +6,12 @@ export const DEFAULT_FINANCIAL_BASELINE: FinancialBaseline = {
   asOfDate: "2026-06-11",
   /** Optional manual override; when null, derived from active project pipeline. */
   totalRevenueBooked: null,
-  totalHandoutsTaken: 121_500,
+  /** Prajwal loan — not disbursed / repaid yet; EMI tracked separately from Jul 5. */
+  totalHandoutsTaken: 0,
   totalRevenueReceived: 102_425,
-  totalExternalPayouts: 10_000,
-  totalCompanyExpenses: 20_634.36,
-  founderPayoutPool: 14_466.1,
+  totalExternalPayouts: 0,
+  totalCompanyExpenses: 0,
+  founderPayoutPool: 0,
 };
 
 export function withDefaultFinancialBaseline<T extends { financialBaseline?: FinancialBaseline }>(

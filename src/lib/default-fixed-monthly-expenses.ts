@@ -1,14 +1,14 @@
 import type { FixedMonthlyExpense } from "./types";
 
-/** Recurring monthly outflows — loan repayments, rent, subscriptions, etc. */
+/** Prajwal handout / loan — EMI starts on the 5th of next month; not counted until then. */
 export const DEFAULT_FIXED_MONTHLY_EXPENSES: FixedMonthlyExpense[] = [
   {
-    id: "fixed-loan-repayment",
-    label: "Company loan — monthly repayment",
+    id: "fixed-prajwal-loan-emi",
+    label: "Prajwal — company loan EMI",
     amountPerMonth: 20_000,
     kind: "emi",
-    startDate: "2026-07-01",
-    notes: "Outstanding handout / company loan — monthly repayment to lender until cleared.",
+    startDate: "2026-07-05",
+    notes: "Handout / loan from Prajwal — not yet paid. First EMI due 5th of next month.",
     active: true,
   },
 ];
@@ -16,6 +16,8 @@ export const DEFAULT_FIXED_MONTHLY_EXPENSES: FixedMonthlyExpense[] = [
 export function withDefaultFixedMonthlyExpenses<T extends { fixedMonthlyExpenses?: FixedMonthlyExpense[] }>(
   data: T,
 ): T {
-  if (data.fixedMonthlyExpenses && data.fixedMonthlyExpenses.length > 0) return data;
-  return { ...data, fixedMonthlyExpenses: DEFAULT_FIXED_MONTHLY_EXPENSES };
+  const existing = data.fixedMonthlyExpenses ?? [];
+  const hasPrajwal = existing.some((e) => e.id === "fixed-prajwal-loan-emi");
+  if (hasPrajwal) return data;
+  return { ...data, fixedMonthlyExpenses: [...existing, ...DEFAULT_FIXED_MONTHLY_EXPENSES] };
 }

@@ -207,9 +207,13 @@ export function periodProjectIncome(projects: Project[], period: PeriodKey): num
 }
 
 /**
- * Money in for a period — only payments with uploaded proof count as income.
+ * Money in for a period — all time uses reconciled baseline + verified post-baseline payments.
+ * Filtered periods count verified payment rows in that window only.
  */
 export function periodTotalIncome(ops: OperationsData, period: PeriodKey): number {
+  if (period === "all") {
+    return computeFinancialSummary(ops).totalRevenueReceived;
+  }
   return flattenProjectIncome(ops.projects)
     .filter((row) => row.hasProof && isWithinPeriod(row.date, period))
     .reduce((sum, row) => sum + row.amount, 0);
