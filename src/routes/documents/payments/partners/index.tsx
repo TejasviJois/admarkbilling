@@ -5,8 +5,8 @@ import { proofCountLabel } from "@/components/documents/proof-ui";
 import { SearchWithPeriodFilter } from "@/components/operations/SearchWithPeriodFilter";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
-import { isWithinPeriod, DEFAULT_PERIOD, type PeriodKey } from "@/lib/date-range-filter";
-import { summarizePartners } from "@/lib/document-ledger";
+import { DEFAULT_PERIOD, type PeriodKey } from "@/lib/date-range-filter";
+import { summarizePartners, partnerMatchesPeriod } from "@/lib/document-ledger";
 import { formatINRWhole } from "@/lib/invoice-calc";
 
 export const Route = createFileRoute("/documents/payments/partners/")({ component: DocumentsPartnersPage });
@@ -20,11 +20,11 @@ function DocumentsPartnersPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return partners.filter((p) => {
-      if (!isWithinPeriod(p.lastPaymentDate, period)) return false;
+      if (!partnerMatchesPeriod(ops, p.partnershipId, period)) return false;
       if (!q) return true;
       return p.name.toLowerCase().includes(q);
     });
-  }, [partners, search, period]);
+  }, [partners, ops, search, period]);
 
   if (loading) return <OperationsLoading />;
 

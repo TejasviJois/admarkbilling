@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { SearchWithPeriodFilter } from "@/components/operations/SearchWithPeriodFilter";
 import {
   DataTable,
   EmptyRow,
@@ -8,6 +7,7 @@ import {
   RowEdit,
   StatusPill,
 } from "@/components/operations/operations-ui";
+import { isWithinPeriod, DEFAULT_PERIOD, type PeriodKey } from "@/lib/date-range-filter";
 import {
   formatLeadPhone,
   leadStatusLabel,
@@ -15,6 +15,12 @@ import {
   sortLeads,
 } from "@/lib/lead-utils";
 import type { Lead } from "@/lib/types";
+
+function leadMatchesPeriod(lead: Lead, period: PeriodKey): boolean {
+  if (period === "all") return true;
+  if (!lead.createdAt) return true;
+  return isWithinPeriod(lead.createdAt, period);
+}
 
 export function LeadsTable({
   leads,
@@ -26,19 +32,22 @@ export function LeadsTable({
   onRemove: (id: string) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [period, setPeriod] = useState<PeriodKey>(DEFAULT_PERIOD);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const list = sortLeads(leads);
-    if (!q) return list;
-    return list.filter(
-      (l) =>
-        l.name.toLowerCase().includes(q) ||
-        l.business.toLowerCase().includes(q) ||
-        (l.phone ?? "").includes(q) ||
-        (l.notes ?? "").toLowerCase().includes(q),
-    );
-  }, [leads, search]);
+    const list = sortLeads(leads).filter((lead) => {
+      if (!leadMatchesPeriod(lead, period)) return false;
+      if (!q) return true;
+      return (
+        lead.name.toLowerCase().includes(q) ||
+        lead.business.toLowerCase().includes(q) ||
+        (lead.phone ?? "").includes(q) ||
+        (lead.notes ?? "").toLowerCase().includes(q)
+      );
+    });
+    return list;
+  }, [leads, search, period]);
 
   if (leads.length === 0) {
     return <EmptyRow message="No leads yet. Tap + to add your first lead." />;
@@ -79,21 +88,16 @@ export function LeadsTable({
 
   return (
     <div className="space-y-4">
-      <div className="relative max-w-md">
-        <Search
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden
-        />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search leads…"
-          className="pl-9"
-          aria-label="Search leads"
-        />
-      </div>
+      <SearchWithPeriodFilter
+        search={search}
+        onSearchChange={setSearch}
+        period={period}
+        onPeriodChange={setPeriod}
+        placeholder="Search leads…"
+        className="max-w-xl"
+      />
       {filtered.length === 0 ? (
-        <EmptyRow message="No leads match your search." />
+        <EmptyRow message="No leads match your search or date filter." />
       ) : (
         <DataTable
           headers={["Name", "Business", "Phone", "Status", "Notes", ""]}

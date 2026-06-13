@@ -5,8 +5,8 @@ import { proofCountLabel } from "@/components/documents/proof-ui";
 import { SearchWithPeriodFilter } from "@/components/operations/SearchWithPeriodFilter";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
-import { isWithinPeriod, DEFAULT_PERIOD, type PeriodKey } from "@/lib/date-range-filter";
-import { summarizeClients } from "@/lib/document-ledger";
+import { DEFAULT_PERIOD, type PeriodKey } from "@/lib/date-range-filter";
+import { summarizeClients, clientMatchesPeriod } from "@/lib/document-ledger";
 import { formatINRWhole } from "@/lib/invoice-calc";
 
 export const Route = createFileRoute("/documents/payments/clients/")({ component: DocumentsClientsPage });
@@ -20,11 +20,11 @@ function DocumentsClientsPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return clients.filter((c) => {
-      if (!isWithinPeriod(c.lastPaymentDate, period)) return false;
+      if (!clientMatchesPeriod(ops, c.client, period)) return false;
       if (!q) return true;
       return c.client.toLowerCase().includes(q);
     });
-  }, [clients, search, period]);
+  }, [clients, ops, search, period]);
 
   if (loading) return <OperationsLoading />;
 

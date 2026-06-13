@@ -48,7 +48,7 @@ export function SearchWithPeriodFilter({
         />
       </div>
       <Select value={period} onValueChange={(v) => onPeriodChange(v as PeriodKey)}>
-        <SelectTrigger className="h-9 w-full shrink-0 sm:w-[8.75rem]" aria-label="Time period">
+        <SelectTrigger className="h-9 w-full shrink-0 sm:w-[9.5rem]" aria-label="Time period">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

@@ -1,21 +1,35 @@
 import type { Project } from "@/lib/types";
 
-export type PeriodKey = "all" | "1mo" | "3mo" | "6mo" | "1y";
+export type PeriodKey = "all" | "1mo" | "2mo" | "4mo" | "6mo" | "1y";
 
 /** Default — show all data until the user narrows the window. */
 export const DEFAULT_PERIOD: PeriodKey = "all";
+
+const PERIOD_MONTHS: Record<Exclude<PeriodKey, "all">, number> = {
+  "1mo": 1,
+  "2mo": 2,
+  "4mo": 4,
+  "6mo": 6,
+  "1y": 12,
+};
 
 /** Month-based periods used across operations views. */
 export const PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = [
   { value: "all", label: "All time" },
   { value: "1mo", label: "1 month" },
-  { value: "3mo", label: "3 months" },
+  { value: "2mo", label: "2 months" },
+  { value: "4mo", label: "4 months" },
   { value: "6mo", label: "6 months" },
   { value: "1y", label: "12 months" },
 ];
 
 /** Analytics hub — same options as operations filters. */
 export const ANALYTICS_PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = PERIOD_OPTIONS;
+
+export function periodMonths(period: PeriodKey): number | null {
+  if (period === "all") return null;
+  return PERIOD_MONTHS[period];
+}
 
 export function periodLabel(period: PeriodKey): string {
   if (period === "all") return "All time";
@@ -40,30 +54,26 @@ export function normalizeDateString(raw: string | undefined | null): string | nu
   return toLocalISODate(new Date(parsed));
 }
 
+function subtractMonths(from: Date, months: number): Date {
+  const result = new Date(from);
+  const day = result.getDate();
+  result.setMonth(result.getMonth() - months);
+  if (result.getDate() !== day) result.setDate(0);
+  return result;
+}
+
 export function periodBounds(
   period: PeriodKey,
   asOfDate?: string,
 ): { start: string; end: string } | null {
   if (period === "all") return null;
 
+  const months = periodMonths(period);
+  if (months == null) return null;
+
   const end = normalizeDateString(asOfDate) ?? toLocalISODate();
   const endDate = new Date(`${end}T12:00:00`);
-  const startDate = new Date(endDate);
-
-  switch (period) {
-    case "1mo":
-      startDate.setMonth(startDate.getMonth() - 1);
-      break;
-    case "3mo":
-      startDate.setMonth(startDate.getMonth() - 3);
-      break;
-    case "6mo":
-      startDate.setMonth(startDate.getMonth() - 6);
-      break;
-    case "1y":
-      startDate.setFullYear(startDate.getFullYear() - 1);
-      break;
-  }
+  const startDate = subtractMonths(endDate, months);
 
   return { start: toLocalISODate(startDate), end };
 }

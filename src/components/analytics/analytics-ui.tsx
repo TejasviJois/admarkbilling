@@ -60,7 +60,7 @@ export function AnalyticsPeriodFilter({
 }) {
   return (
     <Select value={period} onValueChange={(v) => onPeriodChange(v as PeriodKey)}>
-      <SelectTrigger className={cn("h-9 w-[9rem]", className)} aria-label="Time period">
+      <SelectTrigger className={cn("h-9 w-[9.5rem]", className)} aria-label="Time period">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

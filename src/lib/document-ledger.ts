@@ -1,5 +1,6 @@
 import { flattenProjectIncome } from "./analytics";
 import { entitySlug } from "./document-slug";
+import { matchesAnyDateInPeriod, type PeriodKey } from "./date-range-filter";
 import { normalizeCategory } from "./financial";
 import { projectContractValue } from "./project-billing";
 import { resolvePaymentProof } from "./project-payments";
@@ -204,4 +205,46 @@ function outgoingRowsFromExpenses(expenses: ExpenseEntry[], partnerships: Partne
 
 export function projectsForClient(projects: Project[], clientName: string): Project[] {
   return projects.filter((p) => projectClientLabel(p) === clientName);
+}
+
+export function clientMatchesPeriod(
+  ops: OperationsData,
+  clientName: string,
+  period: PeriodKey,
+): boolean {
+  if (period === "all") return true;
+  const dates = flattenProjectIncome(ops.projects)
+    .filter((row) => row.client === clientName)
+    .map((row) => row.date);
+  return matchesAnyDateInPeriod(dates, period);
+}
+
+export function partnerMatchesPeriod(
+  ops: OperationsData,
+  partnershipId: string,
+  period: PeriodKey,
+): boolean {
+  if (period === "all") return true;
+  const dates = ops.expenses
+    .filter((e) => !e.isBaseline && isExternalPayout(e) && e.partnershipId === partnershipId)
+    .map((e) => e.date);
+  return matchesAnyDateInPeriod(dates, period);
+}
+
+export function vendorMatchesPeriod(
+  ops: OperationsData,
+  vendorLabel: string,
+  period: PeriodKey,
+): boolean {
+  if (period === "all") return true;
+  const dates = ops.expenses
+    .filter(
+      (e) =>
+        !e.isBaseline &&
+        isExternalPayout(e) &&
+        !e.partnershipId &&
+        (e.label.trim() || "Unnamed vendor") === vendorLabel,
+    )
+    .map((e) => e.date);
+  return matchesAnyDateInPeriod(dates, period);
 }
