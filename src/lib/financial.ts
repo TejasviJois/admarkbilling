@@ -3,6 +3,7 @@ import { DEFAULT_FINANCIAL_BASELINE, withDefaultFinancialBaseline } from "./defa
 import { sumPipelineBookedRevenue } from "./project-billing";
 import { sumActiveFixedMonthlyExpenses } from "./fixed-monthly-expenses";
 import type { ExpenseCategory, ExpenseEntry, FinancialBaseline, OperationsData, Project } from "./types";
+import { isVerifiedPayment } from "./project-payments";
 
 export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   "company",
@@ -84,11 +85,13 @@ export type FinancialSummary = {
   activePipelineBooked: number;
 };
 
-function sumProjectPaymentsAfter(projects: Project[], afterDate: string): number {
+function sumVerifiedProjectPaymentsAfter(projects: Project[], afterDate: string): number {
   let sum = 0;
   for (const project of projects) {
     for (const payment of project.payments ?? []) {
-      if (payment.date > afterDate) sum += payment.amount || 0;
+      if (payment.date > afterDate && isVerifiedPayment(payment, project)) {
+        sum += payment.amount || 0;
+      }
     }
   }
   return sum;
@@ -122,7 +125,7 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
   const newCompany = sumExpensesByCategory(newExpenses, "company");
   const newFounder = sumExpensesByCategory(newExpenses, "founder_payout");
   const newHandouts = sumExpensesByCategory(newExpenses, "handout");
-  const newRevenueAfterBaseline = sumProjectPaymentsAfter(ops.projects, baseline.asOfDate);
+  const newRevenueAfterBaseline = sumVerifiedProjectPaymentsAfter(ops.projects, baseline.asOfDate);
 
   const totalRevenueReceived = baseline.totalRevenueReceived + newRevenueAfterBaseline;
   const totalExternalPayouts = baseline.totalExternalPayouts + newExternal;

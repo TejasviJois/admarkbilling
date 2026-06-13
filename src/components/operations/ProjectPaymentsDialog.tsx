@@ -200,11 +200,22 @@ export function ProjectPaymentsDialog({
   };
 
   const removePayment = (id: string) => {
-    const next = syncPaymentStatusFromPayments({
-      ...project,
-      payments: payments.filter((p) => p.id !== id),
-    });
-    onUpdateProject(next);
+    const filtered = payments.filter((p) => p.id !== id);
+    const legacyProofs = (project.paymentProofs ?? []).filter((p) => p.id !== id);
+    const base =
+      filtered.length === 0
+        ? {
+            ...project,
+            payments: [] as typeof payments,
+            paymentProofs: undefined,
+            paymentStatus: undefined,
+          }
+        : {
+            ...project,
+            payments: filtered,
+            paymentProofs: legacyProofs.length ? legacyProofs : undefined,
+          };
+    onUpdateProject(syncPaymentStatusFromPayments(base));
   };
 
   return (

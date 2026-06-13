@@ -114,7 +114,13 @@ export function verifiedProjectPaymentsByMonth(
 
 export function syncPaymentStatusFromPayments(project: Project): Project {
   const payments = project.payments ?? [];
-  if (payments.length === 0) return project;
+  if (payments.length === 0) {
+    return {
+      ...project,
+      payments: [],
+      paymentStatus: undefined,
+    };
+  }
 
   const total = sumProjectPayments(payments);
   const target = parseRevenueTarget(project.revenueValue);
@@ -149,7 +155,7 @@ export function normalizeProjectPayments(project: Project): Project {
     });
   }
 
-  if (payments.length === 0 && project.paymentStatus?.trim()) {
+  if (payments.length === 0 && project.paymentStatus?.trim() && project.payments === undefined) {
     const amount = parseInrAmount(project.paymentStatus);
     if (amount != null) {
       payments.push({

@@ -22,7 +22,7 @@ import {
   type ExpenseCategory,
   type FinancialSummary,
 } from "./financial";
-import { isWithinPeriod, normalizeDateString, periodBounds, type PeriodKey } from "./date-range-filter";
+import { isWithinPeriod, periodBounds, type PeriodKey } from "./date-range-filter";
 import { proratedFixedMonthlyForPeriod } from "./fixed-monthly-expenses";
 
 export type IncomeRow = {
@@ -207,25 +207,12 @@ export function periodProjectIncome(projects: Project[], period: PeriodKey): num
 }
 
 /**
- * Money in for a period — includes reconciled baseline when its as-of date falls
- * inside the window, plus post-baseline project payments in that window.
+ * Money in for a period — only payments with uploaded proof count as income.
  */
 export function periodTotalIncome(ops: OperationsData, period: PeriodKey): number {
-  const financial = computeFinancialSummary(ops);
-  if (period === "all") return financial.totalRevenueReceived;
-
-  const { baseline } = financial;
-  const baselineInPeriod = isWithinPeriod(baseline.asOfDate, period);
-  let income = baselineInPeriod ? baseline.totalRevenueReceived : 0;
-
-  for (const row of flattenProjectIncome(ops.projects)) {
-    const d = normalizeDateString(row.date);
-    if (!d || !isWithinPeriod(d, period)) continue;
-    if (baselineInPeriod && d <= baseline.asOfDate) continue;
-    income += row.amount;
-  }
-
-  return income;
+  return flattenProjectIncome(ops.projects)
+    .filter((row) => row.hasProof && isWithinPeriod(row.date, period))
+    .reduce((sum, row) => sum + row.amount, 0);
 }
 
 export function periodLoggedExpenses(ops: OperationsData, period: PeriodKey): number {
