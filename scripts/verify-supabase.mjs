@@ -25,7 +25,7 @@ function loadEnv() {
 }
 
 const env = { ...loadEnv(), ...process.env };
-const url = env.SUPABASE_URL?.trim()?.replace(/\/$/, "");
+const url = (env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL)?.trim()?.replace(/\/$/, "");
 const key = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
 if (!url || !key) {
