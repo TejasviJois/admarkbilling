@@ -22,7 +22,7 @@ import {
   type ExpenseCategory,
   type FinancialSummary,
 } from "./financial";
-import { isWithinPeriod, periodBounds, type PeriodKey } from "./date-range-filter";
+import { isWithinPeriod, normalizeDateString, periodBounds, type PeriodKey } from "./date-range-filter";
 import { proratedFixedMonthlyForPeriod } from "./fixed-monthly-expenses";
 
 export type IncomeRow = {
@@ -207,14 +207,25 @@ export function periodProjectIncome(projects: Project[], period: PeriodKey): num
 }
 
 /**
- * Money in for a period — matches cash/expense math.
- * All time includes the reconciled financial baseline plus post-baseline project payments.
+ * Money in for a period — includes reconciled baseline when its as-of date falls
+ * inside the window, plus post-baseline project payments in that window.
  */
 export function periodTotalIncome(ops: OperationsData, period: PeriodKey): number {
-  if (period === "all") {
-    return computeFinancialSummary(ops).totalRevenueReceived;
+  const financial = computeFinancialSummary(ops);
+  if (period === "all") return financial.totalRevenueReceived;
+
+  const { baseline } = financial;
+  const baselineInPeriod = isWithinPeriod(baseline.asOfDate, period);
+  let income = baselineInPeriod ? baseline.totalRevenueReceived : 0;
+
+  for (const row of flattenProjectIncome(ops.projects)) {
+    const d = normalizeDateString(row.date);
+    if (!d || !isWithinPeriod(d, period)) continue;
+    if (baselineInPeriod && d <= baseline.asOfDate) continue;
+    income += row.amount;
   }
-  return periodProjectIncome(ops.projects, period);
+
+  return income;
 }
 
 export function periodLoggedExpenses(ops: OperationsData, period: PeriodKey): number {
@@ -224,14 +235,20 @@ export function periodLoggedExpenses(ops: OperationsData, period: PeriodKey): nu
     .reduce((sum, e) => sum + (e.amount || 0), 0);
 }
 
-/** Money out for a period — baseline totals (all time), logged expenses, and prorated retainers. */
+/** Money out for a period — baseline totals when in window, logged expenses, and prorated retainers. */
 export function periodMoneyOutTotal(ops: OperationsData, period: PeriodKey): number {
   const financial = computeFinancialSummary(ops);
   if (period === "all") return financial.totalExpense;
 
-  const logged = periodLoggedExpenses(ops, period);
-  const retainers = proratedFixedMonthlyForPeriod(ops.fixedMonthlyExpenses, period);
-  return logged + retainers;
+  const { baseline } = financial;
+  let total = 0;
+  if (isWithinPeriod(baseline.asOfDate, period)) {
+    total += baseline.totalExternalPayouts + baseline.totalCompanyExpenses + baseline.founderPayoutPool;
+  }
+
+  total += periodLoggedExpenses(ops, period);
+  total += proratedFixedMonthlyForPeriod(ops.fixedMonthlyExpenses, period);
+  return total;
 }
 
 export function buildIncomeByClientForPeriod(
