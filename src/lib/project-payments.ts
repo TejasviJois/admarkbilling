@@ -155,7 +155,7 @@ export function normalizeProjectPayments(project: Project): Project {
     });
   }
 
-  if (payments.length === 0 && project.paymentStatus?.trim() && project.payments === undefined) {
+  if (payments.length === 0 && project.paymentStatus?.trim()) {
     const amount = parseInrAmount(project.paymentStatus);
     if (amount != null) {
       payments.push({

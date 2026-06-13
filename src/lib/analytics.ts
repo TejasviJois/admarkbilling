@@ -127,6 +127,17 @@ export function buildIncomeByClient(projects: Project[]): CategoryAmountRow[] {
 }
 
 export function buildIncomeSourceBreakdown(financial: FinancialSummary): CategoryAmountRow[] {
+  if (financial.verifiedPaymentTotal > 0) {
+    return [
+      {
+        key: "verified-payments",
+        label: "Verified project payments",
+        amount: financial.totalRevenueReceived,
+        hint: "Income with uploaded proof",
+      },
+    ];
+  }
+
   const rows: CategoryAmountRow[] = [
     {
       key: "baseline",
@@ -207,8 +218,7 @@ export function periodProjectIncome(projects: Project[], period: PeriodKey): num
 }
 
 /**
- * Money in for a period — all time uses reconciled baseline + verified post-baseline payments.
- * Filtered periods count verified payment rows in that window only.
+ * Money in for a period — only payments with uploaded proof count as income.
  */
 export function periodTotalIncome(ops: OperationsData, period: PeriodKey): number {
   if (period === "all") {

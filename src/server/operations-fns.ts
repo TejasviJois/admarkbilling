@@ -5,6 +5,7 @@ import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
 import { externalizeOperationsData } from "./payload-files";
+import { relinkOrphanedPaymentProofs } from "./relink-payment-proofs";
 
 export const EMPTY_OPERATIONS: OperationsData = {
   projects: [],
@@ -109,7 +110,25 @@ export const getOperationsFn = createServerFn({ method: "GET" }).handler(
         .maybeSingle();
       if (error) throw error;
       if (!data?.payload) return EMPTY_OPERATIONS;
-      return parseOperationsPayload(data.payload);
+
+      let ops = parseOperationsPayload(data.payload);
+      try {
+        const relinked = await relinkOrphanedPaymentProofs(sb, ops);
+        if (relinked.changed) {
+          const payload = await externalizeOperationsData(sb, relinked.data);
+          const { error: saveError } = await sb.from("operations_data").upsert({
+            id: "default",
+            payload,
+            updated_at: new Date().toISOString(),
+          });
+          if (saveError) throw saveError;
+          ops = relinked.data;
+        }
+      } catch (relinkError) {
+        console.error("[operations] payment proof relink failed:", relinkError);
+      }
+
+      return ops;
     });
   },
 );

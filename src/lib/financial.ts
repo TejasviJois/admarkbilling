@@ -3,7 +3,7 @@ import { DEFAULT_FINANCIAL_BASELINE, withDefaultFinancialBaseline } from "./defa
 import { sumPipelineBookedRevenue } from "./project-billing";
 import { sumActiveFixedMonthlyExpenses } from "./fixed-monthly-expenses";
 import type { ExpenseCategory, ExpenseEntry, FinancialBaseline, OperationsData, Project } from "./types";
-import { isVerifiedPayment } from "./project-payments";
+import { isVerifiedPayment, sumVerifiedProjectPayments } from "./project-payments";
 
 export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   "company",
@@ -79,6 +79,8 @@ export type FinancialSummary = {
   currentCashBalance: number;
   newExpenseCount: number;
   newRevenueAfterBaseline: number;
+  /** Sum of project payments with uploaded proof — ledger source when > 0. */
+  verifiedPaymentTotal: number;
   /** Sum of active fixed monthly obligations (loan repayment, rent, …). */
   totalMonthlyFixedExpenses: number;
   /** Confirmed + ongoing + done — full contract value in pipeline. */
@@ -125,9 +127,17 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
   const newCompany = sumExpensesByCategory(newExpenses, "company");
   const newFounder = sumExpensesByCategory(newExpenses, "founder_payout");
   const newHandouts = sumExpensesByCategory(newExpenses, "handout");
-  const newRevenueAfterBaseline = sumVerifiedProjectPaymentsAfter(ops.projects, baseline.asOfDate);
+  const verifiedPaymentTotal = sumVerifiedProjectPayments(ops.projects);
+  const verifiedAfterBaseline = sumVerifiedProjectPaymentsAfter(ops.projects, baseline.asOfDate);
 
-  const totalRevenueReceived = baseline.totalRevenueReceived + newRevenueAfterBaseline;
+  // Proof-backed payment rows are the income ledger. The baseline aggregate is only a fallback
+  // when no verified payments exist — otherwise baseline + verified double-counts the same money.
+  const totalRevenueReceived =
+    verifiedPaymentTotal > 0 ? verifiedPaymentTotal : baseline.totalRevenueReceived;
+  const newRevenueAfterBaseline =
+    verifiedPaymentTotal > 0
+      ? Math.max(0, verifiedPaymentTotal - baseline.totalRevenueReceived)
+      : verifiedAfterBaseline;
   const totalExternalPayouts = baseline.totalExternalPayouts + newExternal;
   const totalCompanyExpenses = baseline.totalCompanyExpenses + newCompany;
   const founderPayoutPool = baseline.founderPayoutPool + newFounder;
@@ -153,6 +163,7 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
     currentCashBalance,
     newExpenseCount: newExpenses.length,
     newRevenueAfterBaseline,
+    verifiedPaymentTotal,
     totalMonthlyFixedExpenses,
     activePipelineBooked,
   };

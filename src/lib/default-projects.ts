@@ -106,6 +106,30 @@ export const DEFAULT_PROJECTS: Project[] = [
 ];
 
 export function withDefaultProjects<T extends { projects: Project[] }>(data: T): T {
-  if (data.projects.length > 0) return data;
-  return { ...data, projects: DEFAULT_PROJECTS };
+  if (data.projects.length === 0) {
+    return { ...data, projects: DEFAULT_PROJECTS };
+  }
+
+  const defaultsById = new Map(DEFAULT_PROJECTS.map((project) => [project.id, project]));
+  const savedIds = new Set(data.projects.map((project) => project.id));
+
+  const merged = data.projects.map((project) => {
+    const defaults = defaultsById.get(project.id);
+    if (!defaults) return project;
+
+    return {
+      ...project,
+      client: project.client || defaults.client,
+      name: project.name || defaults.name,
+      projectType: project.projectType ?? defaults.projectType,
+      status: project.status ?? defaults.status,
+      revenueValue: project.revenueValue ?? defaults.revenueValue,
+      paymentStatus: project.paymentStatus ?? defaults.paymentStatus,
+      billing: project.billing ?? defaults.billing,
+    };
+  });
+
+  const missing = DEFAULT_PROJECTS.filter((project) => !savedIds.has(project.id));
+
+  return { ...data, projects: [...merged, ...missing] };
 }
