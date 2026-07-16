@@ -30,7 +30,7 @@ function FoundersLedgerPage() {
         .filter((t) => t.type === "founder_investment")
         .reduce((sum, t) => sum + t.amount, 0);
       const totalWithdrawals = history
-        .filter((t) => t.type === "founder_withdrawal")
+        .filter((t) => t.type === "founder_withdrawal" && t.category !== "Salary")
         .reduce((sum, t) => sum + t.amount, 0);
       const currentBalance = totalInvestment - totalWithdrawals;
 

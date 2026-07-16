@@ -196,7 +196,6 @@ export function TransactionFormDialog({
                 else if (v === "internal_transfer") defaultCat = "Transfer";
                 setForm((f) => ({ ...f, type: v as TransactionType, category: defaultCat }));
               }}
-              disabled={isEdit}
             >
               <SelectTrigger id="tx-type">
                 <SelectValue />
