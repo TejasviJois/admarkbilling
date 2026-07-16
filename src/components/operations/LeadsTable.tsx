@@ -39,9 +39,11 @@ export function LeadsTable({
     const list = sortLeads(leads).filter((lead) => {
       if (!leadMatchesPeriod(lead, period)) return false;
       if (!q) return true;
+      const cName = lead.contactPerson || lead.name || "";
+      const bName = lead.company || lead.business || "";
       return (
-        lead.name.toLowerCase().includes(q) ||
-        lead.business.toLowerCase().includes(q) ||
+        cName.toLowerCase().includes(q) ||
+        bName.toLowerCase().includes(q) ||
         (lead.phone ?? "").includes(q) ||
         (lead.notes ?? "").toLowerCase().includes(q)
       );
@@ -57,9 +59,9 @@ export function LeadsTable({
     const tel = leadTelHref(lead.phone);
     return [
       <span key={`name-${lead.id}`} className="font-medium">
-        {lead.name}
+        {lead.contactPerson || lead.name || "—"}
       </span>,
-      lead.business,
+      lead.company || lead.business || "—",
       tel ? (
         <a key={`phone-${lead.id}`} href={tel} className="tabular-nums text-primary hover:underline">
           {formatLeadPhone(lead.phone)}

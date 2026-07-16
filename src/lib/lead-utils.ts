@@ -1,12 +1,22 @@
 import type { Lead, LeadStatus } from "@/lib/types";
 
-export const LEAD_STATUSES: LeadStatus[] = ["new", "contacted", "qualified", "won", "lost"];
+export const LEAD_STATUSES: LeadStatus[] = [
+  "new_lead",
+  "contacted",
+  "meeting_scheduled",
+  "proposal_sent",
+  "negotiation",
+  "won",
+  "lost",
+];
 
 export function leadStatusLabel(status: LeadStatus): string {
   const labels: Record<LeadStatus, string> = {
-    new: "New",
+    new_lead: "New Lead",
     contacted: "Contacted",
-    qualified: "Qualified",
+    meeting_scheduled: "Meeting Scheduled",
+    proposal_sent: "Proposal Sent",
+    negotiation: "Negotiation",
     won: "Won",
     lost: "Lost",
   };
@@ -30,5 +40,7 @@ export function leadTelHref(phone: string | undefined): string | undefined {
 }
 
 export function sortLeads(leads: Lead[]): Lead[] {
-  return [...leads].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  return [...leads].sort((a, b) =>
+    (a.company || a.name || "").localeCompare(b.company || b.name || "", undefined, { sensitivity: "base" })
+  );
 }

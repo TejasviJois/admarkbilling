@@ -35,11 +35,11 @@ export const EXPENSE_CATEGORY_SHORT_LABELS: Record<ExpenseCategory, string> = {
 };
 
 /** Categories that reduce cash balance (excludes handouts). */
-export const MONEY_OUT_CATEGORIES: ExpenseCategory[] = [
+export const MONEY_OUT_CATEGORIES = [
   "company",
   "founder_payout",
   "external_payout",
-];
+] as const;
 
 export type MoneyOutCategoryRow = {
   category: ExpenseCategory;

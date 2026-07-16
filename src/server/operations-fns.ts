@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { Client, FinancialBaseline, FixedMonthlyExpense, Lead, OperationsData, Payment, Transaction, Founder, TransactionType, Milestone, Project, ProjectStatus } from "@/lib/types";
+import type { Client, FinancialBaseline, FixedMonthlyExpense, Lead, LeadStatus, OperationsData, Payment, Transaction, Founder, TransactionType, Milestone, Project, ProjectStatus } from "@/lib/types";
 import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
 import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
@@ -56,24 +56,44 @@ function parseFixedMonthlyExpense(raw: unknown): FixedMonthlyExpense | null {
 function parseLead(raw: unknown): Lead | null {
   if (!raw || typeof raw !== "object") return null;
   const l = raw as Partial<Lead>;
-  if (typeof l.id !== "string" || typeof l.name !== "string" || typeof l.business !== "string") {
-    return null;
+  if (typeof l.id !== "string") return null;
+  
+  // Legacy fallback mapping
+  const company = l.company ? l.company : (l.business || "General Inquiries");
+  const contactPerson = l.contactPerson ? l.contactPerson : l.name;
+
+  let status: LeadStatus = "new_lead";
+  const rawStatus = String(l.status);
+  if (rawStatus === "new" || rawStatus === "new_lead") status = "new_lead";
+  else if (rawStatus === "qualified") status = "proposal_sent";
+  else if (
+    rawStatus === "contacted" ||
+    rawStatus === "meeting_scheduled" ||
+    rawStatus === "proposal_sent" ||
+    rawStatus === "negotiation" ||
+    rawStatus === "won" ||
+    rawStatus === "lost"
+  ) {
+    status = rawStatus as LeadStatus;
   }
-  const status =
-    l.status === "contacted" ||
-    l.status === "qualified" ||
-    l.status === "won" ||
-    l.status === "lost"
-      ? l.status
-      : "new";
+
   return {
     id: l.id,
+    organizationId: l.organizationId ?? DEFAULT_ORG_ID,
     name: l.name,
     business: l.business,
-    phone: typeof l.phone === "string" ? l.phone : undefined,
-    notes: typeof l.notes === "string" ? l.notes : undefined,
+    company,
+    contactPerson,
+    email: l.email,
+    phone: l.phone,
+    notes: l.notes,
     status,
-    createdAt: typeof l.createdAt === "string" ? l.createdAt : undefined,
+    source: l.source ?? "organic",
+    expectedRevenue: typeof l.expectedRevenue === "number" ? l.expectedRevenue : undefined,
+    probability: typeof l.probability === "number" ? l.probability : undefined,
+    expectedClosingDate: l.expectedClosingDate,
+    assignedSalesperson: l.assignedSalesperson,
+    createdAt: l.createdAt ?? new Date().toISOString().slice(0, 10),
   };
 }
 

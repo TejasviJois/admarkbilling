@@ -154,17 +154,32 @@ export interface Partnership {
   notes?: string;
 }
 
-export type LeadStatus = "new" | "contacted" | "qualified" | "won" | "lost";
+export type LeadStatus =
+  | "new_lead"
+  | "contacted"
+  | "meeting_scheduled"
+  | "proposal_sent"
+  | "negotiation"
+  | "won"
+  | "lost";
 
-/** Sales / outreach lead — name, business line, optional phone. */
+/** Sales / CRM lead / deal pipeline entry */
 export interface Lead {
   id: string;
   organizationId?: string;
-  name: string;
-  business: string;
+  name?: string;
+  business?: string;
+  company: string;
+  contactPerson?: string;
+  email?: string;
   phone?: string;
   notes?: string;
   status: LeadStatus;
+  source?: string;
+  expectedRevenue?: number;
+  probability?: number;
+  expectedClosingDate?: string;
+  assignedSalesperson?: string;
   createdAt?: string;
 }
 

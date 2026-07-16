@@ -12,14 +12,13 @@ import {
   resolvePaymentProof,
   sumProjectPayments,
 } from "./project-payments";
-import type { OperationsData, Payment, Project, ProjectPayment } from "./types";
+import type { OperationsData, Payment, Project, ProjectPayment, ExpenseCategory } from "./types";
 import {
   buildMoneyOutRows,
   computeFinancialSummary,
   EXPENSE_CATEGORY_DESCRIPTIONS,
   EXPENSE_CATEGORY_SHORT_LABELS,
   normalizeCategory,
-  type ExpenseCategory,
   type FinancialSummary,
 } from "./financial";
 import { isWithinPeriod, periodBounds, type PeriodKey } from "./date-range-filter";
@@ -295,7 +294,7 @@ export function buildMoneyOutForPeriod(ops: OperationsData, period: PeriodKey): 
 
   const rows = [...totals.entries()]
     .map(([category, amount]) => ({
-      key: category,
+      key: category as string,
       label: EXPENSE_CATEGORY_SHORT_LABELS[category],
       amount,
       hint: EXPENSE_CATEGORY_DESCRIPTIONS[category],

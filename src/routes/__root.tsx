@@ -10,7 +10,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { Home, LogOut, Menu } from "lucide-react";
+import { LogOut, Menu, Bell, Shield } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import {
@@ -19,7 +19,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { DEFAULT_PUBLIC_LOGO_URL, PUBLIC_HOME_URL } from "@/lib/constants";
+import { PUBLIC_HOME_URL } from "@/lib/constants";
 import { logClientError } from "@/lib/client-logger";
 import { companyLogoSrc } from "@/lib/company-branding";
 import { getAuthStatusCached, clearAuthStatusCache } from "@/lib/auth-status-cache";
@@ -125,12 +125,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-const navLinkClass = (active: boolean, dense?: boolean) => {
-  const base = dense
-    ? "inline-flex w-full items-center justify-start gap-2 rounded-md px-4 py-3 text-base font-medium transition-colors"
-    : "inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors md:px-2.5 md:py-2 lg:gap-2 lg:px-3 lg:text-sm";
+const navLinkClass = (active: boolean) => {
+  const base = "flex w-full items-center justify-start gap-2.5 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200";
   const tone = active
-    ? "bg-primary/15 text-primary"
+    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
     : "text-muted-foreground hover:bg-muted hover:text-foreground";
   return `${base} ${tone}`;
 };
@@ -154,144 +152,25 @@ const MAIN_NAV_LINKS: NavLinkItem[] = [
   { to: "/settings", label: "Settings" },
 ];
 
-function TopNav() {
-  const router = useRouter();
-  const path = useRouterState({ select: (s) => s.location.pathname });
-  const { company } = useCompany();
-  const brandLogo = companyLogoSrc(company);
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const handleSignOut = () => {
-    void logoutFn()
-      .then(() => {
-        clearAuthStatusCache();
-        return router.navigate({ to: "/login", replace: true, search: { redirect: undefined } });
-      })
-      .catch((e) => logClientError("topNav.signOut", e));
-  };
-
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [path]);
-
-  if (path === "/login") return null;
-
-  const isActive = (to: string, exact?: boolean) =>
-    exact ? path === to : path === to || path.startsWith(`${to}/`);
-  const homeIsExternal = /^https?:\/\//i.test(PUBLIC_HOME_URL);
-
+function RootComponent() {
+  const { queryClient } = Route.useRouteContext();
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-background/95 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-4 sm:h-16 sm:gap-3 sm:px-6">
-        <Link
-          to="/"
-          aria-label="Dashboard"
-          className="flex min-w-0 shrink-0 items-center rounded-sm py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          <img
-            src={brandLogo}
-            alt="Admark Digitals"
-            className="h-10 w-auto max-h-10 object-contain sm:h-12 sm:max-h-12"
-          />
-        </Link>
-
-        {/* Tablet / desktop navigation — visible from md (768px) up */}
-        <nav
-          aria-label="Main"
-          className="hidden min-w-0 flex-1 items-center justify-end gap-0.5 md:flex lg:gap-1"
-        >
-          {homeIsExternal && (
-            <a
-              href={PUBLIC_HOME_URL}
-              rel="noopener noreferrer"
-              className={navLinkClass(false)}
-              aria-label="Home (external site)"
-            >
-              <Home className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
-              Home
-            </a>
-          )}
-          {MAIN_NAV_LINKS.map(({ to, label, exact }) => (
-            <Link key={to} to={to} preload="intent" className={navLinkClass(isActive(to, exact))}>
-              {label}
-            </Link>
-          ))}
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className={navLinkClass(false)}
-            aria-label="Sign out"
-          >
-            <LogOut className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
-            <span className="hidden lg:inline">Sign out</span>
-          </button>
-        </nav>
-
-        {/* Mobile menu — phones only (below md) */}
-        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-          <SheetTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-card text-foreground shadow-sm transition-colors hover:bg-muted md:hidden"
-              aria-expanded={menuOpen}
-              aria-controls="mobile-main-nav"
-              aria-label="Open menu"
-            >
-              <Menu className="h-5 w-5" strokeWidth={2} />
-            </button>
-          </SheetTrigger>
-          <SheetContent side="right" className="flex w-full max-w-[min(100vw,20rem)] flex-col sm:max-w-sm">
-            <SheetTitle className="sr-only">Main navigation</SheetTitle>
-            <nav
-              id="mobile-main-nav"
-              className="mt-6 flex flex-col gap-1"
-              aria-label="Main mobile"
-            >
-              {homeIsExternal && (
-                <a
-                  href={PUBLIC_HOME_URL}
-                  rel="noopener noreferrer"
-                  className={navLinkClass(false, true)}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <Home className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
-                  Home
-                </a>
-              )}
-              {MAIN_NAV_LINKS.map(({ to, label, exact }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  preload="intent"
-                  className={navLinkClass(isActive(to, exact), true)}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  {label}
-                </Link>
-              ))}
-              <button
-                type="button"
-                className={navLinkClass(false, true)}
-                onClick={() => {
-                  setMenuOpen(false);
-                  handleSignOut();
-                }}
-              >
-                <LogOut className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
-                Sign out
-              </button>
-            </nav>
-          </SheetContent>
-        </Sheet>
-      </div>
-    </header>
+    <QueryClientProvider client={queryClient}>
+      <AppShell />
+    </QueryClientProvider>
   );
 }
 
-function RootComponent() {
-  const { queryClient } = Route.useRouteContext();
-  const [serverDb, setServerDb] = useState<boolean | null>(null);
+function AppShell() {
+  const router = useRouter();
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const [serverDb, setServerDb] = useState<boolean | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Safely call useCompany inside AppShell now since it is wrapped in QueryClientProvider context!
+  const { company } = useCompany();
+  const brandLogo = companyLogoSrc(company);
+
   const isLogin = path === "/login";
 
   useEffect(() => {
@@ -300,37 +179,181 @@ function RootComponent() {
       .catch(() => setServerDb(false));
   }, []);
 
-  return (
-    <QueryClientProvider client={queryClient}>
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [path]);
+
+  const handleSignOut = () => {
+    void logoutFn()
+      .then(() => {
+        clearAuthStatusCache();
+        return router.navigate({ to: "/login", replace: true, search: { redirect: undefined } });
+      })
+      .catch((e) => logClientError("appShell.signOut", e));
+  };
+
+  const isActive = (to: string, exact?: boolean) =>
+    exact ? path === to : path === to || path.startsWith(`${to}/`);
+
+  if (isLogin) {
+    return (
       <div className="min-h-screen bg-background text-foreground">
-        {!isLogin && <TopNav />}
-        {!isLogin && serverDb === false && (
-          <div className="border-b border-amber-500/25 bg-amber-950/35 px-4 py-2.5 text-center text-xs text-amber-100 sm:px-6">
-            Server database is not configured — data stays in this browser only. Set{" "}
-            <code className="rounded bg-amber-500/15 px-1 font-mono text-amber-50">SUPABASE_URL</code>{" "}
-            and{" "}
-            <code className="rounded bg-amber-500/15 px-1 font-mono text-amber-50">
-              SUPABASE_SERVICE_ROLE_KEY
-            </code>{" "}
-            in{" "}
-            <code className="rounded bg-amber-500/15 px-1 font-mono text-amber-50">.env</code>, restart{" "}
-            <code className="rounded bg-amber-500/15 px-1 font-mono text-amber-50">npm run dev</code>, then run{" "}
-            <code className="rounded bg-amber-500/15 px-1 font-mono text-amber-50">
-              supabase/admark_billing.sql
-            </code>{" "}
-            in the Supabase SQL editor.
-          </div>
-        )}
-        <main
-          className={
-            isLogin
-              ? "mx-auto min-h-[calc(100dvh-0px)] max-w-none"
-              : "mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8"
-          }
-        >
+        <main className="mx-auto min-h-screen max-w-none">
           <Outlet />
         </main>
       </div>
-    </QueryClientProvider>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen bg-background text-foreground">
+      
+      {/* Desktop Sidebar: Visible on md and larger */}
+      <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card shrink-0 sticky top-0 h-screen">
+        <div className="flex h-16 items-center border-b border-border px-6">
+          <Link to="/" className="flex items-center shrink-0">
+            <img
+              src={brandLogo}
+              alt="Admark Digitals Logo"
+              className="h-10 w-auto max-h-10 object-contain"
+            />
+          </Link>
+        </div>
+        
+        <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1.5" aria-label="Sidebar main navigation">
+          {MAIN_NAV_LINKS.map(({ to, label, exact }) => (
+            <Link
+              key={to}
+              to={to}
+              preload="intent"
+              className={navLinkClass(isActive(to, exact))}
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+      </aside>
+
+      {/* Right Area: Header, Warnings, and Main Content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        
+        {/* Header Bar */}
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          
+          {/* Left: Mobile branding (hidden on desktop) */}
+          <div className="flex items-center gap-3 md:hidden">
+            <Link to="/" className="flex items-center shrink-0">
+              <img
+                src={brandLogo}
+                alt="Admark Digitals Logo"
+                className="h-9 w-auto object-contain"
+              />
+            </Link>
+          </div>
+
+          {/* Left: Desktop label placeholder (hidden on mobile) */}
+          <div className="hidden md:block">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest bg-muted/60 px-2.5 py-1 rounded">
+              Admark Operating System
+            </span>
+          </div>
+
+          {/* Right: Notifications, Logout, Mobile Hamburger Menu */}
+          <div className="flex items-center gap-3">
+            {/* Notification icon with dummy trigger */}
+            <button
+              type="button"
+              className="relative p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Notifications"
+            >
+              <Bell className="h-5 w-5" />
+              <span className="absolute top-1.5 right-1.5 block h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-background" />
+            </button>
+
+            {/* Mobile menu sheet trigger (visible below md) */}
+            <div className="md:hidden">
+              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-sm transition-colors hover:bg-muted"
+                    aria-expanded={mobileMenuOpen}
+                    aria-label="Open sidebar menu"
+                  >
+                    <Menu className="h-5 w-5" strokeWidth={2} />
+                  </button>
+                </SheetTrigger>
+                <SheetContent side="left" className="flex w-full max-w-[min(100vw,20rem)] flex-col sm:max-w-sm">
+                  <SheetTitle className="text-left font-bold text-foreground border-b border-border pb-3 flex items-center gap-2">
+                    Navigation Menu
+                  </SheetTitle>
+                  <nav className="mt-4 flex flex-col gap-1 overflow-y-auto flex-1">
+                    {MAIN_NAV_LINKS.map(({ to, label, exact }) => (
+                      <Link
+                        key={to}
+                        to={to}
+                        preload="intent"
+                        className={navLinkClass(isActive(to, exact))}
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        {label}
+                      </Link>
+                    ))}
+                  </nav>
+                  <div className="border-t border-border pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        handleSignOut();
+                      }}
+                      className="inline-flex w-full items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-500/10 transition-colors"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>Sign out</span>
+                    </button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+
+            {/* Signout Button (Desktop only) */}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="hidden md:inline-flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-xs font-bold hover:bg-muted text-foreground transition-all duration-200"
+              aria-label="Sign out"
+            >
+              <LogOut className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+              <span>Sign out</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Warning Banner */}
+        {serverDb === false && (
+          <div className="border-b border-amber-500/25 bg-amber-950/35 px-6 py-3 text-center text-xs text-amber-100 flex items-center justify-center gap-2">
+            <Shield className="h-4 w-4 text-amber-500 shrink-0" />
+            <span>
+              Server database is not configured — data stays in this browser only. Set{" "}
+              <code className="rounded bg-amber-500/15 px-1 font-mono text-amber-50">SUPABASE_URL</code>{" "}
+              and{" "}
+              <code className="rounded bg-amber-500/15 px-1 font-mono text-amber-50">
+                SUPABASE_SERVICE_ROLE_KEY
+              </code>{" "}
+              in <code className="rounded bg-amber-500/15 px-1 font-mono text-amber-50">.env</code>.
+            </span>
+          </div>
+        )}
+
+        {/* Main Outlet */}
+        <main className="flex-1 overflow-y-auto px-6 py-8">
+          <div className="max-w-6xl mx-auto">
+            <Outlet />
+          </div>
+        </main>
+        
+      </div>
+    </div>
   );
 }
