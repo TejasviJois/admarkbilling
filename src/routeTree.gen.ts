@@ -13,6 +13,7 @@ import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as PartnershipsRouteImport } from './routes/partnerships'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as NewRouteImport } from './routes/new'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as LoginRouteImport } from './routes/login'
@@ -66,6 +67,11 @@ const ProjectsRoute = ProjectsRouteImport.update({
 const PartnershipsRoute = PartnershipsRouteImport.update({
   id: '/partnerships',
   path: '/partnerships',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NewRoute = NewRouteImport.update({
@@ -257,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
+  '/notifications': typeof NotificationsRoute
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/settings': typeof SettingsRoute
@@ -295,6 +302,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
+  '/notifications': typeof NotificationsRoute
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/settings': typeof SettingsRoute
@@ -336,6 +344,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
+  '/notifications': typeof NotificationsRoute
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/settings': typeof SettingsRoute
@@ -378,6 +387,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/logs'
     | '/new'
+    | '/notifications'
     | '/partnerships'
     | '/projects'
     | '/settings'
@@ -416,6 +426,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/logs'
     | '/new'
+    | '/notifications'
     | '/partnerships'
     | '/projects'
     | '/settings'
@@ -456,6 +467,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/logs'
     | '/new'
+    | '/notifications'
     | '/partnerships'
     | '/projects'
     | '/settings'
@@ -497,6 +509,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   LogsRoute: typeof LogsRoute
   NewRoute: typeof NewRoute
+  NotificationsRoute: typeof NotificationsRoute
   PartnershipsRoute: typeof PartnershipsRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   SettingsRoute: typeof SettingsRoute
@@ -549,6 +562,13 @@ declare module '@tanstack/react-router' {
       path: '/partnerships'
       fullPath: '/partnerships'
       preLoaderRoute: typeof PartnershipsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/new': {
@@ -843,6 +863,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   LogsRoute: LogsRoute,
   NewRoute: NewRoute,
+  NotificationsRoute: NotificationsRoute,
   PartnershipsRoute: PartnershipsRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   SettingsRoute: SettingsRoute,

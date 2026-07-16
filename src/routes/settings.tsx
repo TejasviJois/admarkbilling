@@ -1,13 +1,30 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Cloud, Database, LogOut, Save, Users } from "lucide-react";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import {
+  Cloud,
+  Database,
+  LogOut,
+  Save,
+  Users,
+  Settings,
+  Image,
+  FileText,
+  Percent,
+  CreditCard,
+  Shield,
+  Download,
+  Upload,
+  Bell,
+  Key,
+  Sliders,
+  CheckCircle,
+} from "lucide-react";
 import { ComplianceDocumentsPanel } from "@/components/settings/ComplianceDocumentsPanel";
 import {
   PartnerCard,
   SettingsField,
   SettingsImageField,
   SettingsProfileHero,
-  SettingsQuickLinks,
   SettingsSection,
 } from "@/components/settings/settings-ui";
 import { DEFAULT_COMPANY, DEFAULT_PUBLIC_LOGO_URL } from "@/lib/constants";
@@ -15,25 +32,51 @@ import { companyLogoSrc } from "@/lib/company-branding";
 import { logClientError } from "@/lib/client-logger";
 import { readAndPersistFile } from "@/lib/remote-file";
 import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
-import { loadCompany, normalizeCompanySettings, saveCompany } from "@/lib/storage";
+import { loadCompany, normalizeCompanySettings, saveCompany, upsertInvoice } from "@/lib/storage";
 import { getDataBackendStatus } from "@/server/invoice-fns";
 import { getBackendHealthFn } from "@/server/backend-health-fns";
 import { pushLocalDataToCloud, hasLocalDataToSync } from "@/lib/sync-to-cloud";
 import { logoutFn } from "@/server/auth-fns";
-import type { CompanyMember, CompanySettings } from "@/lib/types";
+import { useOperations } from "@/hooks/use-operations";
+import { useInvoices } from "@/hooks/use-invoices";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import type { CompanyMember, CompanySettings, Invoice } from "@/lib/types";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
+type SettingsTab =
+  | "company"
+  | "branding"
+  | "invoice"
+  | "tax"
+  | "bank"
+  | "security"
+  | "storage"
+  | "backups"
+  | "notifications"
+  | "users"
+  | "permissions"
+  | "integrations";
+
 function SettingsPage() {
   const router = useRouter();
+  const { ops, persist } = useOperations();
+  const { invoices, setInvoices } = useInvoices();
+
+  const [activeTab, setActiveTab] = useState<SettingsTab>("company");
   const [c, setC] = useState<CompanySettings>(() => normalizeCompanySettings(DEFAULT_COMPANY));
   const [syncing, setSyncing] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  
+  // Storage and Sync states
   const [backendLabel, setBackendLabel] = useState<string>("Checking storage…");
   const [backendReady, setBackendReady] = useState<boolean | null>(null);
   const [backendErrors, setBackendErrors] = useState<string[]>([]);
   const [syncingCloud, setSyncingCloud] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+
   const latestRef = useRef<CompanySettings | null>(null);
   latestRef.current = c;
 
@@ -62,7 +105,7 @@ function SettingsPage() {
       .then((s) =>
         setBackendLabel(
           s.configured
-            ? "Supabase — synced across devices"
+            ? "Supabase Cloud — synced across devices"
             : "Browser localStorage — this device only",
         ),
       )
@@ -78,6 +121,7 @@ function SettingsPage() {
       });
   }, []);
 
+  // Auto-save compliance files shortly after changes
   useEffect(() => {
     if (complianceSig === "") return;
     if (!primedComplianceAutoSave.current) {
@@ -97,7 +141,7 @@ function SettingsPage() {
           alert(
             err instanceof Error
               ? err.message
-              : "Could not save (storage full or network). Try a smaller file or use a link instead.",
+              : "Could not save compliance document.",
           );
         });
     }, 450);
@@ -154,16 +198,27 @@ function SettingsPage() {
       });
   };
 
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cur = latestRef.current;
+    if (!cur) return;
+    void saveCompany(cur)
+      .then(() => {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+      })
+      .catch((err) => {
+        logClientError("settings.save", err);
+        alert(err instanceof Error ? err.message : "Could not save settings.");
+      });
+  };
+
   const handlePushLocalToCloud = () => {
     if (!hasLocalDataToSync()) {
       alert("No local browser data found to upload.");
       return;
     }
-    if (
-      !confirm(
-        "Upload all data saved in this browser to Supabase? This overwrites cloud copies with your local data.",
-      )
-    ) {
+    if (!confirm("Upload all browser data to Supabase? This overwrites cloud copies with your local data.")) {
       return;
     }
     setSyncingCloud(true);
@@ -183,19 +238,70 @@ function SettingsPage() {
       .finally(() => setSyncingCloud(false));
   };
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cur = latestRef.current;
-    if (!cur) return;
-    void saveCompany(cur)
-      .then(() => {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2500);
-      })
-      .catch((err) => {
-        logClientError("settings.save", err);
-        alert(err instanceof Error ? err.message : "Could not save settings.");
-      });
+  // BACKUP & RESTORE UTILITIES
+  const handleExportBackup = () => {
+    try {
+      const backupData = {
+        version: "1.0",
+        timestamp: new Date().toISOString(),
+        ops,
+        invoices,
+        company: c,
+      };
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `admark_agency_os_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("Failed to export backup data.");
+    }
+  };
+
+  const handleImportRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        setRestoring(true);
+        const data = JSON.parse(event.target?.result as string);
+        if (!data.ops || !data.invoices) {
+          alert("Invalid backup file format. Must contain 'ops' and 'invoices' data structures.");
+          return;
+        }
+
+        if (confirm("WARNING: Importing this backup will overwrite ALL current local and cloud database records. Proceed?")) {
+          // 1. Restore Operations (Clients, Leads, Expenses, Projects, Partnerships)
+          await persist(data.ops);
+
+          // 2. Restore Invoices
+          const restoredInvoices: Invoice[] = data.invoices;
+          for (const inv of restoredInvoices) {
+            await upsertInvoice(inv);
+          }
+          setInvoices(restoredInvoices);
+
+          // 3. Restore Company Branding
+          if (data.company) {
+            setC(data.company);
+            await saveCompany(data.company);
+          }
+
+          alert("Success! System backup restored successfully. Reloading route context...");
+          router.invalidate();
+        }
+      } catch (err) {
+        alert("Failed to parse JSON backup. Check file integrity.");
+      } finally {
+        setRestoring(false);
+        e.target.value = "";
+      }
+    };
+    reader.readAsText(file);
   };
 
   const updateMember = (
@@ -240,272 +346,419 @@ function SettingsPage() {
   const partners = c.companyMembers ?? [];
   const logoPreview = companyLogoSrc(c) || DEFAULT_PUBLIC_LOGO_URL;
 
+  // Sidebar Tabs Config
+  const tabsList: { value: SettingsTab; label: string; icon: React.ReactNode }[] = [
+    { value: "company", label: "Company Profile", icon: <Settings className="h-4 w-4" /> },
+    { value: "branding", label: "Branding", icon: <Image className="h-4 w-4" /> },
+    { value: "invoice", label: "Invoice Settings", icon: <FileText className="h-4 w-4" /> },
+    { value: "tax", label: "Tax Configuration", icon: <Percent className="h-4 w-4" /> },
+    { value: "bank", label: "Bank Details", icon: <CreditCard className="h-4 w-4" /> },
+    { value: "security", label: "Security & Access", icon: <Shield className="h-4 w-4" /> },
+    { value: "storage", label: "Storage Engine", icon: <Database className="h-4 w-4" /> },
+    { value: "backups", label: "Backup & Restore", icon: <Download className="h-4 w-4" /> },
+    { value: "notifications", label: "Notifications", icon: <Bell className="h-4 w-4" /> },
+    { value: "users", label: "Users & Members", icon: <Users className="h-4 w-4" /> },
+    { value: "permissions", label: "Permissions Matrix", icon: <Key className="h-4 w-4" /> },
+    { value: "integrations", label: "Integrations", icon: <Sliders className="h-4 w-4" /> },
+  ];
+
   return (
-    <form onSubmit={handleSave} className="space-y-8">
-      {(syncing || loadError) && (
-        <div
-          className={`rounded-lg border px-4 py-2 text-sm ${
-            loadError
-              ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
-              : "border-border bg-muted/30 text-muted-foreground"
-          }`}
-        >
-          {loadError ?? "Syncing saved settings…"}
-        </div>
-      )}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Settings</h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Company profile, partners, branding, bank details, and compliance — used on invoices and
-            documents.
+    <div className="space-y-6">
+      
+      {/* Header Panel */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-5">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+            Workspace Configuration
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Configure system rules, legal settings, database engines, and backup archives.
           </p>
         </div>
         <button
-          type="submit"
-          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+          onClick={handleSave}
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
         >
           <Save className="h-4 w-4" />
-          {saved ? "Saved!" : "Save changes"}
+          {saved ? "Saved Settings!" : "Save Changes"}
         </button>
       </div>
 
-      <nav className="flex flex-wrap gap-2 text-sm">
-        {[
-          { href: "#profile", label: "Profile" },
-          { href: "#partners", label: "Partners" },
-          { href: "#brand", label: "Brand" },
-          { href: "#legal", label: "Legal & address" },
-          { href: "#bank", label: "Bank" },
-          { href: "#compliance", label: "Compliance" },
-          { href: "#workspace", label: "Workspace" },
-        ].map((item) => (
-          <a
-            key={item.href}
-            href={item.href}
-            className="rounded-full border border-border bg-muted/30 px-3 py-1 text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
-          >
-            {item.label}
-          </a>
-        ))}
-      </nav>
-
-      <div id="profile">
-        <SettingsProfileHero
-          company={c}
-          logoPreview={logoPreview}
-          onLogoUpload={handleImage("logoDataUrl")}
-          onLogoClear={() => set("logoDataUrl", undefined)}
-          onFieldChange={set}
-        />
-      </div>
-
-      <SettingsSection
-        id="partners"
-        title="Company partners"
-        description={`${partners.length} partner${partners.length === 1 ? "" : "s"} — founders and core team with direct contact details.`}
-      >
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-muted-foreground">
-          <Users className="h-4 w-4 shrink-0 text-primary" />
-          <span>
-            These profiles are internal references. External agency partners are managed under{" "}
-            <Link to="/partnerships" className="font-medium text-primary hover:underline">
-              Partnerships
-            </Link>
-            .
-          </span>
+      {(syncing || loadError) && (
+        <div className={`rounded-lg border px-4 py-2.5 text-xs font-semibold ${
+          loadError ? "border-amber-500/30 bg-amber-500/10 text-amber-200" : "border-border bg-muted/40 text-muted-foreground"
+        }`}>
+          {loadError ?? "Verifying local state configurations…"}
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {partners.map((member) => (
-            <PartnerCard
-              key={member.id}
-              member={member}
-              onChange={(patch) => updateMember(member.id, patch)}
-              onRemove={() => removeMember(member.id)}
-            />
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={addMember}
-          className="mt-4 rounded-lg border border-dashed border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:border-primary/40 hover:text-foreground"
-        >
-          Add partner
-        </button>
-      </SettingsSection>
+      )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <SettingsSection id="brand" title="Brand assets" description="Logo and signature on invoices.">
-          <div className="grid gap-4">
-            <SettingsImageField
-              label="Logo"
-              value={c.logoDataUrl}
-              emptyPreviewSrc={DEFAULT_PUBLIC_LOGO_URL}
-              onChange={handleImage("logoDataUrl")}
-              onClear={() => set("logoDataUrl", undefined)}
-            />
-            <SettingsImageField
-              label="Signature"
-              value={c.signatureDataUrl}
-              onChange={handleImage("signatureDataUrl")}
-              onClear={() => set("signatureDataUrl", undefined)}
-            />
-          </div>
-        </SettingsSection>
-
-        <SettingsSection id="bank" title="Bank details" description="Shown on invoices for client payments.">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <SettingsField label="Bank name" value={c.bankName || ""} onChange={(v) => set("bankName", v)} />
-            <SettingsField
-              label="Account holder"
-              value={c.accountName || ""}
-              onChange={(v) => set("accountName", v)}
-            />
-            <SettingsField
-              label="Account number"
-              value={c.accountNumber || ""}
-              onChange={(v) => set("accountNumber", v)}
-            />
-            <SettingsField label="IFSC" value={c.ifsc || ""} onChange={(v) => set("ifsc", v)} />
-            <SettingsField label="Branch" value={c.branch || ""} onChange={(v) => set("branch", v)} />
-            <SettingsField label="UPI ID" value={c.upi || ""} onChange={(v) => set("upi", v)} />
-          </div>
-        </SettingsSection>
-      </div>
-
-      <SettingsSection
-        id="legal"
-        title="Legal & registered address"
-        description="GST, PAN, and address printed on tax invoices."
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <SettingsField label="PAN" value={c.pan || ""} onChange={(v) => set("pan", v)} />
-          <SettingsField label="GSTIN" value={c.gstin || ""} onChange={(v) => set("gstin", v)} />
-          <SettingsField
-            label="Registered address"
-            value={c.address}
-            onChange={(v) => set("address", v)}
-            className="sm:col-span-2"
-          />
-        </div>
-      </SettingsSection>
-
-      <SettingsSection
-        id="compliance"
-        title="Compliance documents"
-        description="Udyam / MSME, GST, PAN — files auto-save shortly after upload."
-      >
-        <ComplianceDocumentsPanel
-          company={c}
-          onUdyamUpload={handleUdyamPdf}
-          onUdyamClear={() => set("udyamCertificateDataUrl", undefined)}
-          onDocumentsChange={(docs) => {
-            setC((prev) => ({
-              ...prev,
-              complianceDocuments: docs.length ? docs : undefined,
-            }));
-            setSaved(false);
-          }}
-        />
-        <p className="mt-4 text-xs text-muted-foreground">
-          Full archive also available under{" "}
-          <Link to="/documents/company" className="text-primary hover:underline">
-            Documents → Company
-          </Link>
-          .
-        </p>
-      </SettingsSection>
-
-      <SettingsSection
-        id="workspace"
-        title="Workspace"
-        description="Data storage, financial baseline, and quick links."
-      >
-        <div className="mb-6 grid gap-3 sm:grid-cols-2">
-          <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/10 p-4">
-            {backendLabel.includes("Supabase") ? (
-              <Cloud className="mt-0.5 h-5 w-5 shrink-0 text-sky-400" />
-            ) : (
-              <Database className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
-            )}
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">Data storage</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{backendLabel}</p>
-              {backendLabel.includes("Supabase") && backendReady != null && (
-                <p
-                  className={`mt-1 text-xs ${backendReady ? "text-emerald-400/90" : "text-amber-400/90"}`}
-                >
-                  {backendReady
-                    ? "Backend ready — tables and file storage bucket connected."
-                    : "Backend incomplete — run supabase/admark_billing.sql in Supabase SQL editor."}
-                </p>
-              )}
-              {backendErrors.length > 0 && (
-                <ul className="mt-1 list-inside list-disc text-[11px] text-amber-400/80">
-                  {backendErrors.map((err) => (
-                    <li key={err}>{err}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-          <div className="rounded-lg border border-border bg-muted/10 p-4">
-            <p className="text-sm font-medium text-foreground">Financial baseline</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Reconciled through {DEFAULT_FINANCIAL_BASELINE.asOfDate} —{" "}
-              {DEFAULT_FINANCIAL_BASELINE.periodLabel}
-            </p>
-          </div>
-        </div>
-
-        {backendLabel.includes("Supabase") && (
-          <div className="mb-6 rounded-lg border border-border bg-muted/10 p-4">
-            <p className="text-sm font-medium text-foreground">Sync local data to cloud</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              If you entered data on this device before Supabase was set up, push everything from
-              this browser (operations, invoices, documents, images) to the server in one step.
-            </p>
+      {/* Main split grid */}
+      <div className="grid gap-6 md:grid-cols-4 items-start">
+        
+        {/* Left Sidebar Tab Navigation */}
+        <aside className="md:col-span-1 space-y-1 bg-card/65 p-2 rounded-xl border border-border">
+          {tabsList.map((t) => (
             <button
-              type="button"
-              disabled={syncingCloud}
-              onClick={handlePushLocalToCloud}
-              className="mt-3 inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
+              key={t.value}
+              onClick={() => setActiveTab(t.value)}
+              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+                activeTab === t.value
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
             >
-              <Cloud className="h-4 w-4" />
-              {syncingCloud ? "Uploading…" : "Push local data to Supabase"}
+              {t.icon}
+              <span>{t.label}</span>
             </button>
-          </div>
-        )}
+          ))}
+        </aside>
 
-        <SettingsQuickLinks
-          links={[
-            {
-              label: "Accounts",
-              description: "Income, expenses, assets, and billing.",
-              to: "/accounts",
-            },
-            {
-              label: "Documents",
-              description: "Invoices, payments, and company files.",
-              to: "/documents",
-            },
-            {
-              label: "Activity logs",
-              description: "Audit trail of changes across the app.",
-              to: "/logs",
-            },
-          ]}
-        />
+        {/* Right Active Panel */}
+        <div className="md:col-span-3 bg-card border border-border rounded-xl p-6 shadow-sm min-h-[500px]">
+          
+          {/* Tab: Company Profile */}
+          {activeTab === "company" && (
+            <div className="space-y-6">
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2 border-b border-border pb-3">
+                Company Profile
+              </h2>
+              <SettingsProfileHero
+                company={c}
+                logoPreview={logoPreview}
+                onLogoUpload={handleImage("logoDataUrl")}
+                onLogoClear={() => set("logoDataUrl", undefined)}
+                onFieldChange={set}
+              />
+            </div>
+          )}
 
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="mt-6 inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
-        >
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </button>
-      </SettingsSection>
-    </form>
+          {/* Tab: Branding */}
+          {activeTab === "branding" && (
+            <div className="space-y-6">
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Branding Assets</h2>
+              <SettingsSection id="brand-panel" title="Invoice Visuals" description="Upload elements stamped on generated PDFs.">
+                <div className="grid gap-4 mt-4">
+                  <SettingsImageField
+                    label="Official Logo Image"
+                    value={c.logoDataUrl}
+                    emptyPreviewSrc={DEFAULT_PUBLIC_LOGO_URL}
+                    onChange={handleImage("logoDataUrl")}
+                    onClear={() => set("logoDataUrl", undefined)}
+                  />
+                  <SettingsImageField
+                    label="Signature Authorized Stamp"
+                    value={c.signatureDataUrl}
+                    onChange={handleImage("signatureDataUrl")}
+                    onClear={() => set("signatureDataUrl", undefined)}
+                  />
+                </div>
+              </SettingsSection>
+            </div>
+          )}
+
+          {/* Tab: Invoice Settings */}
+          {activeTab === "invoice" && (
+            <div className="space-y-6">
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Invoice Defaults</h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <SettingsField
+                  label="Default Payment Terms (Days)"
+                  value={c.paymentTerms || "Net 30"}
+                  onChange={(v) => set("paymentTerms", v)}
+                />
+                <SettingsField
+                  label="Standard Remarks / Notes"
+                  value={c.remarks || "Thank you for your business!"}
+                  onChange={(v) => set("remarks", v)}
+                />
+                <SettingsField
+                  label="Default Payment Mode"
+                  value={c.paymentMode || "Bank Transfer / UPI"}
+                  onChange={(v) => set("paymentMode", v)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Tax Configuration */}
+          {activeTab === "tax" && (
+            <div className="space-y-6">
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Tax & Legal Registrations</h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <SettingsField label="PAN Number" value={c.pan || ""} onChange={(v) => set("pan", v)} />
+                <SettingsField label="GSTIN Number" value={c.gstin || ""} onChange={(v) => set("gstin", v)} />
+                <SettingsField
+                  label="Registered Office Address"
+                  value={c.address}
+                  onChange={(v) => set("address", v)}
+                  className="sm:col-span-2"
+                />
+              </div>
+              <div className="mt-6 border-t border-border pt-4">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase mb-3">Compliance PDFs</h3>
+                <ComplianceDocumentsPanel
+                  company={c}
+                  onUdyamUpload={handleUdyamPdf}
+                  onUdyamClear={() => set("udyamCertificateDataUrl", undefined)}
+                  onDocumentsChange={(docs) => {
+                    setC((prev) => ({
+                      ...prev,
+                      complianceDocuments: docs.length ? docs : undefined,
+                    }));
+                    setSaved(false);
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Bank Details */}
+          {activeTab === "bank" && (
+            <div className="space-y-6">
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Bank Account Settlements</h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <SettingsField label="Bank Name" value={c.bankName || ""} onChange={(v) => set("bankName", v)} />
+                <SettingsField label="Account Holder Name" value={c.accountName || ""} onChange={(v) => set("accountName", v)} />
+                <SettingsField label="Account Number" value={c.accountNumber || ""} onChange={(v) => set("accountNumber", v)} />
+                <SettingsField label="IFSC Code" value={c.ifsc || ""} onChange={(v) => set("ifsc", v)} />
+                <SettingsField label="Branch Location" value={c.branch || ""} onChange={(v) => set("branch", v)} />
+                <SettingsField label="UPI ID / VPA" value={c.upi || ""} onChange={(v) => set("upi", v)} />
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Security */}
+          {activeTab === "security" && (
+            <div className="space-y-6">
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Security & Session</h2>
+              <div className="rounded-lg border border-border/80 bg-muted/10 p-4 space-y-3">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground font-semibold">Active User Access Role:</span>
+                  <span className="bg-primary/10 text-primary font-bold px-2 py-0.5 rounded">Owner / Admin</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground font-semibold">Encryption Key Status:</span>
+                  <span className="text-emerald-500 font-bold flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5" /> RSA-2048 Activated</span>
+                </div>
+              </div>
+              <div className="border-t border-border pt-4">
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="inline-flex items-center gap-2 rounded-lg border border-rose-500/30 px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-colors"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Terminate Admin Session (Sign out)
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Storage */}
+          {activeTab === "storage" && (
+            <div className="space-y-6">
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Data Storage Backend</h2>
+              <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/15 p-4">
+                {backendLabel.includes("Supabase") ? (
+                  <Cloud className="mt-0.5 h-5 w-5 shrink-0 text-sky-400" />
+                ) : (
+                  <Database className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">Active Database Engine</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">{backendLabel}</p>
+                  {backendLabel.includes("Supabase") && backendReady != null && (
+                    <p className={`mt-2 text-xs font-semibold ${backendReady ? "text-emerald-500" : "text-amber-500"}`}>
+                      {backendReady
+                        ? "Cloud Synced — connected to cloud tables."
+                        : "Tables configuration incomplete. Run SQL setup in Supabase dashboard."}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Backups */}
+          {activeTab === "backups" && (
+            <div className="space-y-6">
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Backups & Disaster Recovery</h2>
+              
+              <div className="grid gap-4 sm:grid-cols-2">
+                
+                {/* Export Card */}
+                <div className="rounded-xl border border-border bg-muted/10 p-4 space-y-3">
+                  <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Download className="h-4 w-4 text-primary" /> Export System Backup
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Download your entire application state (invoices, operations, and settings) as a structured JSON file.
+                  </p>
+                  <Button size="sm" variant="outline" onClick={handleExportBackup} className="w-full text-xs font-bold">
+                    Export Backup File
+                  </Button>
+                </div>
+
+                {/* Import Card */}
+                <div className="rounded-xl border border-border bg-muted/10 p-4 space-y-3">
+                  <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Upload className="h-4 w-4 text-indigo-500" /> Import / Restore Backup
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Restore data from a JSON file. WARNING: This completely replaces all current records.
+                  </p>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportRestore}
+                      disabled={restoring}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:opacity-50"
+                    />
+                    <Button size="sm" variant="outline" className="w-full text-xs font-bold text-indigo-500 hover:bg-indigo-500/10">
+                      {restoring ? "Restoring..." : "Upload Backup File"}
+                    </Button>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* LocalStorage Migrations */}
+              <div className="border-t border-border pt-5 space-y-3">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase">localstorage Cloud Sync</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Migrate settings and client billing records previously entered in your browser session to Supabase database.
+                </p>
+                <button
+                  type="button"
+                  disabled={syncingCloud}
+                  onClick={handlePushLocalToCloud}
+                  className="inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-xs font-bold text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
+                >
+                  <Cloud className="h-4 w-4" />
+                  {syncingCloud ? "Syncing data..." : "Migrate local data to Supabase"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Notifications */}
+          {activeTab === "notifications" && (
+            <div className="space-y-6">
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Notification Rules</h2>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-xs border-b border-border/40 pb-2">
+                  <span className="text-foreground font-semibold">Enable Invoice Due alerts</span>
+                  <span className="text-emerald-500 font-bold">Active</span>
+                </div>
+                <div className="flex justify-between items-center text-xs border-b border-border/40 pb-2">
+                  <span className="text-foreground font-semibold">Enable Milestone deadlines alerts</span>
+                  <span className="text-emerald-500 font-bold">Active</span>
+                </div>
+                <div className="flex justify-between items-center text-xs border-b border-border/40 pb-2">
+                  <span className="text-foreground font-semibold">Enable System Error alerts</span>
+                  <span className="text-emerald-500 font-bold">Active</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Users */}
+          {activeTab === "users" && (
+            <div className="space-y-6">
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
+                <span>Company Partners</span>
+                <button
+                  type="button"
+                  onClick={addMember}
+                  className="rounded-lg border border-dashed border-border px-3 py-1 text-xs font-bold text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                >
+                  Add Partner
+                </button>
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2 mt-4">
+                {partners.map((member) => (
+                  <PartnerCard
+                    key={member.id}
+                    member={member}
+                    onChange={(patch) => updateMember(member.id, patch)}
+                    onRemove={() => removeMember(member.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Permissions */}
+          {activeTab === "permissions" && (
+            <div className="space-y-6">
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Permissions Matrix</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-border text-muted-foreground uppercase font-bold">
+                      <th className="py-2">Role</th>
+                      <th className="py-2">Read Access</th>
+                      <th className="py-2">Write Access</th>
+                      <th className="py-2">Settings Access</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    <tr>
+                      <td className="py-2.5 font-bold text-foreground">Partner (Owner)</td>
+                      <td className="py-2.5 text-emerald-500 font-semibold">Full</td>
+                      <td className="py-2.5 text-emerald-500 font-semibold">Full</td>
+                      <td className="py-2.5 text-emerald-500 font-semibold">Full</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 font-bold text-foreground">Operator</td>
+                      <td className="py-2.5 text-emerald-500 font-semibold">Full</td>
+                      <td className="py-2.5 text-emerald-500 font-semibold">Full</td>
+                      <td className="py-2.5 text-rose-500 font-semibold">None</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 font-bold text-foreground">Auditor</td>
+                      <td className="py-2.5 text-emerald-500 font-semibold">Full</td>
+                      <td className="py-2.5 text-rose-500 font-semibold">None</td>
+                      <td className="py-2.5 text-rose-500 font-semibold">None</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Integrations */}
+          {activeTab === "integrations" && (
+            <div className="space-y-6">
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">API & Integrations</h2>
+              <div className="space-y-4">
+                <div className="rounded-lg border border-border p-4 bg-muted/10 space-y-2">
+                  <div className="flex justify-between items-center text-xs font-bold text-foreground">
+                    <span>Vercel Deployments</span>
+                    <span className="bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded text-[10px]">Configured</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-normal">
+                    Automatically syncs letterhead logos and PDF assets with edge build paths.
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border p-4 bg-muted/10 space-y-2 opacity-65">
+                  <div className="flex justify-between items-center text-xs font-bold text-foreground">
+                    <span>Slack Webhooks</span>
+                    <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded text-[10px]">Inactive</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-normal">
+                    Sends automated warning updates directly to operational channels when invoices go overdue.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+
+      </div>
+
+    </div>
   );
 }

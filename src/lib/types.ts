@@ -33,6 +33,9 @@ export interface CompanySettings {
   authorizedName?: string;
   /** Team members — name, email, phone for reference and settings UI. */
   companyMembers?: CompanyMember[];
+  paymentTerms?: string;
+  remarks?: string;
+  paymentMode?: string;
 }
 
 /** Saved with company settings — file as data URL and/or a trusted https link only. */
@@ -234,6 +237,18 @@ export interface FinancialBaseline {
   founderPayoutPool: number;
 }
 
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  priority: "low" | "medium" | "high";
+  read: boolean;
+  timestamp: string;
+  relatedModule: "invoices" | "payments" | "projects" | "leads" | "documents" | "system";
+  actionUrl?: string;
+  actionLabel?: string;
+}
+
 export interface OperationsData {
   projects: Project[];
   partnerships: Partnership[];
@@ -247,6 +262,7 @@ export interface OperationsData {
   payments?: Payment[];
   transactions?: Transaction[];
   founders?: Founder[];
+  notifications?: AppNotification[];
   migrationApplied?: boolean;
   migrationDate?: string;
 }

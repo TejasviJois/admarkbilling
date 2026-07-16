@@ -25,6 +25,10 @@ import { companyLogoSrc } from "@/lib/company-branding";
 import { getAuthStatusCached, clearAuthStatusCache } from "@/lib/auth-status-cache";
 import { prefetchAppData } from "@/lib/prefetch-app-data";
 import { useCompany } from "@/hooks/use-company";
+import { useOperations } from "@/hooks/use-operations";
+import { useInvoices } from "@/hooks/use-invoices";
+import { useDocuments } from "@/hooks/use-documents";
+import { syncSystemNotifications } from "@/lib/notification-engine";
 import { getDataBackendStatus } from "@/server/invoice-fns";
 import { logoutFn } from "@/server/auth-fns";
 
@@ -137,6 +141,7 @@ type NavLinkItem = { to: string; label: string; exact?: boolean };
 
 const MAIN_NAV_LINKS: NavLinkItem[] = [
   { to: "/", label: "Dashboard", exact: true },
+  { to: "/notifications", label: "Notifications" },
   { to: "/clients", label: "Clients" },
   { to: "/transactions", label: "Transactions" },
   { to: "/expenses", label: "Expenses" },
@@ -166,11 +171,14 @@ function AppShell() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [serverDb, setServerDb] = useState<boolean | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
-  // Safely call useCompany inside AppShell now since it is wrapped in QueryClientProvider context!
-  const { company } = useCompany();
-  const brandLogo = companyLogoSrc(company);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
+  const { ops, persist } = useOperations();
+  const { invoices } = useInvoices();
+  const { docs } = useDocuments();
+  const { company } = useCompany();
+
+  const brandLogo = companyLogoSrc(company);
   const isLogin = path === "/login";
 
   useEffect(() => {
@@ -178,6 +186,19 @@ function AppShell() {
       .then((s) => setServerDb(s.configured))
       .catch(() => setServerDb(false));
   }, []);
+
+  // Central Notification Sync
+  useEffect(() => {
+    if (!ops || !invoices || !docs || serverDb === null) return;
+
+    const synced = syncSystemNotifications(ops, invoices, docs.agreements ?? [], serverDb);
+    const originalIds = (ops.notifications ?? []).map((n) => `${n.id}-${n.read}`).join(",");
+    const syncedIds = synced.map((n) => `${n.id}-${n.read}`).join(",");
+
+    if (originalIds !== syncedIds) {
+      persist({ ...ops, notifications: synced });
+    }
+  }, [ops, invoices, docs, serverDb, persist]);
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -195,6 +216,21 @@ function AppShell() {
   const isActive = (to: string, exact?: boolean) =>
     exact ? path === to : path === to || path.startsWith(`${to}/`);
 
+  const notificationsList = ops?.notifications ?? [];
+  const unreadNotificationsCount = notificationsList.filter((n) => !n.read).length;
+
+  const handleToggleRead = (id: string) => {
+    if (!ops) return;
+    const updated = notificationsList.map((n) => (n.id === id ? { ...n, read: !n.read } : n));
+    persist({ ...ops, notifications: updated });
+  };
+
+  const handleMarkAllRead = () => {
+    if (!ops) return;
+    const updated = notificationsList.map((n) => ({ ...n, read: true }));
+    persist({ ...ops, notifications: updated });
+  };
+
   if (isLogin) {
     return (
       <div className="min-h-screen bg-background text-foreground">
@@ -208,7 +244,7 @@ function AppShell() {
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       
-      {/* Desktop Sidebar: Visible on md and larger */}
+      {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card shrink-0 sticky top-0 h-screen">
         <div className="flex h-16 items-center border-b border-border px-6">
           <Link to="/" className="flex items-center shrink-0">
@@ -228,19 +264,26 @@ function AppShell() {
               preload="intent"
               className={navLinkClass(isActive(to, exact))}
             >
-              {label}
+              <span className="flex items-center justify-between w-full">
+                <span>{label}</span>
+                {to === "/notifications" && unreadNotificationsCount > 0 && (
+                  <span className="bg-primary text-primary-foreground font-bold px-1.5 py-0.5 rounded-full text-[9px] min-w-4 text-center">
+                    {unreadNotificationsCount}
+                  </span>
+                )}
+              </span>
             </Link>
           ))}
         </nav>
       </aside>
 
-      {/* Right Area: Header, Warnings, and Main Content */}
+      {/* Right Area */}
       <div className="flex-1 flex flex-col min-w-0">
         
         {/* Header Bar */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           
-          {/* Left: Mobile branding (hidden on desktop) */}
+          {/* Left: Mobile branding */}
           <div className="flex items-center gap-3 md:hidden">
             <Link to="/" className="flex items-center shrink-0">
               <img
@@ -251,26 +294,105 @@ function AppShell() {
             </Link>
           </div>
 
-          {/* Left: Desktop label placeholder (hidden on mobile) */}
           <div className="hidden md:block">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest bg-muted/60 px-2.5 py-1 rounded">
               Admark Operating System
             </span>
           </div>
 
-          {/* Right: Notifications, Logout, Mobile Hamburger Menu */}
+          {/* Right Area */}
           <div className="flex items-center gap-3">
-            {/* Notification icon with dummy trigger */}
-            <button
-              type="button"
-              className="relative p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Notifications"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1.5 right-1.5 block h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-background" />
-            </button>
+            
+            {/* Notification Drawer Sheet Trigger */}
+            <Sheet open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+              <SheetTrigger asChild>
+                <button
+                  type="button"
+                  className="relative p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Notifications"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadNotificationsCount > 0 && (
+                    <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white ring-2 ring-background">
+                      {unreadNotificationsCount}
+                    </span>
+                  )}
+                </button>
+              </SheetTrigger>
+              <SheetContent side="right" className="flex w-full max-w-[min(100vw,24rem)] flex-col sm:max-w-md">
+                <SheetTitle className="text-left font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
+                  <span>Notifications</span>
+                  {unreadNotificationsCount > 0 && (
+                    <button
+                      onClick={handleMarkAllRead}
+                      className="text-xs font-semibold text-primary hover:underline"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </SheetTitle>
+                
+                <div className="flex-1 overflow-y-auto mt-4 space-y-3 pr-1">
+                  {notificationsList.length === 0 ? (
+                    <div className="py-12 text-center text-muted-foreground">
+                      <Bell className="mx-auto h-8 w-8 opacity-40 animate-pulse mb-2 text-muted-foreground" />
+                      <p className="text-sm font-semibold">All caught up!</p>
+                    </div>
+                  ) : (
+                    notificationsList.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`p-3 rounded-lg border text-xs transition-all relative ${
+                          item.read
+                            ? "bg-card/45 border-border/70 opacity-80"
+                            : "bg-card border-border shadow-sm hover:border-primary/40"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="font-bold text-foreground leading-snug">{item.title}</h4>
+                          <span className={`h-1.5 w-1.5 rounded-full shrink-0 mt-1.5 ${item.read ? "bg-transparent" : "bg-primary animate-pulse"}`} />
+                        </div>
+                        <p className="text-muted-foreground mt-1 leading-normal">{item.message}</p>
+                        <div className="mt-2.5 flex items-center justify-between">
+                          <span className="text-[9px] text-muted-foreground font-semibold tabular-nums">{item.timestamp}</span>
+                          <div className="flex items-center gap-1.5">
+                            {item.actionUrl && (
+                              <button
+                                onClick={() => {
+                                  setNotificationsOpen(false);
+                                  void router.navigate({ to: item.actionUrl });
+                                }}
+                                className="text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded font-bold hover:bg-primary/90"
+                              >
+                                {item.actionLabel || "View"}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleToggleRead(item.id)}
+                              className="text-muted-foreground hover:text-foreground text-[10px] font-semibold"
+                            >
+                              {item.read ? "Unread" : "Read"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
 
-            {/* Mobile menu sheet trigger (visible below md) */}
+                <div className="border-t border-border pt-4">
+                  <Link
+                    to="/notifications"
+                    onClick={() => setNotificationsOpen(false)}
+                    className="block w-full text-center text-xs font-bold bg-muted hover:bg-muted/80 text-foreground py-2.5 rounded-lg transition-colors"
+                  >
+                    View All Activity Logs
+                  </Link>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            {/* Mobile menu trigger */}
             <div className="md:hidden">
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
@@ -296,7 +418,14 @@ function AppShell() {
                         className={navLinkClass(isActive(to, exact))}
                         onClick={() => setMobileMenuOpen(false)}
                       >
-                        {label}
+                        <span className="flex items-center justify-between w-full">
+                          <span>{label}</span>
+                          {to === "/notifications" && unreadNotificationsCount > 0 && (
+                            <span className="bg-primary text-primary-foreground font-bold px-1.5 py-0.5 rounded-full text-[9px] min-w-4 text-center">
+                              {unreadNotificationsCount}
+                            </span>
+                          )}
+                        </span>
                       </Link>
                     ))}
                   </nav>
@@ -317,7 +446,7 @@ function AppShell() {
               </Sheet>
             </div>
 
-            {/* Signout Button (Desktop only) */}
+            {/* Signout Button */}
             <button
               type="button"
               onClick={handleSignOut}
