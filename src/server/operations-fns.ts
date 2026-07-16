@@ -240,7 +240,6 @@ export const getOperationsFn = createServerFn({ method: "GET" }).handler(
         .from("operations_data")
         .select("payload")
         .eq("id", "default")
-        .eq("organization_id", DEFAULT_ORG_ID)
         .maybeSingle();
       if (error) throw error;
       if (!data?.payload) return injectTenantIntoOperations(EMPTY_OPERATIONS);
@@ -254,7 +253,6 @@ export const getOperationsFn = createServerFn({ method: "GET" }).handler(
           const { error: saveError } = await sb.from("operations_data").upsert({
             id: "default",
             payload: payloadWithTenant,
-            organization_id: DEFAULT_ORG_ID,
             updated_at: new Date().toISOString(),
           });
           if (saveError) throw saveError;
@@ -279,7 +277,6 @@ export const saveOperationsFn = createServerFn({ method: "POST" })
     const { error } = await sb.from("operations_data").upsert({
       id: "default",
       payload: payloadWithTenant,
-      organization_id: DEFAULT_ORG_ID,
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;

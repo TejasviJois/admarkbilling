@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 import {
 
@@ -42,10 +42,14 @@ export const Route = createFileRoute("/")({ component: OperationsDashboard });
 
 
 function OperationsDashboard() {
-
   const { ops, loading: opsLoading } = useOperations();
   const { invoices, loading: invoicesLoading } = useInvoices();
   const [period, setPeriod] = useState<PeriodKey>(DEFAULT_PERIOD);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const loading = opsLoading || invoicesLoading;
 
@@ -61,31 +65,19 @@ function OperationsDashboard() {
   const periodHint = period === "all" ? "All time" : `Last ${periodLabel(period)}`;
 
   const invoiceIncome = useMemo(
-
     () => invoices.reduce((s, i) => s + computeTotals(i).total, 0),
-
     [invoices],
-
   );
 
   const activeProjects = ops.projects.filter((p) => p.status === "active").length;
-
   const activePartnerships = ops.partnerships.filter((p) => p.status === "active").length;
 
-
-
-  if (loading) {
-
+  if (!mounted || loading) {
     return (
-
       <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
-
         Loading dashboard…
-
       </div>
-
     );
-
   }
 
 
