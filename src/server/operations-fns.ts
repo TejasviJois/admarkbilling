@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { Client, FinancialBaseline, FixedMonthlyExpense, Lead, OperationsData, Payment, Transaction, Founder, TransactionType } from "@/lib/types";
+import type { Client, FinancialBaseline, FixedMonthlyExpense, Lead, OperationsData, Payment, Transaction, Founder, TransactionType, Milestone, Project, ProjectStatus } from "@/lib/types";
 import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
 import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
@@ -191,6 +191,57 @@ function injectTenantIntoOperations(data: OperationsData): OperationsData {
   };
 }
 
+function parseMilestone(raw: unknown): Milestone | null {
+  if (!raw || typeof raw !== "object") return null;
+  const m = raw as Partial<Milestone>;
+  if (typeof m.id !== "string" || typeof m.name !== "string") return null;
+  return {
+    id: m.id,
+    name: m.name,
+    description: m.description,
+    dueDate: m.dueDate,
+    status: (m.status === "in_progress" || m.status === "completed" || m.status === "delayed") ? m.status : "pending",
+    paymentTrigger: m.paymentTrigger === true,
+    assignedUser: m.assignedUser,
+    completedDate: m.completedDate,
+  };
+}
+
+function parseProject(raw: unknown): Project | null {
+  if (!raw || typeof raw !== "object") return null;
+  const p = raw as Partial<Project>;
+  if (typeof p.id !== "string" || typeof p.client !== "string") return null;
+  
+  const milestones = Array.isArray(p.milestones)
+    ? p.milestones.map(parseMilestone).filter((m): m is Milestone => m != null)
+    : undefined;
+
+  return {
+    id: p.id,
+    organizationId: p.organizationId ?? DEFAULT_ORG_ID,
+    clientId: p.clientId,
+    client: p.client,
+    name: p.name ?? p.client,
+    projectType: p.projectType,
+    status: p.status as ProjectStatus,
+    revenueValue: p.revenueValue,
+    billing: p.billing,
+    paymentStatus: p.paymentStatus,
+    paymentProofs: p.paymentProofs,
+    payments: p.payments,
+    startDate: p.startDate,
+    endDate: p.endDate,
+    deadline: p.deadline,
+    budget: typeof p.budget === "number" ? p.budget : undefined,
+    estimatedCost: typeof p.estimatedCost === "number" ? p.estimatedCost : undefined,
+    priority: (p.priority === "low" || p.priority === "medium" || p.priority === "high") ? p.priority : undefined,
+    notes: p.notes,
+    milestones,
+    phone: p.phone,
+    email: p.email,
+  };
+}
+
 function parseOperationsPayload(payload: unknown): OperationsData {
   if (!payload || typeof payload !== "object") return EMPTY_OPERATIONS;
   const raw = payload as Partial<OperationsData>;
@@ -214,7 +265,7 @@ function parseOperationsPayload(payload: unknown): OperationsData {
     ? raw.founders.map(parseFounder).filter((f): f is Founder => f != null)
     : DEFAULT_FOUNDERS;
   const parsed = {
-    projects: Array.isArray(raw.projects) ? raw.projects : [],
+    projects: Array.isArray(raw.projects) ? raw.projects.map(parseProject).filter((p): p is Project => p != null) : [],
     partnerships: Array.isArray(raw.partnerships) ? raw.partnerships : [],
     expenses: Array.isArray(raw.expenses) ? raw.expenses : [],
     leads,

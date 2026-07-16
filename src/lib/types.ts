@@ -80,6 +80,17 @@ export interface ProjectPayment {
   };
 }
 
+export interface Milestone {
+  id: string;
+  name: string;
+  description?: string;
+  dueDate?: string;
+  status: "pending" | "in_progress" | "completed" | "delayed";
+  paymentTrigger?: boolean;
+  assignedUser?: string;
+  completedDate?: string;
+}
+
 export interface Project {
   id: string;
   organizationId?: string;
@@ -101,8 +112,12 @@ export interface Project {
   payments?: ProjectPayment[];
   startDate?: string;
   endDate?: string;
+  deadline?: string;
   budget?: number;
+  estimatedCost?: number;
+  priority?: "low" | "medium" | "high";
   notes?: string;
+  milestones?: Milestone[];
   phone?: string;
   email?: string;
 }

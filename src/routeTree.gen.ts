@@ -28,6 +28,7 @@ import { Route as DocumentsIndexRouteImport } from './routes/documents/index'
 import { Route as ClientsIndexRouteImport } from './routes/clients.index'
 import { Route as AnalyticsIndexRouteImport } from './routes/analytics/index'
 import { Route as AccountsIndexRouteImport } from './routes/accounts/index'
+import { Route as ProjectsIdRouteImport } from './routes/projects.$id'
 import { Route as InvoiceIdRouteImport } from './routes/invoice.$id'
 import { Route as DocumentsInvoicesRouteImport } from './routes/documents/invoices'
 import { Route as DocumentsCompanyRouteImport } from './routes/documents/company'
@@ -142,6 +143,11 @@ const AccountsIndexRoute = AccountsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AccountsRoute,
 } as any)
+const ProjectsIdRoute = ProjectsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ProjectsRoute,
+} as any)
 const InvoiceIdRoute = InvoiceIdRouteImport.update({
   id: '/invoice/$id',
   path: '/invoice/$id',
@@ -252,7 +258,7 @@ export interface FileRoutesByFullPath {
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
   '/partnerships': typeof PartnershipsRoute
-  '/projects': typeof ProjectsRoute
+  '/projects': typeof ProjectsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/transactions': typeof TransactionsRoute
   '/accounts/billing': typeof AccountsBillingRoute
@@ -266,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/documents/company': typeof DocumentsCompanyRoute
   '/documents/invoices': typeof DocumentsInvoicesRoute
   '/invoice/$id': typeof InvoiceIdRoute
+  '/projects/$id': typeof ProjectsIdRoute
   '/accounts/': typeof AccountsIndexRoute
   '/analytics/': typeof AnalyticsIndexRoute
   '/clients/': typeof ClientsIndexRoute
@@ -289,7 +296,7 @@ export interface FileRoutesByTo {
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
   '/partnerships': typeof PartnershipsRoute
-  '/projects': typeof ProjectsRoute
+  '/projects': typeof ProjectsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/transactions': typeof TransactionsRoute
   '/accounts/billing': typeof AccountsBillingRoute
@@ -303,6 +310,7 @@ export interface FileRoutesByTo {
   '/documents/company': typeof DocumentsCompanyRoute
   '/documents/invoices': typeof DocumentsInvoicesRoute
   '/invoice/$id': typeof InvoiceIdRoute
+  '/projects/$id': typeof ProjectsIdRoute
   '/accounts': typeof AccountsIndexRoute
   '/analytics': typeof AnalyticsIndexRoute
   '/clients': typeof ClientsIndexRoute
@@ -329,7 +337,7 @@ export interface FileRoutesById {
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
   '/partnerships': typeof PartnershipsRoute
-  '/projects': typeof ProjectsRoute
+  '/projects': typeof ProjectsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/transactions': typeof TransactionsRoute
   '/accounts/billing': typeof AccountsBillingRoute
@@ -343,6 +351,7 @@ export interface FileRoutesById {
   '/documents/company': typeof DocumentsCompanyRoute
   '/documents/invoices': typeof DocumentsInvoicesRoute
   '/invoice/$id': typeof InvoiceIdRoute
+  '/projects/$id': typeof ProjectsIdRoute
   '/accounts/': typeof AccountsIndexRoute
   '/analytics/': typeof AnalyticsIndexRoute
   '/clients/': typeof ClientsIndexRoute
@@ -384,6 +393,7 @@ export interface FileRouteTypes {
     | '/documents/company'
     | '/documents/invoices'
     | '/invoice/$id'
+    | '/projects/$id'
     | '/accounts/'
     | '/analytics/'
     | '/clients/'
@@ -421,6 +431,7 @@ export interface FileRouteTypes {
     | '/documents/company'
     | '/documents/invoices'
     | '/invoice/$id'
+    | '/projects/$id'
     | '/accounts'
     | '/analytics'
     | '/clients'
@@ -460,6 +471,7 @@ export interface FileRouteTypes {
     | '/documents/company'
     | '/documents/invoices'
     | '/invoice/$id'
+    | '/projects/$id'
     | '/accounts/'
     | '/analytics/'
     | '/clients/'
@@ -486,7 +498,7 @@ export interface RootRouteChildren {
   LogsRoute: typeof LogsRoute
   NewRoute: typeof NewRoute
   PartnershipsRoute: typeof PartnershipsRoute
-  ProjectsRoute: typeof ProjectsRoute
+  ProjectsRoute: typeof ProjectsRouteWithChildren
   SettingsRoute: typeof SettingsRoute
   TransactionsRoute: typeof TransactionsRoute
   AnalyticsBalanceRoute: typeof AnalyticsBalanceRoute
@@ -644,6 +656,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountsIndexRouteImport
       parentRoute: typeof AccountsRoute
     }
+    '/projects/$id': {
+      id: '/projects/$id'
+      path: '/$id'
+      fullPath: '/projects/$id'
+      preLoaderRoute: typeof ProjectsIdRouteImport
+      parentRoute: typeof ProjectsRoute
+    }
     '/invoice/$id': {
       id: '/invoice/$id'
       path: '/invoice/$id'
@@ -800,6 +819,18 @@ const ClientsRouteChildren: ClientsRouteChildren = {
 const ClientsRouteWithChildren =
   ClientsRoute._addFileChildren(ClientsRouteChildren)
 
+interface ProjectsRouteChildren {
+  ProjectsIdRoute: typeof ProjectsIdRoute
+}
+
+const ProjectsRouteChildren: ProjectsRouteChildren = {
+  ProjectsIdRoute: ProjectsIdRoute,
+}
+
+const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
+  ProjectsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountsRoute: AccountsRouteWithChildren,
@@ -813,7 +844,7 @@ const rootRouteChildren: RootRouteChildren = {
   LogsRoute: LogsRoute,
   NewRoute: NewRoute,
   PartnershipsRoute: PartnershipsRoute,
-  ProjectsRoute: ProjectsRoute,
+  ProjectsRoute: ProjectsRouteWithChildren,
   SettingsRoute: SettingsRoute,
   TransactionsRoute: TransactionsRoute,
   AnalyticsBalanceRoute: AnalyticsBalanceRoute,

@@ -109,8 +109,50 @@ export function ProjectsTable({
     <DataTable
       headers={headers}
       rows={projects.map((p) => {
+        // Milestone completion calculations
+        let progress = 0;
+        const ms = p.milestones ?? [];
+        if (ms.length > 0) {
+          progress = Math.round((ms.filter((m) => m.status === "completed").length / ms.length) * 100);
+        } else {
+          if (p.status === "completed") progress = 100;
+          else if (p.status === "active") progress = 50;
+          else if (p.status === "on_hold") progress = 25;
+        }
+
+        const clientCell = (
+          <div key={`client-${p.id}`} className="space-y-1">
+            <Link
+              to="/projects/$id"
+              params={{ id: p.id }}
+              className="font-bold text-primary hover:underline"
+            >
+              {projectClientLabel(p)}
+            </Link>
+            <div className="flex items-center gap-2 text-[10px]">
+              {p.priority && (
+                <span className={`px-1 py-0.25 rounded font-bold uppercase ${
+                  p.priority === "high"
+                    ? "bg-rose-500/20 text-rose-700 dark:text-rose-300"
+                    : p.priority === "medium"
+                    ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+                    : "bg-blue-500/20 text-blue-700 dark:text-blue-300"
+                }`}>
+                  {p.priority}
+                </span>
+              )}
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span>{progress}% done</span>
+                <div className="h-1.5 w-16 bg-muted rounded overflow-hidden">
+                  <div className="h-full bg-primary" style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
         const cells: React.ReactNode[] = [
-          projectClientLabel(p),
+          clientCell,
           p.projectType || "—",
           <ProjectStatusBadge key={`st-${p.id}`} status={p.status} />,
           p.revenueValue || (p.budget != null ? formatINRWhole(p.budget) : "—"),
