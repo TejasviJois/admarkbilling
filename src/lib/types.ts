@@ -215,6 +215,47 @@ export interface OperationsData {
   fixedMonthlyExpenses?: FixedMonthlyExpense[];
   clients?: Client[];
   payments?: Payment[];
+  transactions?: Transaction[];
+  founders?: Founder[];
+  migrationApplied?: boolean;
+  migrationDate?: string;
+}
+
+export type TransactionType =
+  | "client_payment"
+  | "founder_investment"
+  | "founder_withdrawal"
+  | "expense"
+  | "refund"
+  | "internal_transfer";
+
+export interface Transaction {
+  id: string;
+  organizationId?: string;
+  type: TransactionType;
+  date: string;
+  amount: number;
+  description: string;
+  category: string;
+  paymentMethod: string;
+  relatedClientId?: string;
+  relatedProjectId?: string;
+  relatedInvoiceId?: string;
+  relatedFounderId?: string;
+  relatedVendorId?: string;
+  notes?: string;
+  attachmentDataUrl?: string;
+  createdBy?: string;
+  createdAt: number;
+  updatedAt: number;
+  historical?: boolean;
+}
+
+export interface Founder {
+  id: string;
+  name: string;
+  sharePercentage: number;
+  notes?: string;
 }
 
 export interface Payment {

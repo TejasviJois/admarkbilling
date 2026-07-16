@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { Client, FinancialBaseline, FixedMonthlyExpense, Lead, OperationsData, Payment } from "@/lib/types";
+import type { Client, FinancialBaseline, FixedMonthlyExpense, Lead, OperationsData, Payment, Transaction, Founder, TransactionType } from "@/lib/types";
 import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
 import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
@@ -121,7 +121,61 @@ function parsePayment(raw: unknown): Payment | null {
   };
 }
 
+function parseFounder(raw: unknown): Founder | null {
+  if (!raw || typeof raw !== "object") return null;
+  const f = raw as Partial<Founder>;
+  if (typeof f.id !== "string" || typeof f.name !== "string" || typeof f.sharePercentage !== "number") return null;
+  return {
+    id: f.id,
+    name: f.name,
+    sharePercentage: f.sharePercentage,
+    notes: f.notes,
+  };
+}
+
+function parseTransaction(raw: unknown): Transaction | null {
+  if (!raw || typeof raw !== "object") return null;
+  const t = raw as Partial<Transaction>;
+  if (
+    typeof t.id !== "string" ||
+    typeof t.type !== "string" ||
+    typeof t.date !== "string" ||
+    typeof t.amount !== "number" ||
+    typeof t.description !== "string"
+  ) {
+    return null;
+  }
+  return {
+    id: t.id,
+    organizationId: t.organizationId ?? DEFAULT_ORG_ID,
+    type: t.type as TransactionType,
+    date: t.date,
+    amount: t.amount,
+    description: t.description,
+    category: t.category ?? "",
+    paymentMethod: t.paymentMethod ?? "",
+    relatedClientId: t.relatedClientId,
+    relatedProjectId: t.relatedProjectId,
+    relatedInvoiceId: t.relatedInvoiceId,
+    relatedFounderId: t.relatedFounderId,
+    relatedVendorId: t.relatedVendorId,
+    notes: t.notes,
+    attachmentDataUrl: t.attachmentDataUrl,
+    createdBy: t.createdBy,
+    createdAt: typeof t.createdAt === "number" ? t.createdAt : Date.now(),
+    updatedAt: typeof t.updatedAt === "number" ? t.updatedAt : Date.now(),
+    historical: t.historical === true,
+  };
+}
+
 const DEFAULT_ORG_ID = "org-admark-digitals";
+
+const DEFAULT_FOUNDERS: Founder[] = [
+  { id: "member-harshith", name: "Harshith V Malipatil", sharePercentage: 25 },
+  { id: "member-prajwal", name: "Prajwal BP", sharePercentage: 25 },
+  { id: "member-tejasvi", name: "Tejasvi Jois", sharePercentage: 25 },
+  { id: "member-revanth", name: "Revanth Kumar S", sharePercentage: 25 },
+];
 
 function injectTenantIntoOperations(data: OperationsData): OperationsData {
   return {
@@ -133,6 +187,7 @@ function injectTenantIntoOperations(data: OperationsData): OperationsData {
     assets: data.assets?.map((a) => ({ ...a, organizationId: DEFAULT_ORG_ID })),
     clients: data.clients?.map((c) => ({ ...c, organizationId: DEFAULT_ORG_ID })),
     payments: data.payments?.map((pay) => ({ ...pay, organizationId: DEFAULT_ORG_ID })),
+    transactions: data.transactions?.map((t) => ({ ...t, organizationId: DEFAULT_ORG_ID })),
   };
 }
 
@@ -152,6 +207,12 @@ function parseOperationsPayload(payload: unknown): OperationsData {
   const payments = Array.isArray(raw.payments)
     ? raw.payments.map(parsePayment).filter((pay): pay is Payment => pay != null)
     : undefined;
+  const transactions = Array.isArray(raw.transactions)
+    ? raw.transactions.map(parseTransaction).filter((t): t is Transaction => t != null)
+    : undefined;
+  const founders = Array.isArray(raw.founders)
+    ? raw.founders.map(parseFounder).filter((f): f is Founder => f != null)
+    : DEFAULT_FOUNDERS;
   const parsed = {
     projects: Array.isArray(raw.projects) ? raw.projects : [],
     partnerships: Array.isArray(raw.partnerships) ? raw.partnerships : [],
@@ -162,6 +223,10 @@ function parseOperationsPayload(payload: unknown): OperationsData {
     fixedMonthlyExpenses,
     clients,
     payments,
+    transactions,
+    founders,
+    migrationApplied: raw.migrationApplied === true,
+    migrationDate: typeof raw.migrationDate === "string" ? raw.migrationDate : undefined,
   };
   return injectTenantIntoOperations(parsed);
 }

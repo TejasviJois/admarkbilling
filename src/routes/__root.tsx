@@ -140,6 +140,8 @@ type NavLinkItem = { to: string; label: string; exact?: boolean };
 const MAIN_NAV_LINKS: NavLinkItem[] = [
   { to: "/", label: "Dashboard", exact: true },
   { to: "/clients", label: "Clients" },
+  { to: "/transactions", label: "Transactions" },
+  { to: "/founders", label: "Founders" },
   { to: "/analytics", label: "Analytics" },
   { to: "/projects", label: "Projects" },
   { to: "/partnerships", label: "Partnerships" },

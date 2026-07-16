@@ -75,34 +75,62 @@ export type FinancialSummary = {
   totalExternalPayouts: number;
   totalCompanyExpenses: number;
   founderPayoutPool: number;
+  founderInvestments: number;
   totalExpense: number;
   currentCashBalance: number;
   newExpenseCount: number;
   newRevenueAfterBaseline: number;
-  /** Sum of project payments with uploaded proof — ledger source when > 0. */
   verifiedPaymentTotal: number;
-  /** Sum of active fixed monthly obligations (loan repayment, rent, …). */
   totalMonthlyFixedExpenses: number;
-  /** Confirmed + ongoing + done — full contract value in pipeline. */
   activePipelineBooked: number;
 };
 
-function sumVerifiedProjectPaymentsAfter(projects: Project[], afterDate: string): number {
-  let sum = 0;
-  for (const project of projects) {
-    for (const payment of project.payments ?? []) {
-      if (payment.date > afterDate && isVerifiedPayment(payment, project)) {
-        sum += payment.amount || 0;
-      }
-    }
-  }
-  return sum;
-}
+export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
+  const withBaseline = withDefaultFinancialBaseline(ops);
+  const baseline = withBaseline.financialBaseline!;
+  
+  const txs = ops.transactions ?? [];
+  
+  // Calculate directly from unified Transactions table
+  const clientPayments = txs.filter((t) => t.type === "client_payment" || t.type === "refund");
+  const totalRevenueReceived = clientPayments.reduce((sum, t) => sum + t.amount, 0);
+  
+  const newRevenueAfterBaseline = clientPayments
+    .filter((t) => t.date > baseline.asOfDate)
+    .reduce((sum, t) => sum + t.amount, 0);
 
-function sumExpensesByCategory(expenses: ExpenseEntry[], category: ExpenseCategory): number {
-  return expenses
-    .filter((e) => !e.isBaseline && normalizeCategory(e.category) === category)
-    .reduce((s, e) => s + e.amount, 0);
+  const expenses = txs.filter((t) => t.type === "expense");
+  const totalExternalPayouts = expenses.filter((t) => t.category === "external_payout").reduce((sum, t) => sum + t.amount, 0);
+  const totalCompanyExpenses = expenses.filter((t) => t.category === "company").reduce((sum, t) => sum + t.amount, 0);
+
+  const founderWithdrawals = txs.filter((t) => t.type === "founder_withdrawal").reduce((sum, t) => sum + t.amount, 0);
+  const founderInvestments = txs.filter((t) => t.type === "founder_investment").reduce((sum, t) => sum + t.amount, 0);
+  const totalHandoutsTaken = txs.filter((t) => t.type === "internal_transfer" && t.category === "handout").reduce((sum, t) => sum + t.amount, 0);
+
+  const totalExpense = totalExternalPayouts + totalCompanyExpenses + founderWithdrawals;
+  const currentCashBalance = totalRevenueReceived + founderInvestments - totalExpense;
+  const activePipelineBooked = sumPipelineBookedRevenue(ops.projects);
+  const totalRevenueBooked =
+    baseline.totalRevenueBooked != null ? baseline.totalRevenueBooked : activePipelineBooked;
+  const totalMonthlyFixedExpenses = sumActiveFixedMonthlyExpenses(ops.fixedMonthlyExpenses);
+
+  return {
+    baseline,
+    totalRevenueBooked,
+    totalHandoutsTaken,
+    totalRevenueReceived,
+    totalExternalPayouts,
+    totalCompanyExpenses,
+    founderPayoutPool: founderWithdrawals,
+    founderInvestments,
+    totalExpense,
+    currentCashBalance,
+    newExpenseCount: expenses.length,
+    newRevenueAfterBaseline,
+    verifiedPaymentTotal: totalRevenueReceived,
+    totalMonthlyFixedExpenses,
+    activePipelineBooked,
+  };
 }
 
 export function normalizeCategory(category: string | undefined): ExpenseCategory | undefined {
@@ -116,59 +144,6 @@ export function normalizeCategory(category: string | undefined): ExpenseCategory
 export function expenseCategoryLabel(category: string | undefined): string {
   const normalized = normalizeCategory(category);
   return normalized ? EXPENSE_CATEGORY_LABELS[normalized] : category?.trim() || "Company expense";
-}
-
-export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
-  const withBaseline = withDefaultFinancialBaseline(ops);
-  const baseline = withBaseline.financialBaseline!;
-  const newExpenses = ops.expenses.filter((e) => !e.isBaseline);
-
-  const newExternal = sumExpensesByCategory(newExpenses, "external_payout");
-  const newCompany = sumExpensesByCategory(newExpenses, "company");
-  const newFounder = sumExpensesByCategory(newExpenses, "founder_payout");
-  const newHandouts = sumExpensesByCategory(newExpenses, "handout");
-  const verifiedPaymentTotal = (ops.payments ?? []).reduce((s, p) => s + p.amount, 0);
-  const verifiedAfterBaseline = (ops.payments ?? [])
-    .filter((p) => p.date > baseline.asOfDate)
-    .reduce((s, p) => s + p.amount, 0);
-
-  // Proof-backed payment rows are the income ledger. The baseline aggregate is only a fallback
-  // when no verified payments exist — otherwise baseline + verified double-counts the same money.
-  const totalRevenueReceived =
-    verifiedPaymentTotal > 0 ? verifiedPaymentTotal : baseline.totalRevenueReceived;
-  const newRevenueAfterBaseline =
-    verifiedPaymentTotal > 0
-      ? Math.max(0, verifiedPaymentTotal - baseline.totalRevenueReceived)
-      : verifiedAfterBaseline;
-  const totalExternalPayouts = baseline.totalExternalPayouts + newExternal;
-  const totalCompanyExpenses = baseline.totalCompanyExpenses + newCompany;
-  const founderPayoutPool = baseline.founderPayoutPool + newFounder;
-  const totalHandoutsTaken = baseline.totalHandoutsTaken + newHandouts;
-
-  const totalExpense = totalExternalPayouts + totalCompanyExpenses + founderPayoutPool;
-  const currentCashBalance = totalRevenueReceived - totalExpense;
-  const activePipelineBooked = sumPipelineBookedRevenue(ops.projects);
-  /** Contract value — ongoing and done projects (not cash received). */
-  const totalRevenueBooked =
-    baseline.totalRevenueBooked != null ? baseline.totalRevenueBooked : activePipelineBooked;
-  const totalMonthlyFixedExpenses = sumActiveFixedMonthlyExpenses(ops.fixedMonthlyExpenses);
-
-  return {
-    baseline,
-    totalRevenueBooked,
-    totalHandoutsTaken,
-    totalRevenueReceived,
-    totalExternalPayouts,
-    totalCompanyExpenses,
-    founderPayoutPool,
-    totalExpense,
-    currentCashBalance,
-    newExpenseCount: newExpenses.length,
-    newRevenueAfterBaseline,
-    verifiedPaymentTotal,
-    totalMonthlyFixedExpenses,
-    activePipelineBooked,
-  };
 }
 
 export function formatFinancialINR(n: number): string {

@@ -1,4 +1,4 @@
-import type { Client, OperationsData, Payment, Project } from "@/lib/types";
+import type { Client, OperationsData, Payment, Project, Transaction, TransactionType } from "@/lib/types";
 import { DEFAULT_PROJECTS, withDefaultProjects } from "@/lib/default-projects";
 import { DEFAULT_PARTNERSHIPS, withDefaultPartnerships } from "@/lib/default-partnerships";
 import { withDefaultFinancialBaseline } from "@/lib/default-financial-baseline";
@@ -67,10 +67,112 @@ function seedPaymentsFromProjects(projects: Project[]): Payment[] {
   return list;
 }
 
+function runHistoricalMigration(data: OperationsData): OperationsData {
+  if (data.migrationApplied) return data;
+
+  // 1. Safety Backup
+  if (isBrowser()) {
+    const rawPrev = localStorage.getItem(OPERATIONS_KEY);
+    if (rawPrev) {
+      localStorage.setItem(`${OPERATIONS_KEY}.backup.${Date.now()}`, rawPrev);
+    }
+  }
+
+  const transactions: Transaction[] = [];
+
+  // A. Migrate project payments
+  for (const proj of data.projects ?? []) {
+    for (const pay of proj.payments ?? []) {
+      transactions.push({
+        id: pay.id || "tx-" + crypto.randomUUID().slice(0, 8),
+        type: "client_payment",
+        date: pay.date,
+        amount: pay.amount,
+        description: `Project Payment: ${proj.name || proj.client}`,
+        category: "Project Income",
+        paymentMethod: "upi",
+        relatedProjectId: proj.id,
+        relatedClientId: proj.clientId,
+        notes: pay.note,
+        createdAt: new Date(pay.date).getTime() || Date.now(),
+        updatedAt: new Date(pay.date).getTime() || Date.now(),
+        historical: true,
+      });
+    }
+  }
+
+  // B. Migrate operations payments
+  for (const pay of data.payments ?? []) {
+    if (transactions.some((tx) => tx.id === pay.id)) continue;
+    transactions.push({
+      id: pay.id || "tx-" + crypto.randomUUID().slice(0, 8),
+      type: "client_payment",
+      date: pay.date,
+      amount: pay.amount,
+      description: pay.notes || `Invoice Payment`,
+      category: "Invoice Income",
+      paymentMethod: pay.method || "upi",
+      relatedInvoiceId: pay.invoiceId,
+      relatedProjectId: pay.projectId,
+      notes: pay.notes,
+      attachmentDataUrl: pay.screenshotDataUrl,
+      createdAt: new Date(pay.date).getTime() || Date.now(),
+      updatedAt: new Date(pay.date).getTime() || Date.now(),
+      historical: true,
+    });
+  }
+
+  // C. Migrate legacy expenses
+  for (const exp of data.expenses ?? []) {
+    if (exp.isBaseline) continue;
+
+    let type: TransactionType = "expense";
+    let relatedFounderId: string | undefined = undefined;
+
+    if (exp.category === "founder_payout") {
+      type = "founder_withdrawal";
+      const lbl = exp.label.toLowerCase();
+      if (lbl.includes("prajwal")) relatedFounderId = "member-prajwal";
+      else if (lbl.includes("tejasvi")) relatedFounderId = "member-tejasvi";
+      else if (lbl.includes("harshith")) relatedFounderId = "member-harshith";
+      else if (lbl.includes("revanth")) relatedFounderId = "member-revanth";
+    } else if (exp.category === "handout") {
+      type = "internal_transfer";
+    }
+
+    transactions.push({
+      id: exp.id || "tx-" + crypto.randomUUID().slice(0, 8),
+      type,
+      date: exp.date,
+      amount: exp.amount,
+      description: exp.label,
+      category: typeof exp.category === "string" ? exp.category : "company",
+      paymentMethod: "bank_transfer",
+      relatedProjectId: exp.projectId,
+      relatedFounderId,
+      notes: exp.notes,
+      attachmentDataUrl: exp.proof?.imageDataUrl,
+      createdAt: new Date(exp.date).getTime() || Date.now(),
+      updatedAt: new Date(exp.date).getTime() || Date.now(),
+      historical: true,
+    });
+  }
+
+  transactions.sort((a, b) => b.date.localeCompare(a.date));
+
+  return {
+    ...data,
+    transactions,
+    migrationApplied: true,
+    migrationDate: new Date().toISOString().slice(0, 10),
+  };
+}
+
 function mergeWithDefaults(data: OperationsData): OperationsData {
-  let base = !needsProjectSeed(data.projects)
-    ? withDefaultProjects(data)
-    : { ...data, projects: DEFAULT_PROJECTS };
+  const migrated = runHistoricalMigration(data);
+  let base = !needsProjectSeed(migrated.projects)
+    ? withDefaultProjects(migrated)
+    : { ...migrated, projects: DEFAULT_PROJECTS };
 
   if (needsPartnershipSeed(base.partnerships)) {
     base = { ...base, partnerships: DEFAULT_PARTNERSHIPS };
@@ -96,6 +198,9 @@ function mergeWithDefaults(data: OperationsData): OperationsData {
     clients: seededClients,
     payments: seededPayments,
     projects: projectsWithClientIds,
+    transactions: migrated.transactions ?? [],
+    migrationApplied: migrated.migrationApplied,
+    migrationDate: migrated.migrationDate,
   };
 
   return withDefaultLeads(

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as PartnershipsRouteImport } from './routes/partnerships'
@@ -18,6 +19,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as FoundersRouteImport } from './routes/founders'
 import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as AccountsRouteImport } from './routes/accounts'
@@ -45,6 +47,11 @@ import { Route as DocumentsPaymentsVendorsVendorKeyRouteImport } from './routes/
 import { Route as DocumentsPaymentsPartnersPartnershipIdRouteImport } from './routes/documents/payments/partners/$partnershipId'
 import { Route as DocumentsPaymentsClientsClientKeyRouteImport } from './routes/documents/payments/clients/$clientKey'
 
+const TransactionsRoute = TransactionsRouteImport.update({
+  id: '/transactions',
+  path: '/transactions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -88,6 +95,11 @@ const InvoicesRoute = InvoicesRouteImport.update({
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FoundersRoute = FoundersRouteImport.update({
+  id: '/founders',
+  path: '/founders',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpensesRoute = ExpensesRouteImport.update({
@@ -232,6 +244,7 @@ export interface FileRoutesByFullPath {
   '/accounts': typeof AccountsRouteWithChildren
   '/clients': typeof ClientsRouteWithChildren
   '/expenses': typeof ExpensesRoute
+  '/founders': typeof FoundersRoute
   '/history': typeof HistoryRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
@@ -241,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
+  '/transactions': typeof TransactionsRoute
   '/accounts/billing': typeof AccountsBillingRoute
   '/analytics/balance': typeof AnalyticsBalanceRoute
   '/analytics/expenses': typeof AnalyticsExpensesRoute
@@ -267,6 +281,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/expenses': typeof ExpensesRoute
+  '/founders': typeof FoundersRoute
   '/history': typeof HistoryRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
@@ -276,6 +291,7 @@ export interface FileRoutesByTo {
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
+  '/transactions': typeof TransactionsRoute
   '/accounts/billing': typeof AccountsBillingRoute
   '/analytics/balance': typeof AnalyticsBalanceRoute
   '/analytics/expenses': typeof AnalyticsExpensesRoute
@@ -305,6 +321,7 @@ export interface FileRoutesById {
   '/accounts': typeof AccountsRouteWithChildren
   '/clients': typeof ClientsRouteWithChildren
   '/expenses': typeof ExpensesRoute
+  '/founders': typeof FoundersRoute
   '/history': typeof HistoryRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
@@ -314,6 +331,7 @@ export interface FileRoutesById {
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
+  '/transactions': typeof TransactionsRoute
   '/accounts/billing': typeof AccountsBillingRoute
   '/analytics/balance': typeof AnalyticsBalanceRoute
   '/analytics/expenses': typeof AnalyticsExpensesRoute
@@ -344,6 +362,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/clients'
     | '/expenses'
+    | '/founders'
     | '/history'
     | '/invoices'
     | '/leads'
@@ -353,6 +372,7 @@ export interface FileRouteTypes {
     | '/partnerships'
     | '/projects'
     | '/settings'
+    | '/transactions'
     | '/accounts/billing'
     | '/analytics/balance'
     | '/analytics/expenses'
@@ -379,6 +399,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/expenses'
+    | '/founders'
     | '/history'
     | '/invoices'
     | '/leads'
@@ -388,6 +409,7 @@ export interface FileRouteTypes {
     | '/partnerships'
     | '/projects'
     | '/settings'
+    | '/transactions'
     | '/accounts/billing'
     | '/analytics/balance'
     | '/analytics/expenses'
@@ -416,6 +438,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/clients'
     | '/expenses'
+    | '/founders'
     | '/history'
     | '/invoices'
     | '/leads'
@@ -425,6 +448,7 @@ export interface FileRouteTypes {
     | '/partnerships'
     | '/projects'
     | '/settings'
+    | '/transactions'
     | '/accounts/billing'
     | '/analytics/balance'
     | '/analytics/expenses'
@@ -454,6 +478,7 @@ export interface RootRouteChildren {
   AccountsRoute: typeof AccountsRouteWithChildren
   ClientsRoute: typeof ClientsRouteWithChildren
   ExpensesRoute: typeof ExpensesRoute
+  FoundersRoute: typeof FoundersRoute
   HistoryRoute: typeof HistoryRoute
   InvoicesRoute: typeof InvoicesRoute
   LeadsRoute: typeof LeadsRoute
@@ -463,6 +488,7 @@ export interface RootRouteChildren {
   PartnershipsRoute: typeof PartnershipsRoute
   ProjectsRoute: typeof ProjectsRoute
   SettingsRoute: typeof SettingsRoute
+  TransactionsRoute: typeof TransactionsRoute
   AnalyticsBalanceRoute: typeof AnalyticsBalanceRoute
   AnalyticsExpensesRoute: typeof AnalyticsExpensesRoute
   AnalyticsIncomeRoute: typeof AnalyticsIncomeRoute
@@ -485,6 +511,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/transactions': {
+      id: '/transactions'
+      path: '/transactions'
+      fullPath: '/transactions'
+      preLoaderRoute: typeof TransactionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -546,6 +579,13 @@ declare module '@tanstack/react-router' {
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/founders': {
+      id: '/founders'
+      path: '/founders'
+      fullPath: '/founders'
+      preLoaderRoute: typeof FoundersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/expenses': {
@@ -765,6 +805,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountsRoute: AccountsRouteWithChildren,
   ClientsRoute: ClientsRouteWithChildren,
   ExpensesRoute: ExpensesRoute,
+  FoundersRoute: FoundersRoute,
   HistoryRoute: HistoryRoute,
   InvoicesRoute: InvoicesRoute,
   LeadsRoute: LeadsRoute,
@@ -774,6 +815,7 @@ const rootRouteChildren: RootRouteChildren = {
   PartnershipsRoute: PartnershipsRoute,
   ProjectsRoute: ProjectsRoute,
   SettingsRoute: SettingsRoute,
+  TransactionsRoute: TransactionsRoute,
   AnalyticsBalanceRoute: AnalyticsBalanceRoute,
   AnalyticsExpensesRoute: AnalyticsExpensesRoute,
   AnalyticsIncomeRoute: AnalyticsIncomeRoute,
