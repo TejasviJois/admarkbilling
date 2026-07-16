@@ -17,6 +17,7 @@ const ENTITY_FILTERS: Array<ActivityEntity | "all"> = [
   "expense",
   "invoice",
   "settings",
+  "security",
 ];
 
 function entityBadgeClass(entity: ActivityEntity): string {
@@ -30,6 +31,13 @@ function entityBadgeClass(entity: ActivityEntity): string {
     case "invoice":
       return "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30";
     case "settings":
+      return "bg-muted text-muted-foreground ring-border";
+    case "agreement":
+    case "document":
+      return "bg-indigo-500/15 text-indigo-400 ring-indigo-500/30";
+    case "security":
+      return "bg-rose-500/15 text-rose-400 ring-rose-500/30";
+    default:
       return "bg-muted text-muted-foreground ring-border";
   }
 }
@@ -46,6 +54,14 @@ function actionBadgeClass(action: ActivityLogEntry["action"]): string {
       return "text-emerald-300";
     case "payment_removed":
       return "text-rose-300";
+    case "login":
+      return "text-emerald-400 font-bold";
+    case "logout":
+      return "text-muted-foreground";
+    case "failed_login":
+      return "text-rose-500 font-extrabold";
+    default:
+      return "text-muted-foreground";
   }
 }
 

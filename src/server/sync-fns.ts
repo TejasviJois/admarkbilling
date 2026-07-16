@@ -8,6 +8,11 @@ import {
   externalizeDocumentsData,
   externalizeOperationsData,
 } from "./payload-files";
+import {
+  encryptInvoice,
+  encryptCompanySettings,
+  encryptOperationsData,
+} from "@/lib/encryption";
 
 export interface SyncAllPayload {
   company?: CompanySettings;
@@ -28,7 +33,8 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
     const now = new Date().toISOString();
 
     if (data.company) {
-      const payload = await externalizeCompanySettings(sb, data.company);
+      const encrypted = encryptCompanySettings(data.company);
+      const payload = await externalizeCompanySettings(sb, encrypted);
       const payloadWithTenant = { ...payload, organizationId: DEFAULT_ORG_ID };
       const { error } = await sb.from("company_settings").upsert({
         id: "default",
@@ -42,7 +48,8 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
     }
 
     if (data.operations) {
-      const payload = await externalizeOperationsData(sb, data.operations);
+      const encrypted = encryptOperationsData(data.operations);
+      const payload = await externalizeOperationsData(sb, encrypted);
       const payloadWithTenant = {
         ...payload,
         organizationId: DEFAULT_ORG_ID,
@@ -82,12 +89,15 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
     }
 
     if (data.invoices?.length) {
-      const rows = data.invoices.map((inv) => ({
-        id: inv.id,
-        payload: { ...inv, organizationId: DEFAULT_ORG_ID },
-        organization_id: DEFAULT_ORG_ID,
-        created_at: new Date(inv.createdAt).toISOString(),
-      }));
+      const rows = data.invoices.map((inv) => {
+        const encrypted = encryptInvoice(inv);
+        return {
+          id: inv.id,
+          payload: { ...encrypted, organizationId: DEFAULT_ORG_ID },
+          organization_id: DEFAULT_ORG_ID,
+          created_at: new Date(inv.createdAt).toISOString(),
+        };
+      });
       const { error } = await sb.from("invoices").upsert(rows);
       if (error) throw error;
       cacheDel(CACHE_KEYS.invoices);

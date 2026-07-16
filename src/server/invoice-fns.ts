@@ -7,6 +7,12 @@ import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
 import { externalizeCompanySettings } from "./payload-files";
+import {
+  encryptInvoice,
+  decryptInvoice,
+  encryptCompanySettings,
+  decryptCompanySettings,
+} from "@/lib/encryption";
 
 const DEFAULT_ORG_ID = "org-admark-digitals";
 
@@ -36,7 +42,7 @@ export const listInvoicesFn = createServerFn({ method: "GET" }).handler(
       const list: Invoice[] = [];
       for (const row of data ?? []) {
         const inv = parseInvoicePayload(row.payload);
-        if (inv) list.push(inv);
+        if (inv) list.push(decryptInvoice(inv)); // Decrypt on load
       }
       return list;
     });
@@ -58,7 +64,8 @@ export const getInvoiceFn = createServerFn({ method: "POST" })
       .eq("organization_id", DEFAULT_ORG_ID)
       .maybeSingle();
     if (error) throw error;
-    return row?.payload ? parseInvoicePayload(row.payload) : null;
+    const inv = row?.payload ? parseInvoicePayload(row.payload) : null;
+    return inv ? decryptInvoice(inv) : null; // Decrypt on load
   });
 
 export const upsertInvoiceFn = createServerFn({ method: "POST" })
@@ -69,7 +76,8 @@ export const upsertInvoiceFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await assertAppSession();
     const sb = requireServerSupabase();
-    const payloadWithTenant = { ...data, organizationId: DEFAULT_ORG_ID };
+    const encrypted = encryptInvoice(data); // Encrypt on save
+    const payloadWithTenant = { ...encrypted, organizationId: DEFAULT_ORG_ID };
     const { error } = await sb.from("invoices").upsert({
       id: data.id,
       payload: payloadWithTenant,
@@ -112,7 +120,8 @@ export const getCompanyFn = createServerFn({ method: "GET" }).handler(
         .maybeSingle();
       if (error) throw error;
       if (!data?.payload || typeof data.payload !== "object") return DEFAULT_COMPANY;
-      return normalizeCompanySettings(data.payload as CompanySettings);
+      const parsed = normalizeCompanySettings(data.payload as CompanySettings);
+      return decryptCompanySettings(parsed); // Decrypt on load
     });
   },
 );
@@ -122,7 +131,8 @@ export const saveCompanyFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await assertAppSession();
     const sb = requireServerSupabase();
-    const payload = await externalizeCompanySettings(sb, data);
+    const encrypted = encryptCompanySettings(data); // Encrypt on save
+    const payload = await externalizeCompanySettings(sb, encrypted);
     const payloadWithTenant = { ...payload, organizationId: DEFAULT_ORG_ID };
     const { error } = await sb.from("company_settings").upsert({
       id: "default",

@@ -16,6 +16,8 @@ export function entityLabel(entity: ActivityEntity): string {
       return "Agreement";
     case "document":
       return "Document";
+    case "security":
+      return "Security";
   }
 }
 
@@ -31,6 +33,12 @@ export function actionLabel(action: ActivityAction): string {
       return "Payment added";
     case "payment_removed":
       return "Payment removed";
+    case "login":
+      return "Log In";
+    case "logout":
+      return "Log Out";
+    case "failed_login":
+      return "Failed Login";
   }
 }
 

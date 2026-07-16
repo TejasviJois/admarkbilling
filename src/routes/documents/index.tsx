@@ -20,7 +20,10 @@ function DocumentsHubPage() {
 
   return (
     <div className="space-y-8">
-      <OperationsPageHeader title="Documents" />
+      <OperationsPageHeader
+        title="Documents"
+        description="Unified file archive containing invoices, receipts, and agency agreements."
+      />
 
       <section className="rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
         <div className="mb-4 flex items-start gap-3">

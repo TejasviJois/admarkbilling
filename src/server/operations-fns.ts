@@ -6,6 +6,7 @@ import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
 import { externalizeOperationsData } from "./payload-files";
 import { relinkOrphanedPaymentProofs } from "./relink-payment-proofs";
+import { encryptOperationsData, decryptOperationsData } from "@/lib/encryption";
 
 export const EMPTY_OPERATIONS: OperationsData = {
   projects: [],
@@ -319,7 +320,8 @@ export const getOperationsFn = createServerFn({ method: "GET" }).handler(
       try {
         const relinked = await relinkOrphanedPaymentProofs(sb, ops);
         if (relinked.changed) {
-          const payload = await externalizeOperationsData(sb, relinked.data);
+          const encryptedOps = encryptOperationsData(relinked.data);
+          const payload = await externalizeOperationsData(sb, encryptedOps);
           const payloadWithTenant = { ...payload, organizationId: DEFAULT_ORG_ID };
           const { error: saveError } = await sb.from("operations_data").upsert({
             id: "default",
@@ -333,7 +335,7 @@ export const getOperationsFn = createServerFn({ method: "GET" }).handler(
         console.error("[operations] payment proof relink failed:", relinkError);
       }
 
-      return ops;
+      return decryptOperationsData(ops);
     });
   },
 );
@@ -343,7 +345,8 @@ export const saveOperationsFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await assertAppSession();
     const sb = requireServerSupabase();
-    const payload = await externalizeOperationsData(sb, data);
+    const encrypted = encryptOperationsData(data);
+    const payload = await externalizeOperationsData(sb, encrypted);
     const payloadWithTenant = { ...payload, organizationId: DEFAULT_ORG_ID };
     const { error } = await sb.from("operations_data").upsert({
       id: "default",

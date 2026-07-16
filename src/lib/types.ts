@@ -394,14 +394,18 @@ export type ActivityEntity =
   | "invoice"
   | "settings"
   | "agreement"
-  | "document";
+  | "document"
+  | "security";
 
 export type ActivityAction =
   | "created"
   | "updated"
   | "deleted"
   | "payment_added"
-  | "payment_removed";
+  | "payment_removed"
+  | "login"
+  | "logout"
+  | "failed_login";
 
 export interface ActivityLogEntry {
   id: string;

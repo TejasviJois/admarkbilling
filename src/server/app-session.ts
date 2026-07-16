@@ -1,7 +1,43 @@
-import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server";
+import { deleteCookie, getCookie, setCookie, getRequest } from "@tanstack/react-start/server";
 
 export const APP_SESSION_COOKIE = "admark_gate";
 const COOKIE_PAYLOAD = "admark-billing-gate-v1";
+
+// In-memory rate limiting by IP
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 120; // Max requests per window
+const ipTracker = new Map<string, { count: number; start: number }>();
+
+export function rateLimitIp(): void {
+  let req: Request | undefined;
+  try {
+    req = getRequest();
+  } catch {
+    // Return early if not in a web request context
+    return;
+  }
+  if (!req) return;
+
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "127.0.0.1";
+  const now = Date.now();
+  const userRecord = ipTracker.get(ip);
+
+  if (!userRecord) {
+    ipTracker.set(ip, { count: 1, start: now });
+    return;
+  }
+
+  if (now - userRecord.start > RATE_LIMIT_WINDOW_MS) {
+    userRecord.count = 1;
+    userRecord.start = now;
+    return;
+  }
+
+  userRecord.count++;
+  if (userRecord.count > MAX_REQUESTS_PER_WINDOW) {
+    throw new Error("Rate limit exceeded. Too many requests from this IP address.");
+  }
+}
 
 function sessionSecret(): string {
   const secret = process.env.APP_SESSION_SECRET?.trim();
@@ -40,6 +76,7 @@ async function signedGateToken(): Promise<string> {
 }
 
 export async function sessionCookieValid(): Promise<boolean> {
+  rateLimitIp(); // Rate limit session validations
   const cookie = getCookie(APP_SESSION_COOKIE);
   if (!cookie) return false;
   const expected = await signedGateToken();
@@ -47,8 +84,9 @@ export async function sessionCookieValid(): Promise<boolean> {
 }
 
 export async function assertAppSession(): Promise<void> {
+  rateLimitIp(); // Rate limit assertions
   if (!(await sessionCookieValid())) {
-    throw new Error("Unauthorized");
+    throw new Error("Unauthorized access detected. Session expired.");
   }
 }
 
@@ -61,13 +99,13 @@ export function writeSessionCookie(token: string): void {
   setCookie(APP_SESSION_COOKIE, token, {
     httpOnly: true,
     secure: isProd,
-    sameSite: "lax",
+    sameSite: "strict", // Strict same-site cookie policy
     path: "/",
-    maxAge: 60 * 60 * 24 * 14,
+    maxAge: 60 * 60 * 12, // Shortened from 14 days to 12 hours (session expiration)
   });
 }
 
 export function eraseSessionCookie(): void {
   const isProd = process.env.NODE_ENV === "production";
-  deleteCookie(APP_SESSION_COOKIE, { path: "/", secure: isProd, sameSite: "lax" });
+  deleteCookie(APP_SESSION_COOKIE, { path: "/", secure: isProd, sameSite: "strict" });
 }
