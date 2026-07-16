@@ -127,8 +127,10 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
   const newCompany = sumExpensesByCategory(newExpenses, "company");
   const newFounder = sumExpensesByCategory(newExpenses, "founder_payout");
   const newHandouts = sumExpensesByCategory(newExpenses, "handout");
-  const verifiedPaymentTotal = sumVerifiedProjectPayments(ops.projects);
-  const verifiedAfterBaseline = sumVerifiedProjectPaymentsAfter(ops.projects, baseline.asOfDate);
+  const verifiedPaymentTotal = (ops.payments ?? []).reduce((s, p) => s + p.amount, 0);
+  const verifiedAfterBaseline = (ops.payments ?? [])
+    .filter((p) => p.date > baseline.asOfDate)
+    .reduce((s, p) => s + p.amount, 0);
 
   // Proof-backed payment rows are the income ledger. The baseline aggregate is only a fallback
   // when no verified payments exist — otherwise baseline + verified double-counts the same money.

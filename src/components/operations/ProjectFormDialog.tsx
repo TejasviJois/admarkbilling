@@ -19,6 +19,7 @@ import {
 import { Field } from "@/components/operations/operations-ui";
 import { buildRevenueValueFromBilling, resolveProjectBilling } from "@/lib/project-billing";
 import { projectStatusLabel } from "@/lib/project-status";
+import { useOperations } from "@/hooks/use-operations";
 import type { Project, ProjectBilling, ProjectStatus } from "@/lib/types";
 
 const PROJECT_STATUSES: ProjectStatus[] = [
@@ -48,6 +49,7 @@ const EMPTY_BILLING: BillingForm = {
 };
 
 const EMPTY_FORM = {
+  clientId: "",
   client: "",
   projectType: "",
   phone: "",
@@ -99,10 +101,14 @@ export function ProjectFormDialog({
   const [form, setForm] = useState(EMPTY_FORM);
   const isEdit = Boolean(project);
 
+  const { ops } = useOperations();
+  const clients = ops.clients ?? [];
+
   useEffect(() => {
     if (!open) return;
     if (project) {
       setForm({
+        clientId: project.clientId ?? "",
         client: project.client || project.name || "",
         projectType: project.projectType || "",
         phone: project.phone ?? "",
@@ -113,7 +119,7 @@ export function ProjectFormDialog({
     } else {
       setForm(EMPTY_FORM);
     }
-  }, [open, project]);
+  }, [open, project, clients]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,6 +128,7 @@ export function ProjectFormDialog({
     const saved: Project = {
       ...(project ?? {}),
       id: project?.id ?? crypto.randomUUID(),
+      clientId: form.clientId.trim() || undefined,
       client: form.client.trim(),
       name: form.client.trim(),
       projectType: form.projectType.trim() || undefined,
@@ -146,13 +153,40 @@ export function ProjectFormDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
-          <Field label="Client name" id="dialog-client">
+          <Field label="Select Client *" id="dialog-client">
+            <Select
+              value={form.clientId}
+              onValueChange={(v) => {
+                const found = clients.find((c) => c.id === v);
+                if (found) {
+                  setForm((f) => ({
+                    ...f,
+                    clientId: v,
+                    client: found.companyName,
+                    phone: found.phone,
+                    email: found.email,
+                  }));
+                }
+              }}
+            >
+              <SelectTrigger id="dialog-client">
+                <SelectValue placeholder="Select client" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.companyName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Client name" id="dialog-client-name">
             <Input
-              id="dialog-client"
+              id="dialog-client-name"
               value={form.client}
-              onChange={(e) => setForm((f) => ({ ...f, client: e.target.value }))}
-              placeholder="Client name"
-              required
+              readOnly
+              className="bg-muted/40 cursor-default"
             />
           </Field>
           <Field label="Project type" id="dialog-type">

@@ -43,8 +43,8 @@ function AnalyticsPage() {
   const financial = useMemo(() => computeFinancialSummary(ops), [ops]);
   const snapshot = useMemo(() => buildAnalyticsSnapshot(ops, period), [ops, period]);
   const incomeByClient = useMemo(
-    () => buildIncomeByClientForPeriod(ops.projects, period),
-    [ops.projects, period],
+    () => buildIncomeByClientForPeriod(ops.payments ?? [], ops.projects, period),
+    [ops.payments, ops.projects, period],
   );
   const incomeBySource = useMemo(
     () => buildIncomeSourceForPeriod(financial, snapshot.periodIncome, period),

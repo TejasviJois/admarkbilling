@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { FinancialBaseline, FixedMonthlyExpense, Lead, OperationsData } from "@/lib/types";
+import type { Client, FinancialBaseline, FixedMonthlyExpense, Lead, OperationsData, Payment } from "@/lib/types";
 import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
 import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
@@ -77,6 +77,65 @@ function parseLead(raw: unknown): Lead | null {
   };
 }
 
+function parseClient(raw: unknown): Client | null {
+  if (!raw || typeof raw !== "object") return null;
+  const c = raw as Partial<Client>;
+  if (typeof c.id !== "string" || typeof c.companyName !== "string") return null;
+  return {
+    id: c.id,
+    organizationId: c.organizationId ?? DEFAULT_ORG_ID,
+    companyName: c.companyName,
+    contactPerson: c.contactPerson ?? "",
+    phone: c.phone ?? "",
+    email: c.email ?? "",
+    gstNumber: c.gstNumber,
+    pan: c.pan,
+    billingAddress: c.billingAddress ?? "",
+    shippingAddress: c.shippingAddress,
+    website: c.website,
+    industry: c.industry,
+    clientSince: c.clientSince ?? new Date().toISOString().slice(0, 10),
+    status: c.status === "inactive" ? "inactive" : "active",
+    notes: c.notes,
+  };
+}
+
+function parsePayment(raw: unknown): Payment | null {
+  if (!raw || typeof raw !== "object") return null;
+  const p = raw as Partial<Payment>;
+  if (typeof p.id !== "string" || typeof p.amount !== "number" || typeof p.date !== "string" || typeof p.method !== "string") {
+    return null;
+  }
+  return {
+    id: p.id,
+    organizationId: p.organizationId ?? DEFAULT_ORG_ID,
+    invoiceId: p.invoiceId,
+    projectId: p.projectId,
+    amount: p.amount,
+    date: p.date,
+    method: p.method,
+    referenceNumber: p.referenceNumber,
+    transactionId: p.transactionId,
+    screenshotDataUrl: p.screenshotDataUrl,
+    notes: p.notes,
+  };
+}
+
+const DEFAULT_ORG_ID = "org-admark-digitals";
+
+function injectTenantIntoOperations(data: OperationsData): OperationsData {
+  return {
+    ...data,
+    projects: data.projects.map((p) => ({ ...p, organizationId: DEFAULT_ORG_ID })),
+    partnerships: data.partnerships.map((p) => ({ ...p, organizationId: DEFAULT_ORG_ID })),
+    expenses: data.expenses.map((e) => ({ ...e, organizationId: DEFAULT_ORG_ID })),
+    leads: data.leads?.map((l) => ({ ...l, organizationId: DEFAULT_ORG_ID })),
+    assets: data.assets?.map((a) => ({ ...a, organizationId: DEFAULT_ORG_ID })),
+    clients: data.clients?.map((c) => ({ ...c, organizationId: DEFAULT_ORG_ID })),
+    payments: data.payments?.map((pay) => ({ ...pay, organizationId: DEFAULT_ORG_ID })),
+  };
+}
+
 function parseOperationsPayload(payload: unknown): OperationsData {
   if (!payload || typeof payload !== "object") return EMPTY_OPERATIONS;
   const raw = payload as Partial<OperationsData>;
@@ -87,7 +146,13 @@ function parseOperationsPayload(payload: unknown): OperationsData {
   const leads = Array.isArray(raw.leads)
     ? raw.leads.map(parseLead).filter((l): l is Lead => l != null)
     : undefined;
-  return {
+  const clients = Array.isArray(raw.clients)
+    ? raw.clients.map(parseClient).filter((c): c is Client => c != null)
+    : undefined;
+  const payments = Array.isArray(raw.payments)
+    ? raw.payments.map(parsePayment).filter((pay): pay is Payment => pay != null)
+    : undefined;
+  const parsed = {
     projects: Array.isArray(raw.projects) ? raw.projects : [],
     partnerships: Array.isArray(raw.partnerships) ? raw.partnerships : [],
     expenses: Array.isArray(raw.expenses) ? raw.expenses : [],
@@ -95,7 +160,10 @@ function parseOperationsPayload(payload: unknown): OperationsData {
     assets,
     financialBaseline: parseFinancialBaseline(raw.financialBaseline) ?? DEFAULT_FINANCIAL_BASELINE,
     fixedMonthlyExpenses,
+    clients,
+    payments,
   };
+  return injectTenantIntoOperations(parsed);
 }
 
 export const getOperationsFn = createServerFn({ method: "GET" }).handler(
@@ -107,18 +175,21 @@ export const getOperationsFn = createServerFn({ method: "GET" }).handler(
         .from("operations_data")
         .select("payload")
         .eq("id", "default")
+        .eq("organization_id", DEFAULT_ORG_ID)
         .maybeSingle();
       if (error) throw error;
-      if (!data?.payload) return EMPTY_OPERATIONS;
+      if (!data?.payload) return injectTenantIntoOperations(EMPTY_OPERATIONS);
 
       let ops = parseOperationsPayload(data.payload);
       try {
         const relinked = await relinkOrphanedPaymentProofs(sb, ops);
         if (relinked.changed) {
           const payload = await externalizeOperationsData(sb, relinked.data);
+          const payloadWithTenant = { ...payload, organizationId: DEFAULT_ORG_ID };
           const { error: saveError } = await sb.from("operations_data").upsert({
             id: "default",
-            payload,
+            payload: payloadWithTenant,
+            organization_id: DEFAULT_ORG_ID,
             updated_at: new Date().toISOString(),
           });
           if (saveError) throw saveError;
@@ -139,9 +210,11 @@ export const saveOperationsFn = createServerFn({ method: "POST" })
     await assertAppSession();
     const sb = requireServerSupabase();
     const payload = await externalizeOperationsData(sb, data);
+    const payloadWithTenant = { ...payload, organizationId: DEFAULT_ORG_ID };
     const { error } = await sb.from("operations_data").upsert({
       id: "default",
-      payload,
+      payload: payloadWithTenant,
+      organization_id: DEFAULT_ORG_ID,
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;

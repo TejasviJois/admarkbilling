@@ -31,8 +31,8 @@ export function IncomeSection({
   const [viewerSrc, setViewerSrc] = useState<string | null>(null);
   const [viewerTitle, setViewerTitle] = useState("Payment proof");
 
-  const rows = useMemo(() => flattenProjectIncome(ops.projects), [ops.projects]);
-  const total = sumAllProjectIncome(ops.projects);
+  const rows = useMemo(() => flattenProjectIncome(ops.payments ?? [], ops.projects), [ops.payments, ops.projects]);
+  const total = (ops.payments ?? []).reduce((s, p) => s + p.amount, 0);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

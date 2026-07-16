@@ -12,7 +12,7 @@ import {
   resolvePaymentProof,
   sumProjectPayments,
 } from "./project-payments";
-import type { OperationsData, Project, ProjectPayment } from "./types";
+import type { OperationsData, Payment, Project, ProjectPayment } from "./types";
 import {
   buildMoneyOutRows,
   computeFinancialSummary,
@@ -59,36 +59,34 @@ export function sumOngoingProjectRevenue(projects: Project[]): number {
 
 export { sumActiveMrr, sumFutureMonthlyPipeline, sumActivePipelineBooked, sumPipelineBookedRevenue, projectBillingRows };
 
-export function allProjectPaymentsByMonth(projects: Project[]): Map<string, number> {
+export function allProjectPaymentsByMonth(payments: Payment[]): Map<string, number> {
   const months = new Map<string, number>();
-  for (const project of projects) {
-    for (const payment of project.payments ?? []) {
-      const key = payment.date.slice(0, 7);
-      if (key.length !== 7) continue;
-      months.set(key, (months.get(key) ?? 0) + (payment.amount || 0));
-    }
+  for (const payment of payments ?? []) {
+    const key = payment.date.slice(0, 7);
+    if (key.length !== 7) continue;
+    months.set(key, (months.get(key) ?? 0) + (payment.amount || 0));
   }
   return months;
 }
 
-export function flattenProjectIncome(projects: Project[]): IncomeRow[] {
+export function flattenProjectIncome(payments: Payment[], projects: Project[]): IncomeRow[] {
   const rows: IncomeRow[] = [];
-  for (const project of projects) {
-    const client = projectClientLabel(project);
-    for (const payment of project.payments ?? []) {
-      const proof = resolvePaymentProof(project, payment);
-      const proofImageUrl = proof?.imageDataUrl;
-      rows.push({
-        id: payment.id,
-        projectId: project.id,
-        client,
-        amount: payment.amount,
-        date: payment.date,
-        note: payment.note,
-        hasProof: Boolean(proofImageUrl),
-        proofImageUrl,
-      });
+  for (const payment of payments ?? []) {
+    let client = "Unknown Client";
+    if (payment.projectId) {
+      const proj = projects.find((p) => p.id === payment.projectId);
+      if (proj) client = proj.client;
     }
+    rows.push({
+      id: payment.id,
+      projectId: payment.projectId ?? "",
+      client,
+      amount: payment.amount,
+      date: payment.date,
+      note: payment.notes,
+      hasProof: Boolean(payment.screenshotDataUrl),
+      proofImageUrl: payment.screenshotDataUrl,
+    });
   }
   return rows.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
 }
@@ -116,9 +114,9 @@ export type CategoryAmountRow = {
   hint?: string;
 };
 
-export function buildIncomeByClient(projects: Project[]): CategoryAmountRow[] {
+export function buildIncomeByClient(payments: Payment[], projects: Project[]): CategoryAmountRow[] {
   const totals = new Map<string, number>();
-  for (const row of flattenProjectIncome(projects)) {
+  for (const row of flattenProjectIncome(payments, projects)) {
     totals.set(row.client, (totals.get(row.client) ?? 0) + row.amount);
   }
   return [...totals.entries()]
@@ -194,7 +192,7 @@ export function buildMonthlyChart(ops: OperationsData) {
     return months.get(key)!;
   };
 
-  for (const [key, amount] of allProjectPaymentsByMonth(ops.projects)) {
+  for (const [key, amount] of allProjectPaymentsByMonth(ops.payments ?? [])) {
     ensure(key).income += amount;
   }
 
@@ -211,8 +209,8 @@ export function buildMonthlyChart(ops: OperationsData) {
   return [...months.values()].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 }
 
-export function periodProjectIncome(projects: Project[], period: PeriodKey): number {
-  return flattenProjectIncome(projects)
+export function periodProjectIncome(payments: Payment[], projects: Project[], period: PeriodKey): number {
+  return flattenProjectIncome(payments, projects)
     .filter((row) => isWithinPeriod(row.date, period))
     .reduce((sum, row) => sum + row.amount, 0);
 }
@@ -224,7 +222,7 @@ export function periodTotalIncome(ops: OperationsData, period: PeriodKey): numbe
   if (period === "all") {
     return computeFinancialSummary(ops).totalRevenueReceived;
   }
-  return flattenProjectIncome(ops.projects)
+  return flattenProjectIncome(ops.payments ?? [], ops.projects)
     .filter((row) => row.hasProof && isWithinPeriod(row.date, period))
     .reduce((sum, row) => sum + row.amount, 0);
 }
@@ -253,11 +251,12 @@ export function periodMoneyOutTotal(ops: OperationsData, period: PeriodKey): num
 }
 
 export function buildIncomeByClientForPeriod(
+  payments: Payment[],
   projects: Project[],
   period: PeriodKey,
 ): CategoryAmountRow[] {
   const totals = new Map<string, number>();
-  for (const row of flattenProjectIncome(projects)) {
+  for (const row of flattenProjectIncome(payments, projects)) {
     if (!isWithinPeriod(row.date, period)) continue;
     totals.set(row.client, (totals.get(row.client) ?? 0) + row.amount);
   }
@@ -328,10 +327,11 @@ export function buildMonthlyChartForPeriod(ops: OperationsData, period: PeriodKe
 }
 
 export function paymentProofCoverage(
+  payments: Payment[],
   projects: Project[],
   period: PeriodKey,
 ): { withProof: number; total: number; pct: number } {
-  const rows = flattenProjectIncome(projects).filter((row) => isWithinPeriod(row.date, period));
+  const rows = flattenProjectIncome(payments, projects).filter((row) => isWithinPeriod(row.date, period));
   const withProof = rows.filter((row) => row.hasProof).length;
   return {
     withProof,
@@ -365,7 +365,7 @@ export function buildAnalyticsSnapshot(ops: OperationsData, period: PeriodKey): 
     futureMonthly: sumFutureMonthlyPipeline(ops.projects),
     revenueBooked: financial.totalRevenueBooked,
     activeProjects: ops.projects.filter((p) => p.status === "active").length,
-    proofCoverage: paymentProofCoverage(ops.projects, period),
+    proofCoverage: paymentProofCoverage(ops.payments ?? [], ops.projects, period),
   };
 }
 

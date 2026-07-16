@@ -9,6 +9,7 @@ export interface CompanyMember {
 }
 
 export interface CompanySettings {
+  organizationId?: string;
   name: string;
   tagline?: string;
   address: string;
@@ -81,6 +82,8 @@ export interface ProjectPayment {
 
 export interface Project {
   id: string;
+  organizationId?: string;
+  clientId?: string;
   /** Client / account name (primary label). */
   client: string;
   /** @deprecated Use `client` — kept for older saved rows. */
@@ -124,6 +127,7 @@ export type PartnershipStatus = "active" | "inactive" | "prospect";
 
 export interface Partnership {
   id: string;
+  organizationId?: string;
   name: string;
   /** @deprecated Prefer `phone` and `email` — kept for older saved rows. */
   contact?: string;
@@ -140,6 +144,7 @@ export type LeadStatus = "new" | "contacted" | "qualified" | "won" | "lost";
 /** Sales / outreach lead — name, business line, optional phone. */
 export interface Lead {
   id: string;
+  organizationId?: string;
   name: string;
   business: string;
   phone?: string;
@@ -162,6 +167,7 @@ export interface AssetEntry {
 
 export interface ExpenseEntry {
   id: string;
+  organizationId?: string;
   label: string;
   amount: number;
   date: string;
@@ -207,6 +213,40 @@ export interface OperationsData {
   financialBaseline?: FinancialBaseline;
   /** Recurring monthly obligations — loan repayments, rent, subscriptions, etc. */
   fixedMonthlyExpenses?: FixedMonthlyExpense[];
+  clients?: Client[];
+  payments?: Payment[];
+}
+
+export interface Payment {
+  id: string;
+  organizationId?: string;
+  invoiceId?: string;
+  projectId?: string;
+  amount: number;
+  date: string;
+  method: string;
+  referenceNumber?: string;
+  transactionId?: string;
+  screenshotDataUrl?: string;
+  notes?: string;
+}
+
+export interface Client {
+  id: string;
+  organizationId?: string;
+  companyName: string;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  gstNumber?: string;
+  pan?: string;
+  billingAddress: string;
+  shippingAddress?: string;
+  website?: string;
+  industry?: string;
+  clientSince: string; // YYYY-MM-DD
+  status: "active" | "inactive";
+  notes?: string;
 }
 
 /** Monthly fixed outflow (loan repayment, rent, SaaS, etc.). */
@@ -235,11 +275,13 @@ export type AgreementCounterpartyType = "client" | "partner" | "vendor" | "other
 /** Stored contract / MOU / NDA — file upload or external link. */
 export interface Agreement {
   id: string;
+  organizationId?: string;
   title: string;
   counterpartyName: string;
   counterpartyType: AgreementCounterpartyType;
   /** Optional link to project id, partnership id, or client slug. */
   counterpartyRef?: string;
+  clientId?: string;
   signedDate?: string;
   expiryDate?: string;
   fileDataUrl?: string;
@@ -274,6 +316,7 @@ export type ActivityAction =
 
 export interface ActivityLogEntry {
   id: string;
+  organizationId?: string;
   timestamp: number;
   entity: ActivityEntity;
   action: ActivityAction;
@@ -284,6 +327,8 @@ export interface ActivityLogEntry {
 
 export interface Invoice {
   id: string; // uuid
+  organizationId?: string;
+  clientId?: string;
   number: string; // AM/26-27/0001 (legacy AM 0001/26-27 supported)
   date: string; // YYYY-MM-DD
   clientName: string;
@@ -301,6 +346,6 @@ export interface Invoice {
   paymentTerms?: string;
   paymentMode?: string;
   paymentDate?: string;
-  status: "paid" | "pending" | "partial" | "overdue";
+  status: "draft" | "generated" | "sent" | "viewed" | "partially_paid" | "paid" | "cancelled" | "overdue";
   createdAt: number;
 }

@@ -13,6 +13,7 @@ import { autoFillBusinessTypeForClientName } from "@/lib/client-business-autofil
 import { KNOWN_CONTACT_PERSON_NAMES } from "@/lib/contact-person-directory";
 import { useCompany } from "@/hooks/use-company";
 import { useInvoices } from "@/hooks/use-invoices";
+import { useOperations } from "@/hooks/use-operations";
 import { queryKeys } from "@/lib/query-keys";
 import { writeClientCache } from "@/lib/client-data-cache";
 import { LoadingDog } from "@/components/ui/loading-dog";
@@ -44,6 +45,8 @@ export default function InvoiceForm({ onSaved }: Props) {
   const { invoices } = useInvoices();
   const [number, setNumber] = useState("");
   const [date, setDate] = useState(todayIso());
+  const { ops } = useOperations();
+  const [clientId, setClientId] = useState("");
   const [clientName, setClientName] = useState("");
   const [clientBusinessType, setClientBusinessType] = useState("");
   const [clientAddress, setClientAddress] = useState("");
@@ -83,6 +86,7 @@ export default function InvoiceForm({ onSaved }: Props) {
       id: "draft",
       number,
       date,
+      clientId: clientId || undefined,
       clientName,
       clientBusinessType: clientBusinessType.trim() || undefined,
       clientAddress,
@@ -118,6 +122,7 @@ export default function InvoiceForm({ onSaved }: Props) {
       paymentMode,
       paymentDate,
       status,
+      clientId,
     ],
   );
 
@@ -238,131 +243,90 @@ export default function InvoiceForm({ onSaved }: Props) {
 
         <Section title="Bill to">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Client / company name *">
+            <Field label="Select Client *" className="sm:col-span-2">
               <select
-                aria-label="Pick a saved client"
-                className={`${inputCls} mb-2 text-muted-foreground`}
-                value={KNOWN_CLIENT_NAMES.includes(clientName) ? clientName : ""}
+                className={inputCls}
+                value={clientId}
                 onChange={(e) => {
-                  const v = e.target.value;
-                  if (v) setClientName(v);
+                  const cid = e.target.value;
+                  setClientId(cid);
+                  const found = (ops.clients ?? []).find((c) => c.id === cid);
+                  if (found) {
+                    setClientName(found.companyName);
+                    setClientContact(found.contactPerson);
+                    setClientPhone(found.phone);
+                    setClientEmail(found.email);
+                    setClientAddress(found.billingAddress);
+                    setClientGstin(found.gstNumber ?? "");
+                    setClientBusinessType(found.industry ?? "");
+                  } else {
+                    setClientName("");
+                    setClientContact("");
+                    setClientPhone("");
+                    setClientEmail("");
+                    setClientAddress("");
+                    setClientGstin("");
+                    setClientBusinessType("");
+                  }
                 }}
+                required
               >
-                <option value="">Select saved client…</option>
-                {KNOWN_CLIENT_NAMES.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
+                <option value="">Select a saved client…</option>
+                {(ops.clients ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.companyName}
                   </option>
                 ))}
               </select>
+            </Field>
+            <Field label="Client / company name">
               <input
-                list="admark-client-names"
                 value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                className={inputCls}
-                placeholder="Or type any client / company name"
+                readOnly
+                className={`${inputCls} bg-muted/40 cursor-default`}
               />
-              <datalist id="admark-client-names">
-                {KNOWN_CLIENT_NAMES.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
             </Field>
             <Field label="Type of business">
-              <select
-                aria-label="Pick a type of business"
-                className={`${inputCls} mb-2 text-muted-foreground`}
-                value={
-                  BUSINESS_TYPE_OPTIONS.includes(clientBusinessType.trim())
-                    ? clientBusinessType.trim()
-                    : ""
-                }
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v) setClientBusinessType(v);
-                }}
-              >
-                <option value="">Select type of business…</option>
-                {BUSINESS_TYPE_OPTIONS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
               <input
-                list="admark-business-types"
                 value={clientBusinessType}
-                onChange={(e) => setClientBusinessType(e.target.value)}
-                className={inputCls}
-                placeholder="Or type any business type"
+                readOnly
+                className={`${inputCls} bg-muted/40 cursor-default`}
               />
-              <datalist id="admark-business-types">
-                {BUSINESS_TYPE_OPTIONS.map((t) => (
-                  <option key={t} value={t} />
-                ))}
-              </datalist>
             </Field>
             <Field label="Contact person">
-              <select
-                aria-label="Pick a saved contact person"
-                className={`${inputCls} mb-2 text-muted-foreground`}
-                value={
-                  KNOWN_CONTACT_PERSON_NAMES.includes(clientContact.trim())
-                    ? clientContact.trim()
-                    : ""
-                }
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v) setClientContact(v);
-                }}
-              >
-                <option value="">Select contact person…</option>
-                {KNOWN_CONTACT_PERSON_NAMES.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
               <input
-                list="admark-contact-persons"
                 value={clientContact}
-                onChange={(e) => setClientContact(e.target.value)}
-                className={inputCls}
-                placeholder="Or type any contact name"
+                readOnly
+                className={`${inputCls} bg-muted/40 cursor-default`}
               />
-              <datalist id="admark-contact-persons">
-                {KNOWN_CONTACT_PERSON_NAMES.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
             </Field>
             <Field label="Phone">
               <input
                 value={clientPhone}
-                onChange={(e) => setClientPhone(e.target.value)}
-                className={inputCls}
+                readOnly
+                className={`${inputCls} bg-muted/40 cursor-default`}
               />
             </Field>
             <Field label="Email">
               <input
                 value={clientEmail}
-                onChange={(e) => setClientEmail(e.target.value)}
-                className={inputCls}
+                readOnly
+                className={`${inputCls} bg-muted/40 cursor-default`}
               />
             </Field>
             <Field label="Address" className="sm:col-span-2">
               <textarea
                 value={clientAddress}
-                onChange={(e) => setClientAddress(e.target.value)}
+                readOnly
                 rows={2}
-                className={inputCls}
+                className={`${inputCls} bg-muted/40 cursor-default`}
               />
             </Field>
             <Field label="GSTIN / Company No.">
               <input
                 value={clientGstin}
-                onChange={(e) => setClientGstin(e.target.value)}
-                className={inputCls}
+                readOnly
+                className={`${inputCls} bg-muted/40 cursor-default`}
               />
             </Field>
           </div>

@@ -3,9 +3,11 @@ import { useEffect } from "react";
 import { FileText, Plus, Search, TrendingUp, Users } from "lucide-react";
 import { NewInvoiceLink } from "@/components/invoice/NewInvoiceLink";
 import { useInvoices } from "@/hooks/use-invoices";
+import { useOperations } from "@/hooks/use-operations";
 import { prefetchInvoiceEditor, preloadNewInvoiceRoute } from "@/lib/prefetch-invoice-editor";
-import { computeTotals, formatINR } from "@/lib/invoice-calc";
+import { computeTotals, formatINR, calculateInvoicePayments, deriveInvoiceStatus } from "@/lib/invoice-calc";
 import { statusBadgeClassDark, statusIndicatorEmoji } from "@/lib/invoice-status";
+import type { Invoice } from "@/lib/types";
 
 export const Route = createFileRoute("/invoices")({
   beforeLoad: ({ context }) => prefetchInvoiceEditor(context.queryClient),
@@ -14,18 +16,21 @@ export const Route = createFileRoute("/invoices")({
 
 function InvoicesDashboard() {
   const { invoices } = useInvoices();
+  const { ops } = useOperations();
+  const payments = ops.payments ?? [];
 
   useEffect(() => {
     preloadNewInvoiceRoute();
   }, []);
 
-  const totalRevenue = invoices.reduce((s, i) => s + computeTotals(i).total, 0);
-  const totalCollected =
-    invoices.reduce((s, i) => s + computeTotals(i).total - computeTotals(i).payable, 0) +
-    invoices.filter((i) => i.status === "paid").reduce((s, i) => s + computeTotals(i).payable, 0);
+  const totalRevenue = invoices.filter((i) => i.status !== "cancelled").reduce((s, i) => s + computeTotals(i).total, 0);
+  const totalCollected = invoices.reduce((s, i) => s + calculateInvoicePayments(i, payments).paidAmount, 0);
   const uniqueClients = new Set(invoices.map((i) => i.clientName.trim().toLowerCase())).size;
 
-  const recent = invoices.slice(0, 5);
+  const recent = invoices.slice(0, 5).map((inv) => ({
+    ...inv,
+    status: deriveInvoiceStatus(inv, payments),
+  }));
 
   return (
     <div className="space-y-8">

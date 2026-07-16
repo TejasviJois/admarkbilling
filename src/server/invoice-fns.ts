@@ -8,6 +8,8 @@ import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
 import { externalizeCompanySettings } from "./payload-files";
 
+const DEFAULT_ORG_ID = "org-admark-digitals";
+
 function parseInvoicePayload(payload: unknown): Invoice | null {
   if (!payload || typeof payload !== "object") return null;
   const inv = payload as Invoice;
@@ -28,6 +30,7 @@ export const listInvoicesFn = createServerFn({ method: "GET" }).handler(
       const { data, error } = await sb
         .from("invoices")
         .select("payload, created_at")
+        .eq("organization_id", DEFAULT_ORG_ID)
         .order("created_at", { ascending: false });
       if (error) throw error;
       const list: Invoice[] = [];
@@ -52,6 +55,7 @@ export const getInvoiceFn = createServerFn({ method: "POST" })
       .from("invoices")
       .select("payload")
       .eq("id", data.id)
+      .eq("organization_id", DEFAULT_ORG_ID)
       .maybeSingle();
     if (error) throw error;
     return row?.payload ? parseInvoicePayload(row.payload) : null;
@@ -65,9 +69,11 @@ export const upsertInvoiceFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await assertAppSession();
     const sb = requireServerSupabase();
+    const payloadWithTenant = { ...data, organizationId: DEFAULT_ORG_ID };
     const { error } = await sb.from("invoices").upsert({
       id: data.id,
-      payload: data,
+      payload: payloadWithTenant,
+      organization_id: DEFAULT_ORG_ID,
       created_at: new Date(data.createdAt).toISOString(),
     });
     if (error) throw error;
@@ -83,7 +89,11 @@ export const deleteInvoiceFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await assertAppSession();
     const sb = requireServerSupabase();
-    const { error } = await sb.from("invoices").delete().eq("id", data.id);
+    const { error } = await sb
+      .from("invoices")
+      .delete()
+      .eq("id", data.id)
+      .eq("organization_id", DEFAULT_ORG_ID);
     if (error) throw error;
     cacheDel(CACHE_KEYS.invoices);
     return { ok: true as const };
@@ -98,6 +108,7 @@ export const getCompanyFn = createServerFn({ method: "GET" }).handler(
         .from("company_settings")
         .select("payload")
         .eq("id", "default")
+        .eq("organization_id", DEFAULT_ORG_ID)
         .maybeSingle();
       if (error) throw error;
       if (!data?.payload || typeof data.payload !== "object") return DEFAULT_COMPANY;
@@ -112,9 +123,11 @@ export const saveCompanyFn = createServerFn({ method: "POST" })
     await assertAppSession();
     const sb = requireServerSupabase();
     const payload = await externalizeCompanySettings(sb, data);
+    const payloadWithTenant = { ...payload, organizationId: DEFAULT_ORG_ID };
     const { error } = await sb.from("company_settings").upsert({
       id: "default",
-      payload,
+      payload: payloadWithTenant,
+      organization_id: DEFAULT_ORG_ID,
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;

@@ -3,12 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Download, Trash2 } from "lucide-react";
 import { SearchWithPeriodFilter } from "@/components/operations/SearchWithPeriodFilter";
 import { deleteInvoice, loadCompany, loadInvoices } from "@/lib/storage";
-import { computeTotals, formatINR } from "@/lib/invoice-calc";
+import { computeTotals, formatINR, deriveInvoiceStatus } from "@/lib/invoice-calc";
 import { isWithinPeriod, DEFAULT_PERIOD, type PeriodKey } from "@/lib/date-range-filter";
 import { downloadInvoicePdf } from "@/lib/pdf";
 import type { Invoice } from "@/lib/types";
 import { statusBadgeClassDark, statusIndicatorEmoji } from "@/lib/invoice-status";
 import { logClientError } from "@/lib/client-logger";
+import { useOperations } from "@/hooks/use-operations";
 
 export function InvoicesLedger({
   emptyMessage = "No invoices match your search.",
@@ -19,6 +20,8 @@ export function InvoicesLedger({
   const [q, setQ] = useState("");
   const [period, setPeriod] = useState<PeriodKey>(DEFAULT_PERIOD);
   const [status, setStatus] = useState<"all" | Invoice["status"]>("all");
+  const { ops } = useOperations();
+  const payments = ops.payments ?? [];
 
   const refresh = () =>
     void loadInvoices()
@@ -29,9 +32,16 @@ export function InvoicesLedger({
     refresh();
   }, []);
 
+  const derivedInvoices = useMemo(() => {
+    return invoices.map((inv) => ({
+      ...inv,
+      status: deriveInvoiceStatus(inv, payments),
+    }));
+  }, [invoices, payments]);
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return invoices.filter((inv) => {
+    return derivedInvoices.filter((inv) => {
       if (status !== "all" && inv.status !== status) return false;
       if (!isWithinPeriod(inv.date, period)) return false;
       if (!term) return true;
@@ -42,7 +52,7 @@ export function InvoicesLedger({
         inv.items.some((i) => i.description.toLowerCase().includes(term))
       );
     });
-  }, [invoices, q, period, status]);
+  }, [derivedInvoices, q, period, status]);
 
   const handleDelete = (id: string) => {
     if (!confirm("Delete this invoice? This cannot be undone.")) return;
@@ -74,9 +84,13 @@ export function InvoicesLedger({
           className="w-full shrink-0 rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:w-auto"
         >
           <option value="all">All statuses</option>
+          <option value="draft">Draft</option>
+          <option value="generated">Generated</option>
+          <option value="sent">Sent</option>
+          <option value="viewed">Viewed</option>
+          <option value="partially_paid">Partially Paid</option>
           <option value="paid">Paid</option>
-          <option value="pending">Pending</option>
-          <option value="partial">Partial</option>
+          <option value="cancelled">Cancelled</option>
           <option value="overdue">Overdue</option>
         </select>
       </div>

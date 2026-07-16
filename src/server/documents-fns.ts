@@ -5,6 +5,8 @@ import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
 import { externalizeDocumentsData } from "./payload-files";
 
+const DEFAULT_ORG_ID = "org-admark-digitals";
+
 export const EMPTY_DOCUMENTS: DocumentsData = { agreements: [] };
 
 function parseAgreement(raw: unknown): Agreement | null {
@@ -16,6 +18,7 @@ function parseAgreement(raw: unknown): Agreement | null {
   const now = Date.now();
   return {
     id: a.id,
+    organizationId: DEFAULT_ORG_ID,
     title: a.title,
     counterpartyName: a.counterpartyName,
     counterpartyType: a.counterpartyType ?? "other",
@@ -50,6 +53,7 @@ export const getDocumentsFn = createServerFn({ method: "GET" }).handler(
         .from("operations_data")
         .select("payload")
         .eq("id", "documents")
+        .eq("organization_id", DEFAULT_ORG_ID)
         .maybeSingle();
       if (error) throw error;
       if (!data?.payload) return EMPTY_DOCUMENTS;
@@ -64,9 +68,15 @@ export const saveDocumentsFn = createServerFn({ method: "POST" })
     await assertAppSession();
     const sb = requireServerSupabase();
     const payload = await externalizeDocumentsData(sb, data);
+    const payloadWithTenant = {
+      ...payload,
+      agreements: payload.agreements.map((a) => ({ ...a, organizationId: DEFAULT_ORG_ID })),
+      organizationId: DEFAULT_ORG_ID,
+    };
     const { error } = await sb.from("operations_data").upsert({
       id: "documents",
-      payload,
+      payload: payloadWithTenant,
+      organization_id: DEFAULT_ORG_ID,
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;

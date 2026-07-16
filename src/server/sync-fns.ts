@@ -17,6 +17,8 @@ export interface SyncAllPayload {
   activityLogs?: ActivityLogEntry[];
 }
 
+const DEFAULT_ORG_ID = "org-admark-digitals";
+
 export const syncAllToCloudFn = createServerFn({ method: "POST" })
   .inputValidator((data: SyncAllPayload) => data)
   .handler(async ({ data }) => {
@@ -27,9 +29,11 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
 
     if (data.company) {
       const payload = await externalizeCompanySettings(sb, data.company);
+      const payloadWithTenant = { ...payload, organizationId: DEFAULT_ORG_ID };
       const { error } = await sb.from("company_settings").upsert({
         id: "default",
-        payload,
+        payload: payloadWithTenant,
+        organization_id: DEFAULT_ORG_ID,
         updated_at: now,
       });
       if (error) throw error;
@@ -39,9 +43,19 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
 
     if (data.operations) {
       const payload = await externalizeOperationsData(sb, data.operations);
+      const payloadWithTenant = {
+        ...payload,
+        organizationId: DEFAULT_ORG_ID,
+        projects: payload.projects.map((p) => ({ ...p, organizationId: DEFAULT_ORG_ID })),
+        partnerships: payload.partnerships.map((p) => ({ ...p, organizationId: DEFAULT_ORG_ID })),
+        expenses: payload.expenses.map((e) => ({ ...e, organizationId: DEFAULT_ORG_ID })),
+        leads: payload.leads?.map((l) => ({ ...l, organizationId: DEFAULT_ORG_ID })),
+        assets: payload.assets?.map((a) => ({ ...a, organizationId: DEFAULT_ORG_ID })),
+      };
       const { error } = await sb.from("operations_data").upsert({
         id: "default",
-        payload,
+        payload: payloadWithTenant,
+        organization_id: DEFAULT_ORG_ID,
         updated_at: now,
       });
       if (error) throw error;
@@ -51,9 +65,15 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
 
     if (data.documents) {
       const payload = await externalizeDocumentsData(sb, data.documents);
+      const payloadWithTenant = {
+        ...payload,
+        organizationId: DEFAULT_ORG_ID,
+        agreements: payload.agreements.map((a) => ({ ...a, organizationId: DEFAULT_ORG_ID })),
+      };
       const { error } = await sb.from("operations_data").upsert({
         id: "documents",
-        payload,
+        payload: payloadWithTenant,
+        organization_id: DEFAULT_ORG_ID,
         updated_at: now,
       });
       if (error) throw error;
@@ -64,7 +84,8 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
     if (data.invoices?.length) {
       const rows = data.invoices.map((inv) => ({
         id: inv.id,
-        payload: inv,
+        payload: { ...inv, organizationId: DEFAULT_ORG_ID },
+        organization_id: DEFAULT_ORG_ID,
         created_at: new Date(inv.createdAt).toISOString(),
       }));
       const { error } = await sb.from("invoices").upsert(rows);
@@ -74,9 +95,11 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
     }
 
     if (data.activityLogs) {
+      const logsWithTenant = data.activityLogs.map((log) => ({ ...log, organizationId: DEFAULT_ORG_ID }));
       const { error } = await sb.from("operations_data").upsert({
         id: "activity_logs",
-        payload: { entries: data.activityLogs },
+        payload: { entries: logsWithTenant, organizationId: DEFAULT_ORG_ID },
+        organization_id: DEFAULT_ORG_ID,
         updated_at: now,
       });
       if (error) throw error;

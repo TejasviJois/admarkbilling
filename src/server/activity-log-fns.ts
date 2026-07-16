@@ -4,19 +4,22 @@ import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
 
 const ROW_ID = "activity_logs";
+const DEFAULT_ORG_ID = "org-admark-digitals";
 
 function parseActivityLogs(payload: unknown): ActivityLogEntry[] {
   if (!payload || typeof payload !== "object") return [];
   const raw = payload as { entries?: unknown };
   if (!Array.isArray(raw.entries)) return [];
-  return raw.entries.filter(
-    (entry): entry is ActivityLogEntry =>
-      !!entry &&
-      typeof entry === "object" &&
-      typeof (entry as ActivityLogEntry).id === "string" &&
-      typeof (entry as ActivityLogEntry).timestamp === "number" &&
-      typeof (entry as ActivityLogEntry).summary === "string",
-  );
+  return raw.entries
+    .filter(
+      (entry): entry is ActivityLogEntry =>
+        !!entry &&
+        typeof entry === "object" &&
+        typeof (entry as ActivityLogEntry).id === "string" &&
+        typeof (entry as ActivityLogEntry).timestamp === "number" &&
+        typeof (entry as ActivityLogEntry).summary === "string",
+    )
+    .map((entry) => ({ ...entry, organizationId: DEFAULT_ORG_ID }));
 }
 
 export const getActivityLogsFn = createServerFn({ method: "GET" }).handler(
@@ -27,6 +30,7 @@ export const getActivityLogsFn = createServerFn({ method: "GET" }).handler(
       .from("operations_data")
       .select("payload")
       .eq("id", ROW_ID)
+      .eq("organization_id", DEFAULT_ORG_ID)
       .maybeSingle();
     if (error) throw error;
     if (!data?.payload) return [];
@@ -39,9 +43,11 @@ export const saveActivityLogsFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await assertAppSession();
     const sb = requireServerSupabase();
+    const entriesWithTenant = data.map((entry) => ({ ...entry, organizationId: DEFAULT_ORG_ID }));
     const { error } = await sb.from("operations_data").upsert({
       id: ROW_ID,
-      payload: { entries: data },
+      payload: { entries: entriesWithTenant, organizationId: DEFAULT_ORG_ID },
+      organization_id: DEFAULT_ORG_ID,
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;

@@ -1,4 +1,4 @@
-import type { Invoice, LineItem } from "./types";
+import type { Invoice, LineItem, Payment } from "./types";
 
 export function lineAmount(item: LineItem): number {
   return (Number(item.quantity) || 0) * (Number(item.rate) || 0);
@@ -43,4 +43,35 @@ export function formatINRForPdf(n: number): string {
     maximumFractionDigits: 2,
   }).format(abs);
   return `${sign}Rs. ${num}`;
+}
+
+export function calculateInvoicePayments(inv: Invoice, payments: Payment[]) {
+  const { total } = computeTotals(inv);
+  const invoicePayments = payments.filter((p) => p.invoiceId === inv.id);
+  const paidAmount = invoicePayments.reduce((s, p) => s + p.amount, 0);
+  const outstandingBalance = Math.max(total - paidAmount, 0);
+  const pendingAmount = outstandingBalance;
+  return { paidAmount, outstandingBalance, pendingAmount };
+}
+
+export function deriveInvoiceStatus(inv: Invoice, payments: Payment[]): Invoice["status"] {
+  if (inv.status === "cancelled") return "cancelled";
+  
+  const { paidAmount } = calculateInvoicePayments(inv, payments);
+  const { total } = computeTotals(inv);
+  
+  if (paidAmount >= total) return "paid";
+  if (paidAmount > 0) return "partially_paid";
+  
+  // If no payments, check if overdue
+  const today = new Date().toISOString().slice(0, 10);
+  const invDate = new Date(inv.date);
+  const diffTime = Math.abs(new Date(today).getTime() - invDate.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays > 30) {
+    return "overdue";
+  }
+  
+  return inv.status || "generated";
 }

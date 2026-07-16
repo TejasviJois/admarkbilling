@@ -1,4 +1,4 @@
-import type { OperationsData } from "@/lib/types";
+import type { Client, OperationsData, Payment, Project } from "@/lib/types";
 import { DEFAULT_PROJECTS, withDefaultProjects } from "@/lib/default-projects";
 import { DEFAULT_PARTNERSHIPS, withDefaultPartnerships } from "@/lib/default-partnerships";
 import { withDefaultFinancialBaseline } from "@/lib/default-financial-baseline";
@@ -27,6 +27,46 @@ function needsPartnershipSeed(partnerships: OperationsData["partnerships"]): boo
   return !partnerships.some((p) => p.id === "part-epixable");
 }
 
+function seedClientsFromProjects(projects: Project[]): Client[] {
+  const seen = new Set<string>();
+  const list: Client[] = [];
+  for (const p of projects) {
+    const name = p.client.trim();
+    if (!name || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    const id = "cli-" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    list.push({
+      id,
+      companyName: name,
+      contactPerson: name + " Contact",
+      phone: p.phone || "",
+      email: p.email || "",
+      billingAddress: "Billing Address of " + name,
+      clientSince: p.startDate || "2026-01-01",
+      status: "active",
+    });
+  }
+  return list;
+}
+
+function seedPaymentsFromProjects(projects: Project[]): Payment[] {
+  const list: Payment[] = [];
+  for (const proj of projects) {
+    for (const pay of proj.payments ?? []) {
+      list.push({
+        id: pay.id || crypto.randomUUID(),
+        projectId: proj.id,
+        amount: pay.amount,
+        date: pay.date,
+        method: "upi",
+        screenshotDataUrl: pay.proof?.imageDataUrl,
+        notes: pay.note,
+      });
+    }
+  }
+  return list;
+}
+
 function mergeWithDefaults(data: OperationsData): OperationsData {
   let base = !needsProjectSeed(data.projects)
     ? withDefaultProjects(data)
@@ -38,11 +78,31 @@ function mergeWithDefaults(data: OperationsData): OperationsData {
     base = withDefaultPartnerships(base);
   }
 
+  const seededClients = data.clients && data.clients.length > 0 ? data.clients : seedClientsFromProjects(base.projects);
+  const seededPayments = data.payments && data.payments.length > 0 ? data.payments : seedPaymentsFromProjects(base.projects);
+
+  const projectsWithClientIds = base.projects.map((p) => {
+    if (p.clientId) return p;
+    const name = p.client.trim();
+    const found = seededClients.find((c) => c.companyName.toLowerCase() === name.toLowerCase());
+    return {
+      ...p,
+      clientId: found?.id,
+    };
+  });
+
+  const merged = {
+    ...base,
+    clients: seededClients,
+    payments: seededPayments,
+    projects: projectsWithClientIds,
+  };
+
   return withDefaultLeads(
     withDefaultFixedMonthlyExpenses(
       withDefaultFinancialBaseline({
-        ...base,
-        projects: mergeAllProjectBilling(normalizeAllProjectPayments(base.projects)),
+        ...merged,
+        projects: mergeAllProjectBilling(normalizeAllProjectPayments(merged.projects)),
       }),
     ),
   );

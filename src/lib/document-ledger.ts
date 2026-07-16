@@ -96,7 +96,7 @@ export function summarizeClients(ops: OperationsData): ClientPaymentSummary[] {
 }
 
 export function clientPaymentHistory(ops: OperationsData, clientName: string) {
-  const rows = flattenProjectIncome(ops.projects).filter((r) => r.client === clientName);
+  const rows = flattenProjectIncome(ops.payments ?? [], ops.projects).filter((r) => r.client === clientName);
   const projects = ops.projects.filter((p) => projectClientLabel(p) === clientName);
   const total = rows.reduce((s, r) => s + r.amount, 0);
   const totalContractValue = projects.reduce((s, p) => s + projectContractValue(p), 0);
@@ -213,7 +213,7 @@ export function clientMatchesPeriod(
   period: PeriodKey,
 ): boolean {
   if (period === "all") return true;
-  const dates = flattenProjectIncome(ops.projects)
+  const dates = flattenProjectIncome(ops.payments ?? [], ops.projects)
     .filter((row) => row.client === clientName)
     .map((row) => row.date);
   return matchesAnyDateInPeriod(dates, period);
