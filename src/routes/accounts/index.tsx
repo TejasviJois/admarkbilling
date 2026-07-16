@@ -19,7 +19,7 @@ import {
 import { sumAssets } from "@/lib/assets";
 import { computeFinancialSummary, formatFinancialINR } from "@/lib/financial";
 import { formatINRWhole } from "@/lib/invoice-calc";
-import type { ExpenseEntry } from "@/lib/types";
+import type { ExpenseEntry, Transaction } from "@/lib/types";
 
 type AccountsPanel =
   | "income"
@@ -50,8 +50,8 @@ function AccountsPage() {
   const activeMrr = sumActiveMrr(ops.projects);
   const futureMonthly = sumFutureMonthlyPipeline(ops.projects);
 
-  const handleSaveExpense = (expense: ExpenseEntry) => {
-    persist({ ...ops, expenses: [expense, ...ops.expenses] });
+  const handleSaveExpense = (tx: Transaction) => {
+    persist({ ...ops, transactions: [tx, ...(ops.transactions ?? [])] });
   };
 
   const setPanel = (panel: AccountsPanel, open: boolean) => {
@@ -175,7 +175,6 @@ function AccountsPage() {
           <ExpenseFormDialog
             open={expenseOpen}
             onOpenChange={setExpenseOpen}
-            ops={ops}
             onSave={handleSaveExpense}
           />
 

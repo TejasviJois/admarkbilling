@@ -141,6 +141,7 @@ const MAIN_NAV_LINKS: NavLinkItem[] = [
   { to: "/", label: "Dashboard", exact: true },
   { to: "/clients", label: "Clients" },
   { to: "/transactions", label: "Transactions" },
+  { to: "/expenses", label: "Expenses" },
   { to: "/founders", label: "Founders" },
   { to: "/analytics", label: "Analytics" },
   { to: "/projects", label: "Projects" },

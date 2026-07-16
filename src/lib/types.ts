@@ -253,6 +253,8 @@ export interface Transaction {
   description: string;
   category: string;
   paymentMethod: string;
+  vendor?: string;
+  gst?: number;
   relatedClientId?: string;
   relatedProjectId?: string;
   relatedInvoiceId?: string;
