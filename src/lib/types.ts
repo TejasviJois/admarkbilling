@@ -417,7 +417,8 @@ export type TransactionType =
   | "founder_withdrawal"
   | "expense"
   | "refund"
-  | "internal_transfer";
+  | "internal_transfer"
+  | "adjustment";
 
 export interface Transaction {
   id: string;

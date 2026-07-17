@@ -29,6 +29,7 @@ const TRANSACTION_TYPES: { value: TransactionType; label: string }[] = [
   { value: "expense", label: "Business Expense" },
   { value: "refund", label: "Refund to Client" },
   { value: "internal_transfer", label: "Internal Account Transfer" },
+  { value: "adjustment", label: "Cash Balance Adjustment (+ / −)" },
 ];
 
 const PAYMENT_METHODS = [
@@ -59,11 +60,13 @@ export function TransactionFormDialog({
   open,
   onOpenChange,
   transaction,
+  initialType = "expense",
   onSave,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   transaction: Transaction | null;
+  initialType?: TransactionType;
   onSave: (tx: Transaction) => void;
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
@@ -71,7 +74,7 @@ export function TransactionFormDialog({
   const clients = ops.clients ?? [];
   const projects = ops.projects ?? [];
   const founders = ops.founders ?? [];
-  
+
   const isEdit = Boolean(transaction);
 
   useEffect(() => {
@@ -93,12 +96,20 @@ export function TransactionFormDialog({
         attachmentDataUrl: transaction.attachmentDataUrl ?? "",
       });
     } else {
+      const category =
+        initialType === "client_payment"
+          ? "Client Income"
+          : initialType === "internal_transfer"
+            ? "Transfer"
+            : "";
       setForm({
         ...EMPTY_FORM,
+        type: initialType,
+        category,
         date: new Date().toISOString().slice(0, 10),
       });
     }
-  }, [open, transaction]);
+  }, [open, transaction, initialType]);
 
   const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -114,8 +125,12 @@ export function TransactionFormDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amountNum = Number(form.amount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      alert("Please enter a valid amount greater than 0.");
+    if (isNaN(amountNum) || (form.type === "adjustment" ? amountNum === 0 : amountNum <= 0)) {
+      alert(
+        form.type === "adjustment"
+          ? "Enter a non-zero adjustment. Use a negative value to reduce cash."
+          : "Please enter a valid amount greater than 0.",
+      );
       return;
     }
 
@@ -124,7 +139,7 @@ export function TransactionFormDialog({
       // 1. Encourage payment proof upload for Income (client_payment)
       if (form.type === "client_payment" && !form.attachmentDataUrl) {
         const confirmSave = confirm(
-          "Tip: It is highly encouraged to upload a payment proof or screenshot for client payments. Save anyway?"
+          "Tip: It is highly encouraged to upload a payment proof or screenshot for client payments. Save anyway?",
         );
         if (!confirmSave) return;
       }
@@ -144,7 +159,7 @@ export function TransactionFormDialog({
       // 4. Large Expenses (> ₹10,000) should support attachments
       if (form.type === "expense" && amountNum > 10000 && !form.attachmentDataUrl) {
         const confirmSave = confirm(
-          "Large Expense Notice: Expenses above ₹10,000 should have a supporting receipt/attachment. Save anyway?"
+          "Large Expense Notice: Expenses above ₹10,000 should have a supporting receipt/attachment. Save anyway?",
         );
         if (!confirmSave) return;
       }
@@ -170,7 +185,7 @@ export function TransactionFormDialog({
       updatedAt: Date.now(),
       historical: transaction?.historical ?? false,
     };
-    
+
     onSave(saved);
     onOpenChange(false);
   };
@@ -181,7 +196,8 @@ export function TransactionFormDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Transaction" : "Log Transaction"}</DialogTitle>
           <DialogDescription>
-            Record any movement of funds inside the company. All metrics are computed from this ledger.
+            Record any movement of funds inside the company. All metrics are computed from this
+            ledger.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -195,6 +211,7 @@ export function TransactionFormDialog({
                 else if (v === "founder_withdrawal") defaultCat = FOUNDER_SHARE_WITHDRAWAL_CATEGORY;
                 else if (v === "refund") defaultCat = "Refund";
                 else if (v === "internal_transfer") defaultCat = "Transfer";
+                else if (v === "adjustment") defaultCat = "Adjustment";
                 setForm((f) => ({ ...f, type: v as TransactionType, category: defaultCat }));
               }}
             >
@@ -212,7 +229,10 @@ export function TransactionFormDialog({
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Amount (₹) *" id="tx-amount">
+            <Field
+              label={form.type === "adjustment" ? "Adjustment Amount (₹, + / −) *" : "Amount (₹) *"}
+              id="tx-amount"
+            >
               <Input
                 id="tx-amount"
                 type="number"
@@ -249,7 +269,11 @@ export function TransactionFormDialog({
             {form.type === "founder_withdrawal" ? (
               <Field label="Payout Nature *" id="tx-category">
                 <Select
-                  value={/salary/i.test(form.category) ? FOUNDER_SALARY_CATEGORY : FOUNDER_SHARE_WITHDRAWAL_CATEGORY}
+                  value={
+                    /salary/i.test(form.category)
+                      ? FOUNDER_SALARY_CATEGORY
+                      : FOUNDER_SHARE_WITHDRAWAL_CATEGORY
+                  }
                   onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}
                 >
                   <SelectTrigger id="tx-category">
@@ -396,7 +420,8 @@ export function TransactionFormDialog({
 
           {transaction?.historical && (
             <div className="rounded border border-amber-300 bg-amber-500/10 p-2.5 text-xs text-amber-600 dark:text-amber-400">
-              Note: This is a **Historical** transaction. Requirements for supporting proof/attachments are relaxed.
+              Note: This is a **Historical** transaction. Requirements for supporting
+              proof/attachments are relaxed.
             </div>
           )}
 

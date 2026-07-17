@@ -40,6 +40,7 @@ function ExecutiveDashboard() {
   const { ops, loading: opsLoading } = useOperations();
   const { invoices, loading: invoicesLoading } = useInvoices();
   const [mounted, setMounted] = useState(false);
+  const [hasRendered, setHasRendered] = useState(false);
   const [reminderClock, setReminderClock] = useState(() => Date.now());
 
   useEffect(() => {
@@ -49,6 +50,10 @@ function ExecutiveDashboard() {
   }, []);
 
   const loading = opsLoading || invoicesLoading;
+
+  useEffect(() => {
+    if (mounted && !loading) setHasRendered(true);
+  }, [mounted, loading]);
   const upcomingSchedule = useMemo(() => {
     const now = new Date(reminderClock);
     return sortScheduleEvents(
@@ -233,7 +238,9 @@ function ExecutiveDashboard() {
     };
   }, [ops, invoices]);
 
-  if (!mounted || loading || !dashboardData) {
+  // Never remount the whole dashboard for background refetches/prefetches.
+  // Remounting under the cursor re-fires intent preload and causes a click-blocking loop.
+  if ((!mounted || loading || !dashboardData) && !hasRendered) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center text-sm text-muted-foreground">
         <Activity className="mr-2 h-5 w-5 animate-spin text-primary" />
@@ -688,7 +695,8 @@ function ExecutiveDashboard() {
             <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
               <span>Recent Payments</span>
               <Link
-                to="/transactions"
+                to="/accounts"
+                hash="transactions"
                 className="text-[10px] text-primary hover:underline font-bold uppercase"
               >
                 Ledger

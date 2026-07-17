@@ -9,7 +9,7 @@ import InvoicePreview from "@/components/invoice/InvoicePreview";
 import { PaymentFormDialog } from "@/components/invoice/PaymentFormDialog";
 import { useOperations } from "@/hooks/use-operations";
 import { deriveInvoiceStatus, calculateInvoicePayments, formatINR } from "@/lib/invoice-calc";
-import type { CompanySettings, Invoice, Payment } from "@/lib/types";
+import type { CompanySettings, Invoice, Payment, Transaction } from "@/lib/types";
 
 /** Reject path-like or absurd IDs before hitting storage / server. */
 function isPlausibleInvoiceId(raw: string): boolean {
@@ -26,7 +26,10 @@ function InvoiceNotFoundView() {
       <p className="mt-2 text-sm text-muted-foreground">
         This link may be wrong or the invoice was removed.
       </p>
-      <Link to="/documents/invoices" className="mt-4 inline-block text-sm text-primary hover:underline">
+      <Link
+        to="/documents/invoices"
+        className="mt-4 inline-block text-sm text-primary hover:underline"
+      >
         ← Back to invoices
       </Link>
     </div>
@@ -89,7 +92,9 @@ function InvoicePage() {
 
   useEffect(() => {
     const refresh = () =>
-      void loadCompany().then(setCompany).catch((e) => logClientError("invoicePage.loadCompany", e));
+      void loadCompany()
+        .then(setCompany)
+        .catch((e) => logClientError("invoicePage.loadCompany", e));
     window.addEventListener("focus", refresh);
     return () => window.removeEventListener("focus", refresh);
   }, []);
@@ -116,7 +121,39 @@ function InvoicePage() {
 
   const handleSavePayment = (payment: Payment) => {
     const nextPayments = [...(ops.payments ?? []), payment];
-    persistOps({ ...ops, payments: nextPayments });
+    const now = Date.now();
+    const linkedClientId =
+      invoice.clientId ??
+      (ops.clients ?? []).find(
+        (client) =>
+          client.companyName.trim().toLowerCase() === invoice.clientName.trim().toLowerCase(),
+      )?.id;
+    const transaction: Transaction = {
+      id: `invoice-payment-${payment.id}`,
+      type: payment.amount >= 0 ? "client_payment" : "refund",
+      date: payment.date,
+      amount: Math.abs(payment.amount),
+      description:
+        payment.amount >= 0
+          ? `Payment for ${invoice.number} from ${invoice.clientName}`
+          : `Refund against ${invoice.number} for ${invoice.clientName}`,
+      category: payment.amount >= 0 ? "Client Income" : "Refund",
+      paymentMethod: payment.method,
+      relatedClientId: linkedClientId,
+      relatedInvoiceId: invoice.id,
+      notes:
+        [payment.referenceNumber, payment.transactionId, payment.notes]
+          .filter(Boolean)
+          .join(" · ") || undefined,
+      attachmentDataUrl: payment.screenshotDataUrl,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const existingTransactions = ops.transactions ?? [];
+    const nextTransactions = existingTransactions.some((item) => item.id === transaction.id)
+      ? existingTransactions
+      : [transaction, ...existingTransactions];
+    persistOps({ ...ops, payments: nextPayments, transactions: nextTransactions });
   };
 
   const handleRemovePayment = (payId: string) => {
@@ -124,6 +161,9 @@ function InvoicePage() {
     persistOps({
       ...ops,
       payments: (ops.payments ?? []).filter((p) => p.id !== payId),
+      transactions: (ops.transactions ?? []).filter(
+        (transaction) => transaction.id !== `invoice-payment-${payId}`,
+      ),
     });
   };
 
@@ -160,9 +200,7 @@ function InvoicePage() {
           <ArrowLeft className="h-4 w-4" /> Back to invoices
         </Link>
         <div className="flex flex-wrap gap-2">
-          <NewInvoiceLink
-            className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm hover:bg-secondary"
-          >
+          <NewInvoiceLink className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm hover:bg-secondary">
             <Pencil className="h-4 w-4" /> New invoice
           </NewInvoiceLink>
           <button
@@ -190,7 +228,9 @@ function InvoicePage() {
         <div className="space-y-6">
           {/* Payment Stats */}
           <div className="rounded-lg border border-border bg-card p-4 shadow-sm space-y-3">
-            <h3 className="font-semibold text-foreground text-sm border-b border-border pb-2">Financial Status</h3>
+            <h3 className="font-semibold text-foreground text-sm border-b border-border pb-2">
+              Financial Status
+            </h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Paid Amount:</span>
@@ -198,11 +238,15 @@ function InvoicePage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Outstanding:</span>
-                <span className="font-semibold text-destructive">{formatINR(outstandingBalance)}</span>
+                <span className="font-semibold text-destructive">
+                  {formatINR(outstandingBalance)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Dynamic Status:</span>
-                <span className="font-semibold capitalize text-primary">{derivedInvoice?.status}</span>
+                <span className="font-semibold capitalize text-primary">
+                  {derivedInvoice?.status}
+                </span>
               </div>
             </div>
           </div>
@@ -221,13 +265,16 @@ function InvoicePage() {
             </div>
             <div className="divide-y divide-border text-xs">
               {invoicePayments.length === 0 ? (
-                <div className="px-4 py-6 text-center text-muted-foreground">No payments logged.</div>
+                <div className="px-4 py-6 text-center text-muted-foreground">
+                  No payments logged.
+                </div>
               ) : (
                 invoicePayments.map((pay) => (
                   <div key={pay.id} className="p-3 space-y-1 hover:bg-muted/10">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold text-foreground">
-                        {pay.amount > 0 ? "+" : ""}{formatINR(pay.amount)}
+                        {pay.amount > 0 ? "+" : ""}
+                        {formatINR(pay.amount)}
                       </span>
                       <span className="text-muted-foreground uppercase">{pay.method}</span>
                     </div>
@@ -235,7 +282,9 @@ function InvoicePage() {
                       <span>{pay.date}</span>
                       {pay.transactionId && <span>Tx: {pay.transactionId}</span>}
                     </div>
-                    {pay.notes && <p className="text-[10px] text-muted-foreground mt-1">{pay.notes}</p>}
+                    {pay.notes && (
+                      <p className="text-[10px] text-muted-foreground mt-1">{pay.notes}</p>
+                    )}
                     {pay.screenshotDataUrl && (
                       <div className="flex items-center gap-1 text-[10px] text-primary mt-1">
                         <ImageIcon className="h-3 w-3" />

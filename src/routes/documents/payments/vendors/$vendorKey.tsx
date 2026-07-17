@@ -37,7 +37,7 @@ function DocumentsVendorDetailPage() {
 
       <p className="mb-6 text-xs text-muted-foreground">
         Log new vendor payouts in{" "}
-        <Link to="/expenses" className="text-primary hover:underline">
+        <Link to="/accounts" hash="expenses" className="text-primary hover:underline">
           Accounts
         </Link>{" "}
         under External payouts (leave partner unlinked to appear here).

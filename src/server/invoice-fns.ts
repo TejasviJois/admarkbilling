@@ -33,10 +33,13 @@ export const listInvoicesFn = createServerFn({ method: "GET" }).handler(
     await assertAppSession();
     return cacheThrough(CACHE_KEYS.invoices, async () => {
       const sb = requireServerSupabase();
+      // Do not filter by organization_id — that column is not present in the live
+      // schema yet (see multi_tenant_setup.sql). Filtering on it makes every
+      // invoice fetch fail and, via intent-preload, puts the dashboard into a
+      // loading remount loop that blocks clicks.
       const { data, error } = await sb
         .from("invoices")
         .select("payload, created_at")
-        .eq("organization_id", DEFAULT_ORG_ID)
         .order("created_at", { ascending: false });
       if (error) throw error;
       const list: Invoice[] = [];
@@ -61,7 +64,6 @@ export const getInvoiceFn = createServerFn({ method: "POST" })
       .from("invoices")
       .select("payload")
       .eq("id", data.id)
-      .eq("organization_id", DEFAULT_ORG_ID)
       .maybeSingle();
     if (error) throw error;
     const inv = row?.payload ? parseInvoicePayload(row.payload) : null;
@@ -81,7 +83,6 @@ export const upsertInvoiceFn = createServerFn({ method: "POST" })
     const { error } = await sb.from("invoices").upsert({
       id: data.id,
       payload: payloadWithTenant,
-      organization_id: DEFAULT_ORG_ID,
       created_at: new Date(data.createdAt).toISOString(),
     });
     if (error) throw error;
@@ -97,11 +98,7 @@ export const deleteInvoiceFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await assertAppSession();
     const sb = requireServerSupabase();
-    const { error } = await sb
-      .from("invoices")
-      .delete()
-      .eq("id", data.id)
-      .eq("organization_id", DEFAULT_ORG_ID);
+    const { error } = await sb.from("invoices").delete().eq("id", data.id);
     if (error) throw error;
     cacheDel(CACHE_KEYS.invoices);
     return { ok: true as const };
@@ -116,7 +113,6 @@ export const getCompanyFn = createServerFn({ method: "GET" }).handler(
         .from("company_settings")
         .select("payload")
         .eq("id", "default")
-        .eq("organization_id", DEFAULT_ORG_ID)
         .maybeSingle();
       if (error) throw error;
       if (!data?.payload || typeof data.payload !== "object") return DEFAULT_COMPANY;
@@ -137,7 +133,6 @@ export const saveCompanyFn = createServerFn({ method: "POST" })
     const { error } = await sb.from("company_settings").upsert({
       id: "default",
       payload: payloadWithTenant,
-      organization_id: DEFAULT_ORG_ID,
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;

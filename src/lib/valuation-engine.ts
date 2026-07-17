@@ -445,6 +445,7 @@ export function calculateValuation(
     if (transaction.type === "client_payment" || transaction.type === "founder_investment") {
       return transaction.amount;
     }
+    if (transaction.type === "adjustment") return transaction.amount;
     if (
       transaction.type === "expense" ||
       transaction.type === "founder_withdrawal" ||

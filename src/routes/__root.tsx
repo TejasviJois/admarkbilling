@@ -190,10 +190,8 @@ const NAV_GROUPS: NavGroup[] = [
     icon: WalletCards,
     section: "Daily Work",
     items: [
-      { to: "/transactions", label: "Transactions" },
-      { to: "/expenses", label: "Expenses" },
-      { to: "/invoices", label: "Invoices" },
       { to: "/accounts", label: "Accounts" },
+      { to: "/invoices", label: "Invoices" },
       { to: "/founders", label: "Founders" },
     ],
   },

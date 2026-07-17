@@ -1,8 +1,17 @@
 import { formatINR } from "./invoice-calc";
-import { DEFAULT_FINANCIAL_BASELINE, withDefaultFinancialBaseline } from "./default-financial-baseline";
+import {
+  DEFAULT_FINANCIAL_BASELINE,
+  withDefaultFinancialBaseline,
+} from "./default-financial-baseline";
 import { sumPipelineBookedRevenue } from "./project-billing";
 import { sumActiveFixedMonthlyExpenses } from "./fixed-monthly-expenses";
-import type { ExpenseCategory, ExpenseEntry, FinancialBaseline, OperationsData, Project } from "./types";
+import type {
+  ExpenseCategory,
+  ExpenseEntry,
+  FinancialBaseline,
+  OperationsData,
+  Project,
+} from "./types";
 import { isVerifiedPayment, sumVerifiedProjectPayments } from "./project-payments";
 
 export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
@@ -35,11 +44,7 @@ export const EXPENSE_CATEGORY_SHORT_LABELS: Record<ExpenseCategory, string> = {
 };
 
 /** Categories that reduce cash balance (excludes handouts). */
-export const MONEY_OUT_CATEGORIES = [
-  "company",
-  "founder_payout",
-  "external_payout",
-] as const;
+export const MONEY_OUT_CATEGORIES = ["company", "founder_payout", "external_payout"] as const;
 
 export type MoneyOutCategoryRow = {
   category: ExpenseCategory;
@@ -88,27 +93,46 @@ export type FinancialSummary = {
 export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
   const withBaseline = withDefaultFinancialBaseline(ops);
   const baseline = withBaseline.financialBaseline!;
-  
+
   const txs = ops.transactions ?? [];
-  
+
   // Calculate directly from unified Transactions table
   const clientPayments = txs.filter((t) => t.type === "client_payment" || t.type === "refund");
-  const totalRevenueReceived = clientPayments.reduce((sum, t) => sum + t.amount, 0);
-  
+  const revenueAmount = (transaction: (typeof txs)[number]) =>
+    transaction.type === "refund" ? -Math.abs(transaction.amount) : transaction.amount;
+  const totalRevenueReceived = clientPayments.reduce(
+    (sum, transaction) => sum + revenueAmount(transaction),
+    0,
+  );
+
   const newRevenueAfterBaseline = clientPayments
     .filter((t) => t.date > baseline.asOfDate)
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, transaction) => sum + revenueAmount(transaction), 0);
 
   const expenses = txs.filter((t) => t.type === "expense");
-  const totalExternalPayouts = expenses.filter((t) => t.category === "external_payout").reduce((sum, t) => sum + t.amount, 0);
-  const totalCompanyExpenses = expenses.filter((t) => t.category === "company").reduce((sum, t) => sum + t.amount, 0);
+  const totalExternalPayouts = expenses
+    .filter((transaction) => normalizeCategory(transaction.category) === "external_payout")
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const totalCompanyExpenses = expenses
+    .filter((transaction) => normalizeCategory(transaction.category) !== "external_payout")
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
 
-  const founderWithdrawals = txs.filter((t) => t.type === "founder_withdrawal").reduce((sum, t) => sum + t.amount, 0);
-  const founderInvestments = txs.filter((t) => t.type === "founder_investment").reduce((sum, t) => sum + t.amount, 0);
-  const totalHandoutsTaken = txs.filter((t) => t.type === "internal_transfer" && t.category === "handout").reduce((sum, t) => sum + t.amount, 0);
+  const founderWithdrawals = txs
+    .filter((t) => t.type === "founder_withdrawal")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const founderInvestments = txs
+    .filter((t) => t.type === "founder_investment")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const totalHandoutsTaken = txs
+    .filter((t) => t.type === "internal_transfer" && t.category === "handout")
+    .reduce((sum, t) => sum + t.amount, 0);
 
   const totalExpense = totalExternalPayouts + totalCompanyExpenses + founderWithdrawals;
-  const currentCashBalance = totalRevenueReceived + founderInvestments - totalExpense;
+  const cashAdjustments = txs
+    .filter((transaction) => transaction.type === "adjustment")
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const currentCashBalance =
+    totalRevenueReceived + founderInvestments - totalExpense + cashAdjustments;
   const activePipelineBooked = sumPipelineBookedRevenue(ops.projects);
   const totalRevenueBooked =
     baseline.totalRevenueBooked != null ? baseline.totalRevenueBooked : activePipelineBooked;
@@ -135,7 +159,12 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
 
 export function normalizeCategory(category: string | undefined): ExpenseCategory | undefined {
   if (!category) return undefined;
-  if (category === "company" || category === "external_payout" || category === "founder_payout" || category === "handout") {
+  if (
+    category === "company" ||
+    category === "external_payout" ||
+    category === "founder_payout" ||
+    category === "handout"
+  ) {
     return category;
   }
   return "company";

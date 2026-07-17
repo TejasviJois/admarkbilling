@@ -53,7 +53,6 @@ export const getDocumentsFn = createServerFn({ method: "GET" }).handler(
         .from("operations_data")
         .select("payload")
         .eq("id", "documents")
-        .eq("organization_id", DEFAULT_ORG_ID)
         .maybeSingle();
       if (error) throw error;
       if (!data?.payload) return EMPTY_DOCUMENTS;
@@ -76,7 +75,6 @@ export const saveDocumentsFn = createServerFn({ method: "POST" })
     const { error } = await sb.from("operations_data").upsert({
       id: "documents",
       payload: payloadWithTenant,
-      organization_id: DEFAULT_ORG_ID,
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;

@@ -39,7 +39,6 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
       const { error } = await sb.from("company_settings").upsert({
         id: "default",
         payload: payloadWithTenant,
-        organization_id: DEFAULT_ORG_ID,
         updated_at: now,
       });
       if (error) throw error;
@@ -62,7 +61,6 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
       const { error } = await sb.from("operations_data").upsert({
         id: "default",
         payload: payloadWithTenant,
-        organization_id: DEFAULT_ORG_ID,
         updated_at: now,
       });
       if (error) throw error;
@@ -80,7 +78,6 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
       const { error } = await sb.from("operations_data").upsert({
         id: "documents",
         payload: payloadWithTenant,
-        organization_id: DEFAULT_ORG_ID,
         updated_at: now,
       });
       if (error) throw error;
@@ -94,7 +91,6 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
         return {
           id: inv.id,
           payload: { ...encrypted, organizationId: DEFAULT_ORG_ID },
-          organization_id: DEFAULT_ORG_ID,
           created_at: new Date(inv.createdAt).toISOString(),
         };
       });
@@ -109,7 +105,6 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
       const { error } = await sb.from("operations_data").upsert({
         id: "activity_logs",
         payload: { entries: logsWithTenant, organizationId: DEFAULT_ORG_ID },
-        organization_id: DEFAULT_ORG_ID,
         updated_at: now,
       });
       if (error) throw error;

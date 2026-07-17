@@ -15,7 +15,6 @@ function AccountsBillingPage() {
     <div>
       <Link
         to="/accounts"
-        hash="billing"
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary"
       >
         <ChevronLeft className="h-4 w-4" />

@@ -30,7 +30,6 @@ export const getActivityLogsFn = createServerFn({ method: "GET" }).handler(
       .from("operations_data")
       .select("payload")
       .eq("id", ROW_ID)
-      .eq("organization_id", DEFAULT_ORG_ID)
       .maybeSingle();
     if (error) throw error;
     if (!data?.payload) return [];
@@ -47,7 +46,6 @@ export const saveActivityLogsFn = createServerFn({ method: "POST" })
     const { error } = await sb.from("operations_data").upsert({
       id: ROW_ID,
       payload: { entries: entriesWithTenant, organizationId: DEFAULT_ORG_ID },
-      organization_id: DEFAULT_ORG_ID,
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;
