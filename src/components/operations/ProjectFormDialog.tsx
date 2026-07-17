@@ -115,6 +115,10 @@ export function ProjectFormDialog({
 
   const { ops } = useOperations();
   const clients = ops.clients ?? [];
+  // Relationship parents organize multiple companies but are not billing entities.
+  const billableClients = clients.filter(
+    (client) => !clients.some((candidate) => candidate.parentClientId === client.id),
+  );
   const members = DEFAULT_COMPANY.companyMembers ?? [];
 
   useEffect(() => {
@@ -229,7 +233,7 @@ export function ProjectFormDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NEW_CLIENT_VALUE}>+ New client (type name below)</SelectItem>
-                  {clients.map((c) => (
+                  {billableClients.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.companyName}
                     </SelectItem>

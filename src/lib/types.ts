@@ -502,6 +502,8 @@ export interface Payment {
 export interface Client {
   id: string;
   organizationId?: string;
+  /** Relationship-level client that owns this company (billing remains on this child company). */
+  parentClientId?: string;
   companyName: string;
   contactPerson: string;
   phone: string;

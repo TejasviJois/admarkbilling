@@ -22,6 +22,7 @@ import {
   BriefcaseBusiness,
   WalletCards,
   BarChart3,
+  TrendingUp,
   Settings,
   ChevronRight,
   Circle,
@@ -152,7 +153,7 @@ const navLinkClass = (active: boolean) => {
 };
 
 type NavLinkItem = { to: string; label: string; exact?: boolean };
-type NavGroupId = "crm" | "operations" | "finance" | "insights" | "administration";
+type NavGroupId = "crm" | "operations" | "finance" | "administration";
 type NavGroup = {
   id: NavGroupId;
   label: string;
@@ -168,9 +169,9 @@ const NAV_GROUPS: NavGroup[] = [
     icon: Users,
     section: "Daily Work",
     items: [
-      { to: "/clients", label: "Clients" },
+      { to: "/directory", label: "Directory" },
       { to: "/leads", label: "Leads" },
-      { to: "/partnerships", label: "Partnerships" },
+      { to: "/clients", label: "Clients" },
     ],
   },
   {
@@ -180,6 +181,7 @@ const NAV_GROUPS: NavGroup[] = [
     section: "Daily Work",
     items: [
       { to: "/projects", label: "Projects" },
+      { to: "/partnerships", label: "Partnerships" },
       { to: "/calendar", label: "Calendar" },
       { to: "/documents", label: "Documents" },
     ],
@@ -193,16 +195,6 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/accounts", label: "Accounts" },
       { to: "/invoices", label: "Invoices" },
       { to: "/founders", label: "Founders" },
-    ],
-  },
-  {
-    id: "insights",
-    label: "Insights",
-    icon: BarChart3,
-    section: "Business Intelligence",
-    items: [
-      { to: "/analytics", label: "Analytics" },
-      { to: "/valuation", label: "Company Valuation" },
     ],
   },
   {
@@ -236,7 +228,7 @@ function SidebarNavigation({
     exact ? path === to : path === to || path.startsWith(`${to}/`);
 
   const renderGroup = (group: NavGroup) => {
-    const items = group.items.filter((item) => showValuation || item.to !== "/valuation");
+    const items = group.items;
     const expanded = expandedGroups.includes(group.id);
     const active = items.some((item) => isActive(item.to, item.exact));
     const GroupIcon = group.icon;
@@ -327,7 +319,28 @@ function SidebarNavigation({
         Business Intelligence
       </p>
       <div className="space-y-1">
-        {NAV_GROUPS.filter((group) => group.section === "Business Intelligence").map(renderGroup)}
+        <Link
+          to="/analytics"
+          preload="intent"
+          aria-current={isActive("/analytics") ? "page" : undefined}
+          onClick={onNavigate}
+          className={navLinkClass(isActive("/analytics"))}
+        >
+          <BarChart3 className="h-4 w-4 shrink-0" />
+          Analytics
+        </Link>
+        {showValuation && (
+          <Link
+            to="/valuation"
+            preload="intent"
+            aria-current={isActive("/valuation") ? "page" : undefined}
+            onClick={onNavigate}
+            className={navLinkClass(isActive("/valuation"))}
+          >
+            <TrendingUp className="h-4 w-4 shrink-0" />
+            Company Valuation
+          </Link>
+        )}
       </div>
 
       <p className="mb-2 mt-6 border-t border-border/70 px-3 pt-5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/70">

@@ -5,10 +5,12 @@ import { useOperations } from "@/hooks/use-operations";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useDocuments } from "@/hooks/use-documents";
 import { loadActivityLogs } from "@/lib/activity-log-storage";
-import { computeTotals, formatINR, formatINRWhole, calculateInvoicePayments } from "@/lib/invoice-calc";
+import { computeTotals, formatINR, formatINRWhole } from "@/lib/invoice-calc";
 import { formatActivityTimestamp } from "@/lib/activity-log-labels";
+import { isRevenueProject } from "@/lib/project-status";
+import { paymentSummary } from "@/lib/project-payments";
 import { Button } from "@/components/ui/button";
-import type { ActivityLogEntry, Invoice, Project, Agreement } from "@/lib/types";
+import type { ActivityLogEntry } from "@/lib/types";
 
 export const Route = createFileRoute("/clients/$id")({
   component: ClientOverviewPage,
@@ -40,51 +42,77 @@ function ClientOverviewPage() {
     return ops.clients?.find((c) => c.id === id);
   }, [ops.clients, id]);
 
+  const relationshipClients = useMemo(() => {
+    if (!client) return [];
+    const allClients = ops.clients ?? [];
+    const children = allClients.filter((candidate) => candidate.parentClientId === client.id);
+    return children.length > 0 ? [client, ...children] : [client];
+  }, [ops.clients, client]);
+
+  const relationshipClientIds = useMemo(
+    () => new Set(relationshipClients.map((candidate) => candidate.id)),
+    [relationshipClients],
+  );
+  const relationshipCompanyNames = useMemo(
+    () => new Set(relationshipClients.map((candidate) => candidate.companyName.toLowerCase())),
+    [relationshipClients],
+  );
+
   const clientProjects = useMemo(() => {
     if (!client) return [];
     return ops.projects.filter(
-      (p) => p.clientId === id || p.client.toLowerCase() === client.companyName.toLowerCase()
+      (project) =>
+        isRevenueProject(project.status) &&
+        ((project.clientId != null && relationshipClientIds.has(project.clientId)) ||
+          relationshipCompanyNames.has(project.client.toLowerCase())),
     );
-  }, [ops.projects, client, id]);
+  }, [ops.projects, client, relationshipClientIds, relationshipCompanyNames]);
 
   const clientInvoices = useMemo(() => {
     if (!client) return [];
     return invoices.filter(
-      (inv) => inv.clientId === id || inv.clientName.toLowerCase() === client.companyName.toLowerCase()
+      (invoice) =>
+        (invoice.clientId != null && relationshipClientIds.has(invoice.clientId)) ||
+        relationshipCompanyNames.has(invoice.clientName.toLowerCase()),
     );
-  }, [invoices, client, id]);
+  }, [invoices, client, relationshipClientIds, relationshipCompanyNames]);
 
   const clientDocuments = useMemo(() => {
     if (!client) return [];
     return docs.agreements.filter(
-      (a) => a.clientId === id || a.counterpartyName.toLowerCase() === client.companyName.toLowerCase()
+      (agreement) =>
+        (agreement.clientId != null && relationshipClientIds.has(agreement.clientId)) ||
+        relationshipCompanyNames.has(agreement.counterpartyName.toLowerCase()),
     );
-  }, [docs.agreements, client, id]);
+  }, [docs.agreements, client, relationshipClientIds, relationshipCompanyNames]);
 
-  // Compute Outstanding & Total Revenue
+  const projectGroups = useMemo(
+    () =>
+      relationshipClients
+        .map((company) => ({
+          company,
+          projects: clientProjects.filter(
+            (project) =>
+              project.clientId === company.id ||
+              project.client.toLowerCase() === company.companyName.toLowerCase(),
+          ),
+        }))
+        .filter((group) => group.projects.length > 0),
+    [relationshipClients, clientProjects],
+  );
+
+  // Project contracts are authoritative for received/outstanding after Ground Zero.
   const metrics = useMemo(() => {
-    let totalRevenue = 0;
-    let outstandingAmount = 0;
-
-    // From Invoices
-    for (const inv of clientInvoices) {
-      const { paidAmount, outstandingBalance } = calculateInvoicePayments(inv, ops.payments ?? []);
-      totalRevenue += paidAmount;
-      if (inv.status !== "cancelled") {
-        outstandingAmount += outstandingBalance;
-      }
-    }
-
-    // From Project payments (for matching projects that might not have invoices)
-    for (const proj of clientProjects) {
-      const projPayments = (ops.payments ?? []).filter((p) => p.projectId === proj.id && !p.invoiceId);
-      for (const p of projPayments) {
-        totalRevenue += p.amount;
-      }
-    }
-
-    return { totalRevenue, outstandingAmount };
-  }, [clientInvoices, clientProjects, ops.payments]);
+    return clientProjects.reduce(
+      (totals, project) => {
+        const summary = paymentSummary(project);
+        totals.totalRevenue += summary.received;
+        totals.outstandingAmount += summary.pending ?? 0;
+        return totals;
+      },
+      { totalRevenue: 0, outstandingAmount: 0 },
+    );
+  }, [clientProjects]);
 
   const activeProjects = useMemo(() => {
     return clientProjects.filter((p) => p.status === "active");
@@ -116,14 +144,27 @@ function ClientOverviewPage() {
     if (!client) return [];
     return logs
       .filter((log) => {
-        if (log.entityId === client.id) return true;
-        if (log.summary.toLowerCase().includes(client.companyName.toLowerCase())) return true;
+        if (log.entityId && relationshipClientIds.has(log.entityId)) return true;
+        if (
+          [...relationshipCompanyNames].some((name) =>
+            log.summary.toLowerCase().includes(name),
+          )
+        ) {
+          return true;
+        }
         const isProj = log.entity === "project" && clientProjects.some((p) => p.id === log.entityId);
         const isInv = log.entity === "invoice" && clientInvoices.some((i) => i.id === log.entityId);
         return isProj || isInv;
       })
       .slice(0, 10);
-  }, [logs, client, clientProjects, clientInvoices]);
+  }, [
+    logs,
+    client,
+    clientProjects,
+    clientInvoices,
+    relationshipClientIds,
+    relationshipCompanyNames,
+  ]);
 
   if (opsLoading || invLoading || docsLoading || logsLoading) {
     return (
@@ -176,7 +217,7 @@ function ClientOverviewPage() {
 
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Total Revenue</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Total Received</span>
             <DollarSign className="h-4 w-4 text-green-500" />
           </div>
           <p className="mt-2 text-2xl font-bold text-green-500">
@@ -212,30 +253,56 @@ function ClientOverviewPage() {
           <div className="rounded-lg border border-border bg-card shadow-sm">
             <div className="border-b border-border px-4 py-3">
               <h3 className="font-semibold text-foreground">Projects</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Only ongoing and completed work is shown.
+              </p>
             </div>
             <div className="divide-y divide-border">
-              {clientProjects.length === 0 ? (
+              {projectGroups.length === 0 ? (
                 <div className="px-4 py-6 text-center text-muted-foreground text-sm">
-                  No projects associated with this client.
+                  No ongoing or completed projects associated with this client.
                 </div>
               ) : (
-                clientProjects.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/10">
-                    <div>
-                      <h4 className="font-medium text-foreground text-sm">
-                        {p.projectType || "General Work"}
-                      </h4>
-                      <p className="text-xs text-muted-foreground">
-                        Budget: {p.budget ? formatINR(p.budget) : "N/A"} &bull; Status:{" "}
-                        <span className="capitalize">{p.status}</span>
-                      </p>
+                projectGroups.map(({ company, projects }) => (
+                  <div key={company.id} className="p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-sm font-semibold text-foreground">
+                          {company.companyName}
+                        </h4>
+                        {company.contactPerson && company.contactPerson !== company.companyName && (
+                          <p className="text-xs text-muted-foreground">
+                            Contact: {company.contactPerson}
+                          </p>
+                        )}
+                      </div>
+                      {company.id !== client.id && (
+                        <Link
+                          to="/clients/$id"
+                          params={{ id: company.id }}
+                          className="text-xs font-semibold text-primary hover:underline"
+                        >
+                          Project profile
+                        </Link>
+                      )}
                     </div>
-                    <Link
-                      to="/projects"
-                      className="text-xs text-primary hover:underline font-semibold"
-                    >
-                      View Projects
-                    </Link>
+                    <div className="space-y-2">
+                      {projects.map((project) => (
+                        <Link
+                          key={project.id}
+                          to="/projects/$id"
+                          params={{ id: project.id }}
+                          className="flex items-center justify-between rounded-md border border-border/70 bg-muted/10 px-3 py-2.5 hover:bg-muted/30"
+                        >
+                          <span className="text-sm font-medium text-foreground">
+                            {project.projectType || "General Work"}
+                          </span>
+                          <span className="text-xs capitalize text-muted-foreground">
+                            {project.status === "active" ? "Ongoing" : "Done"}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 ))
               )}

@@ -7,6 +7,7 @@ import { CRMKanbanBoard } from "@/components/crm/CRMKanbanBoard";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
 import { formatINRWhole } from "@/lib/invoice-calc";
+import { ensureClientForWonLead } from "@/lib/lead-conversion";
 import type { Lead, LeadStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/leads")({ component: LeadsPage });
@@ -71,7 +72,9 @@ function LeadsPage() {
     const nextLeads = editing
       ? leads.map((l) => (l.id === saved.id ? saved : l))
       : [saved, ...leads];
-    persist({ ...ops, leads: nextLeads });
+    let next = { ...ops, leads: nextLeads };
+    if (saved.status === "won") next = ensureClientForWonLead(next, saved);
+    persist(next);
   };
 
   const handleRemove = (id: string) => {
@@ -81,7 +84,12 @@ function LeadsPage() {
 
   const handleMoveStatus = (id: string, nextStatus: LeadStatus) => {
     const nextLeads = leads.map((l) => (l.id === id ? { ...l, status: nextStatus } : l));
-    persist({ ...ops, leads: nextLeads });
+    let next = { ...ops, leads: nextLeads };
+    if (nextStatus === "won") {
+      const wonLead = nextLeads.find((l) => l.id === id);
+      if (wonLead) next = ensureClientForWonLead(next, wonLead);
+    }
+    persist(next);
   };
 
   if (loading) return <OperationsLoading />;

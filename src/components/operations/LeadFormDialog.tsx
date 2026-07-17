@@ -120,7 +120,7 @@ export function LeadFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit CRM Deal" : "New CRM Deal"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit Lead" : "Add Lead"}</DialogTitle>
           <DialogDescription>
             Enter client information, expected deal size, closing timelines, and pipeline stages.
           </DialogDescription>

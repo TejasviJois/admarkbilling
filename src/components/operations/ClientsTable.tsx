@@ -4,10 +4,12 @@ import type { Client } from "@/lib/types";
 
 export function ClientsTable({
   clients,
+  allClients = clients,
   onEdit,
   onRemove,
 }: {
   clients: Client[];
+  allClients?: Client[];
   onEdit: (client: Client) => void;
   onRemove: (id: string) => void;
 }) {
@@ -17,7 +19,7 @@ export function ClientsTable({
         <table className="w-full table-auto border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40 font-medium text-muted-foreground">
-              <th className="px-4 py-3">Company Name</th>
+              <th className="px-4 py-3">Client / Relationship</th>
               <th className="px-4 py-3">Contact Person</th>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Phone</th>
@@ -44,6 +46,11 @@ export function ClientsTable({
                     >
                       {c.companyName}
                     </Link>
+                    {allClients.some((child) => child.parentClientId === c.id) && (
+                      <p className="mt-0.5 text-[11px] font-normal text-muted-foreground">
+                        {allClients.filter((child) => child.parentClientId === c.id).length} projects
+                      </p>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                     {c.contactPerson}

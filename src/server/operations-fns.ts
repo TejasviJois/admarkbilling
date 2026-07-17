@@ -211,6 +211,7 @@ function parseClient(raw: unknown): Client | null {
   return {
     id: c.id,
     organizationId: c.organizationId ?? DEFAULT_ORG_ID,
+    parentClientId: typeof c.parentClientId === "string" ? c.parentClientId : undefined,
     companyName: c.companyName,
     contactPerson: c.contactPerson ?? "",
     phone: c.phone ?? "",

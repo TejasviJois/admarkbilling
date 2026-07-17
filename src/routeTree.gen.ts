@@ -23,6 +23,7 @@ import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as FoundersRouteImport } from './routes/founders'
 import { Route as ExpensesRouteImport } from './routes/expenses'
+import { Route as DirectoryRouteImport } from './routes/directory'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as AccountsRouteImport } from './routes/accounts'
@@ -120,6 +121,11 @@ const FoundersRoute = FoundersRouteImport.update({
 const ExpensesRoute = ExpensesRouteImport.update({
   id: '/expenses',
   path: '/expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DirectoryRoute = DirectoryRouteImport.update({
+  id: '/directory',
+  path: '/directory',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientsRoute = ClientsRouteImport.update({
@@ -274,6 +280,7 @@ export interface FileRoutesByFullPath {
   '/accounts': typeof AccountsRouteWithChildren
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRouteWithChildren
+  '/directory': typeof DirectoryRoute
   '/expenses': typeof ExpensesRoute
   '/founders': typeof FoundersRoute
   '/history': typeof HistoryRoute
@@ -316,6 +323,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
+  '/directory': typeof DirectoryRoute
   '/expenses': typeof ExpensesRoute
   '/founders': typeof FoundersRoute
   '/history': typeof HistoryRoute
@@ -361,6 +369,7 @@ export interface FileRoutesById {
   '/accounts': typeof AccountsRouteWithChildren
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRouteWithChildren
+  '/directory': typeof DirectoryRoute
   '/expenses': typeof ExpensesRoute
   '/founders': typeof FoundersRoute
   '/history': typeof HistoryRoute
@@ -407,6 +416,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/calendar'
     | '/clients'
+    | '/directory'
     | '/expenses'
     | '/founders'
     | '/history'
@@ -449,6 +459,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/calendar'
+    | '/directory'
     | '/expenses'
     | '/founders'
     | '/history'
@@ -493,6 +504,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/calendar'
     | '/clients'
+    | '/directory'
     | '/expenses'
     | '/founders'
     | '/history'
@@ -538,6 +550,7 @@ export interface RootRouteChildren {
   AccountsRoute: typeof AccountsRouteWithChildren
   CalendarRoute: typeof CalendarRoute
   ClientsRoute: typeof ClientsRouteWithChildren
+  DirectoryRoute: typeof DirectoryRoute
   ExpensesRoute: typeof ExpensesRoute
   FoundersRoute: typeof FoundersRoute
   HistoryRoute: typeof HistoryRoute
@@ -670,6 +683,13 @@ declare module '@tanstack/react-router' {
       path: '/expenses'
       fullPath: '/expenses'
       preLoaderRoute: typeof ExpensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/directory': {
+      id: '/directory'
+      path: '/directory'
+      fullPath: '/directory'
+      preLoaderRoute: typeof DirectoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clients': {
@@ -917,6 +937,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountsRoute: AccountsRouteWithChildren,
   CalendarRoute: CalendarRoute,
   ClientsRoute: ClientsRouteWithChildren,
+  DirectoryRoute: DirectoryRoute,
   ExpensesRoute: ExpensesRoute,
   FoundersRoute: FoundersRoute,
   HistoryRoute: HistoryRoute,

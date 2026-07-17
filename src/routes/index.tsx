@@ -71,19 +71,8 @@ function ExecutiveDashboard() {
       .filter((project) => isRevenueProject(project.status))
       .reduce((sum, project) => sum + (paymentSummary(project).pending ?? 0), 0);
 
-    // 2. Active Projects & Margins
-    const activeProjectsList = projects.filter((p) => p.status === "active");
-    const activeProjectsCount = activeProjectsList.length;
-
-    const projectProfit = activeProjectsList.reduce((sum, p) => {
-      const budget = p.budget || 0;
-      const projectTxs = transactions.filter((t) => t.relatedProjectId === p.id);
-      const projectExpenses = projectTxs
-        .filter((t) => t.type === "expense")
-        .reduce((s, t) => s + t.amount, 0);
-      const estimated = p.estimatedCost || 0;
-      return sum + (budget - projectExpenses - estimated);
-    }, 0);
+    // 2. Active Projects
+    const activeProjectsCount = projects.filter((p) => p.status === "active").length;
 
     // 3. Recent Payments
     const recentPayments = transactions
@@ -152,7 +141,6 @@ function ExecutiveDashboard() {
       revenueBooked,
       outstandingReceivables,
       activeProjectsCount,
-      projectProfit,
       recentPayments,
       monthlyChartData,
       maxChartValue,
@@ -458,33 +446,19 @@ function ExecutiveDashboard() {
                         key={project.id}
                         className="border border-border/60 rounded p-3 bg-muted/10"
                       >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <Link
-                              to="/projects/$id"
-                              params={{ id: project.id }}
-                              className="font-bold text-xs text-primary hover:underline"
-                            >
-                              {project.client}
-                            </Link>
-                            <p className="text-[10px] text-muted-foreground">
-                              {project.projectType || "General Work"}
-                            </p>
-                          </div>
-                          <span className="text-[10px] font-semibold tabular-nums text-foreground">
-                            {project.budget ? formatINRWhole(project.budget) : "—"}
-                          </span>
-                        </div>
+                        <Link
+                          to="/projects/$id"
+                          params={{ id: project.id }}
+                          className="font-bold text-xs text-primary hover:underline"
+                        >
+                          {project.client}
+                        </Link>
+                        <p className="text-[10px] text-muted-foreground">
+                          {project.projectType || "General Work"}
+                        </p>
                       </div>
                     ))
               )}
-            </div>
-
-            <div className="mt-4 border-t border-border/40 pt-3 flex justify-between text-xs text-muted-foreground">
-              <span>Active Project Margin Forecast:</span>
-              <span className="font-bold text-foreground">
-                {formatINRWhole(dashboardData.projectProfit)}
-              </span>
             </div>
           </div>
 

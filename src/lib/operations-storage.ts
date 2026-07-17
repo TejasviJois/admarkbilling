@@ -12,6 +12,7 @@ import {
 } from "@/lib/ground-zero";
 import { normalizeAllProjectPayments } from "./project-payments";
 import { mergeAllProjectBilling } from "./project-billing";
+import { withDefaultClientHierarchy } from "./client-hierarchy";
 import { logClientError } from "./client-logger";
 import { getOperationsFn, saveOperationsFn, EMPTY_OPERATIONS } from "@/server/operations-fns";
 import { getDataBackendStatus } from "@/server/invoice-fns";
@@ -243,6 +244,7 @@ function mergeWithDefaults(data: OperationsData): OperationsData {
   merged = repairBlxRealtyData(merged);
   merged = repairNidhiEstatesData(merged);
   merged = ensureHistoricalProjectPaymentLogs(merged);
+  merged = withDefaultClientHierarchy(merged);
 
   // Seeds the handout repayment EMI (₹20k/month from 5 Aug 2026) when the
   // list is empty — the handout itself is a liability, never a past outflow.

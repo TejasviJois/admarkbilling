@@ -21,6 +21,7 @@ import { Field } from "@/components/operations/operations-ui";
 import type { Client } from "@/lib/types";
 
 const EMPTY_FORM = {
+  parentClientId: "",
   companyName: "",
   contactPerson: "",
   phone: "",
@@ -40,11 +41,13 @@ export function ClientFormDialog({
   open,
   onOpenChange,
   client,
+  clients,
   onSave,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   client: Client | null;
+  clients: Client[];
   onSave: (client: Client) => void;
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
@@ -54,6 +57,7 @@ export function ClientFormDialog({
     if (!open) return;
     if (client) {
       setForm({
+        parentClientId: client.parentClientId ?? "",
         companyName: client.companyName,
         contactPerson: client.contactPerson,
         phone: client.phone,
@@ -78,12 +82,13 @@ export function ClientFormDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.companyName.trim() || !form.contactPerson.trim() || !form.email.trim() || !form.billingAddress.trim()) {
-      alert("Please fill in all required fields (Company Name, Contact Person, Email, and Billing Address).");
+    if (!form.companyName.trim() || !form.contactPerson.trim()) {
+      alert("Please fill in the required fields (Company Name and Contact Person).");
       return;
     }
     const saved: Client = {
       id: client?.id ?? "cli-" + crypto.randomUUID().slice(0, 8),
+      parentClientId: form.parentClientId || undefined,
       companyName: form.companyName.trim(),
       contactPerson: form.contactPerson.trim(),
       phone: form.phone.trim(),
@@ -111,6 +116,31 @@ export function ClientFormDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Relationship / Parent Client" id="client-parent">
+              <Select
+                value={form.parentClientId || "none"}
+                onValueChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    parentClientId: value === "none" ? "" : value,
+                  }))
+                }
+              >
+                <SelectTrigger id="client-parent">
+                  <SelectValue placeholder="Standalone client" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Standalone client</SelectItem>
+                  {clients
+                    .filter((candidate) => !candidate.parentClientId && candidate.id !== client?.id)
+                    .map((candidate) => (
+                      <SelectItem key={candidate.id} value={candidate.id}>
+                        Under {candidate.companyName}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </Field>
             <Field label="Company Name *" id="client-companyName">
               <Input
                 id="client-companyName"
@@ -129,14 +159,13 @@ export function ClientFormDialog({
                 required
               />
             </Field>
-            <Field label="Email *" id="client-email">
+            <Field label="Email" id="client-email">
               <Input
                 id="client-email"
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 placeholder="client@company.com"
-                required
               />
             </Field>
             <Field label="Phone *" id="client-phone">
@@ -204,14 +233,13 @@ export function ClientFormDialog({
               </Select>
             </Field>
           </div>
-          <Field label="Billing Address *" id="client-billingAddress">
+          <Field label="Billing Address" id="client-billingAddress">
             <Textarea
               id="client-billingAddress"
               value={form.billingAddress}
               onChange={(e) => setForm((f) => ({ ...f, billingAddress: e.target.value }))}
               placeholder="Full registered address"
               rows={2}
-              required
             />
           </Field>
           <Field label="Shipping Address (Optional)" id="client-shippingAddress">
