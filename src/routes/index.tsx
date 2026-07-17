@@ -6,26 +6,18 @@ import {
   DollarSign,
   Briefcase,
   Users,
-  Calendar,
   ArrowUpRight,
-  ArrowDownRight,
   Activity,
   FileText,
-  Percent,
-  ListTodo,
   CalendarDays,
   Clock3,
   Phone,
 } from "lucide-react";
 import { useOperations } from "@/hooks/use-operations";
-import { useInvoices } from "@/hooks/use-invoices";
 import { computeFinancialSummary } from "@/lib/financial";
-import {
-  formatINR,
-  formatINRWhole,
-  computeTotals,
-  calculateInvoicePayments,
-} from "@/lib/invoice-calc";
+import { formatINRWhole } from "@/lib/invoice-calc";
+import { paymentSummary } from "@/lib/project-payments";
+import { isRevenueProject } from "@/lib/project-status";
 import {
   formatScheduleDateTime,
   isUpcomingScheduleEvent,
@@ -38,7 +30,6 @@ export const Route = createFileRoute("/")({ component: ExecutiveDashboard });
 
 function ExecutiveDashboard() {
   const { ops, loading: opsLoading } = useOperations();
-  const { invoices, loading: invoicesLoading } = useInvoices();
   const [mounted, setMounted] = useState(false);
   const [hasRendered, setHasRendered] = useState(false);
   const [reminderClock, setReminderClock] = useState(() => Date.now());
@@ -49,7 +40,7 @@ function ExecutiveDashboard() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const loading = opsLoading || invoicesLoading;
+  const loading = opsLoading;
 
   useEffect(() => {
     if (mounted && !loading) setHasRendered(true);
@@ -65,48 +56,22 @@ function ExecutiveDashboard() {
   const dashboardData = useMemo(() => {
     if (!ops) return null;
 
-    const transactions = ops.transactions ?? [];
+    // Historical rows (Ground Zero imports) are context only — never re-summed.
+    const transactions = (ops.transactions ?? []).filter((t) => !t.historical);
     const projects = ops.projects ?? [];
-    const leads = ops.leads ?? [];
-    const payments = ops.payments ?? [];
-
-    // 1. Core KPIs
+    // 1. Core KPIs — baseline (Ground Zero Excel) + post-migration transactions.
     const financial = computeFinancialSummary(ops);
     const cashBalance = financial.currentCashBalance;
+    const revenue = financial.totalRevenueReceived;
+    const expenses = financial.totalExpense;
 
-    const revenue = transactions
-      .filter((t) => t.type === "client_payment")
-      .reduce((sum, t) => sum + t.amount, 0);
+    const revenueBooked = financial.totalRevenueBooked;
 
-    const expenses = transactions
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + t.amount, 0);
+    const outstandingReceivables = projects
+      .filter((project) => isRevenueProject(project.status))
+      .reduce((sum, project) => sum + (paymentSummary(project).pending ?? 0), 0);
 
-    const netProfit = revenue - expenses;
-    const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
-
-    const outstandingReceivables = invoices.reduce((sum, inv) => {
-      const { outstandingBalance } = calculateInvoicePayments(inv, payments);
-      return sum + outstandingBalance;
-    }, 0);
-
-    // 2. Upcoming Payments / Milestone Targets
-    const upcomingPayments = projects.reduce((sum, p) => {
-      const ms = p.milestones ?? [];
-      const pendingMilestonesValue = ms.filter(
-        (m) => m.status !== "completed" && m.paymentTrigger,
-      ).length;
-
-      // Pro-rate upcoming from remaining budget
-      const received = transactions
-        .filter((t) => t.relatedProjectId === p.id && t.type === "client_payment")
-        .reduce((s, t) => s + t.amount, 0);
-      const remaining = Math.max(0, (p.budget || 0) - received);
-
-      return sum + (pendingMilestonesValue > 0 ? remaining : 0);
-    }, 0);
-
-    // 3. Active Projects & Margins
+    // 2. Active Projects & Margins
     const activeProjectsList = projects.filter((p) => p.status === "active");
     const activeProjectsCount = activeProjectsList.length;
 
@@ -120,33 +85,15 @@ function ExecutiveDashboard() {
       return sum + (budget - projectExpenses - estimated);
     }, 0);
 
-    // 4. Sales Pipeline Forecast
-    const activeDeals = leads.filter((l) => l.status !== "won" && l.status !== "lost");
-    const pipelineValue = activeDeals.reduce((sum, l) => sum + (l.expectedRevenue || 0), 0);
-    const weightedPipeline = activeDeals.reduce((sum, l) => {
-      const prob = l.probability != null ? l.probability : 50;
-      return sum + (l.expectedRevenue || 0) * (prob / 100);
-    }, 0);
-
-    // 5. Today's Milestone Tasks
-    const upcomingTasks = projects
-      .flatMap((p) => (p.milestones ?? []).map((m) => ({ ...m, projectName: p.client })))
-      .filter((m) => m.status !== "completed")
-      .sort((a, b) => {
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        return a.dueDate.localeCompare(b.dueDate);
-      })
-      .slice(0, 5);
-
-    // 6. Recent Payments
+    // 3. Recent Payments
     const recentPayments = transactions
       .filter((t) => t.type === "client_payment")
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 4);
 
-    // 7. Monthly Revenue & Profit Chart (Last 6 Months)
-    const monthKeys = Array.from({ length: 6 }, (_, i) => {
+    // 4. Monthly Revenue & Profit Chart — Dashboard is fixed to the last 3 months;
+    // the Analytics page covers the complete all-time history.
+    const monthKeys = Array.from({ length: 3 }, (_, i) => {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
       return d.toISOString().slice(0, 7); // YYYY-MM
@@ -183,36 +130,17 @@ function ExecutiveDashboard() {
       10000,
     );
 
-    // 8. Expense Category Allocation
-    const expenseCategoriesMap: Record<string, number> = {};
-    const totalExpenses = transactions
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => {
-        const cat = t.category || "Miscellaneous";
-        expenseCategoriesMap[cat] = (expenseCategoriesMap[cat] || 0) + t.amount;
-        return sum + t.amount;
-      }, 0);
-
-    const expenseBreakdown = Object.entries(expenseCategoriesMap)
-      .map(([category, amount]) => ({
-        category,
-        amount,
-        percentage: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0,
-      }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 5);
-
-    // 9. Top Clients by Revenue
-    const clientRevenueMap: Record<string, number> = {};
-    for (const t of transactions) {
-      if (t.type === "client_payment") {
-        const clientName =
-          t.description.replace("Payment from ", "").split(" (")[0] || "General Client";
-        clientRevenueMap[clientName] = (clientRevenueMap[clientName] || 0) + t.amount;
-      }
+    // 5. Top Clients by Project Value (contract value across done + ongoing projects)
+    const clientValueMap: Record<string, number> = {};
+    for (const p of projects) {
+      if (!isRevenueProject(p.status)) continue;
+      const value = paymentSummary(p).target ?? 0;
+      if (value <= 0) continue;
+      const clientName = p.client?.trim() || "General Client";
+      clientValueMap[clientName] = (clientValueMap[clientName] || 0) + value;
     }
 
-    const topClients = Object.entries(clientRevenueMap)
+    const topClients = Object.entries(clientValueMap)
       .map(([name, total]) => ({ name, total }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
@@ -221,22 +149,16 @@ function ExecutiveDashboard() {
       cashBalance,
       revenue,
       expenses,
-      netProfit,
-      profitMargin,
+      revenueBooked,
       outstandingReceivables,
-      upcomingPayments,
       activeProjectsCount,
       projectProfit,
-      pipelineValue,
-      weightedPipeline,
-      upcomingTasks,
       recentPayments,
       monthlyChartData,
       maxChartValue,
-      expenseBreakdown,
       topClients,
     };
-  }, [ops, invoices]);
+  }, [ops]);
 
   // Never remount the whole dashboard for background refetches/prefetches.
   // Remounting under the cursor re-fires intent preload and causes a click-blocking loop.
@@ -248,6 +170,10 @@ function ExecutiveDashboard() {
       </div>
     );
   }
+
+  // Cannot happen in practice (ops is always set once loaded) — this narrows the
+  // type without ever showing the click-blocking loading overlay again.
+  if (!dashboardData) return null;
 
   return (
     <div className="space-y-6">
@@ -300,7 +226,11 @@ function ExecutiveDashboard() {
         {upcomingSchedule.length === 0 ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-border bg-background/60 px-4 py-3">
             <p className="text-xs text-muted-foreground">No upcoming meetings or calls.</p>
-            <Link to="/calendar" className="text-xs font-bold text-primary hover:underline">
+            <Link
+              to="/calendar"
+              search={{ new: true }}
+              className="text-xs font-bold text-primary hover:underline"
+            >
               Create a schedule
             </Link>
           </div>
@@ -392,27 +322,17 @@ function ExecutiveDashboard() {
           </div>
         </div>
 
-        {/* Net Profit */}
+        {/* Revenue Booked */}
         <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Net Profit</span>
-            <span
-              className={`p-0.5 rounded ${dashboardData.netProfit >= 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}`}
-            >
-              {dashboardData.netProfit >= 0 ? (
-                <ArrowUpRight className="h-4 w-4" />
-              ) : (
-                <ArrowDownRight className="h-4 w-4" />
-              )}
-            </span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Revenue Booked</span>
+            <Briefcase className="h-5 w-5 text-primary" />
           </div>
-          <p
-            className={`mt-3 text-2xl font-bold tracking-tight tabular-nums ${dashboardData.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600"}`}
-          >
-            {formatINRWhole(dashboardData.netProfit)}
+          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
+            {formatINRWhole(dashboardData.revenueBooked)}
           </p>
-          <div className="mt-2 text-[10px] text-muted-foreground flex justify-between font-semibold">
-            <span>Margin: {dashboardData.profitMargin.toFixed(1)}%</span>
+          <div className="mt-2 text-[10px] text-primary flex items-center gap-1 font-semibold">
+            {dashboardData.activeProjectsCount} active projects
           </div>
         </div>
 
@@ -426,7 +346,7 @@ function ExecutiveDashboard() {
             {formatINRWhole(dashboardData.outstandingReceivables)}
           </p>
           <div className="mt-2 text-[10px] text-indigo-600 dark:text-indigo-400 flex items-center gap-1 font-semibold">
-            Receivables Pending Invoice
+            Outstanding client balances
           </div>
         </div>
       </div>
@@ -440,7 +360,7 @@ function ExecutiveDashboard() {
             <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
               <span>Monthly Revenue Trend</span>
               <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold uppercase">
-                Last 6 Months
+                Last 3 Months
               </span>
             </h2>
 
@@ -471,222 +391,6 @@ function ExecutiveDashboard() {
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded bg-primary" /> Revenue (INR)
               </span>
-            </div>
-          </div>
-
-          {/* Expense Allocation */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center gap-2">
-              <Percent className="h-4 w-4 text-rose-500" /> Expense Summary
-            </h2>
-            <div className="mt-4 space-y-3">
-              {dashboardData.expenseBreakdown.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-4 text-center">
-                  No categories logged yet.
-                </p>
-              ) : (
-                dashboardData.expenseBreakdown.map((item) => (
-                  <div key={item.category} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span className="text-foreground">{item.category}</span>
-                      <span className="tabular-nums text-muted-foreground">
-                        {item.percentage.toFixed(1)}% &middot; {formatINRWhole(item.amount)}
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full bg-muted rounded overflow-hidden">
-                      <div
-                        className="h-full bg-rose-500 rounded"
-                        style={{ width: `${item.percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Top Clients */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" /> Top Clients
-            </h2>
-            <div className="mt-4 space-y-3">
-              {dashboardData.topClients.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-4 text-center">
-                  No client payments recorded yet.
-                </p>
-              ) : (
-                dashboardData.topClients.map((client, idx) => (
-                  <div
-                    key={client.name}
-                    className="flex items-center justify-between text-xs border-b border-border/40 pb-2"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="h-5 w-5 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-[10px]">
-                        {idx + 1}
-                      </span>
-                      <span className="font-bold text-foreground">{client.name}</span>
-                    </div>
-                    <span className="font-bold tabular-nums text-foreground">
-                      {formatINR(client.total)}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Middle Column: Operational Pipeline */}
-        <div className="space-y-6">
-          {/* Sales Pipeline Forecast */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
-              <span>Sales Pipeline</span>
-              <Link
-                to="/leads"
-                className="text-[10px] text-primary hover:underline font-bold uppercase"
-              >
-                Pipeline View
-              </Link>
-            </h2>
-            <div className="mt-4 grid gap-3 grid-cols-2">
-              <div className="rounded border border-border bg-muted/20 p-3">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase">
-                  Pipeline Value
-                </p>
-                <p className="text-lg font-bold tabular-nums text-foreground mt-1">
-                  {formatINRWhole(dashboardData.pipelineValue)}
-                </p>
-              </div>
-              <div className="rounded border border-border bg-muted/20 p-3">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase">
-                  Expected (Weighted)
-                </p>
-                <p className="text-lg font-bold tabular-nums text-primary mt-1">
-                  {formatINRWhole(dashboardData.weightedPipeline)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Active Projects List */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
-              <span>Active Projects</span>
-              <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded font-bold uppercase">
-                {dashboardData.activeProjectsCount} Ongoing
-              </span>
-            </h2>
-
-            <div className="mt-4 space-y-4 max-h-[300px] overflow-y-auto pr-1">
-              {ops.projects.filter((p) => p.status === "active").length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-4 text-center">
-                  No active projects logged.
-                </p>
-              ) : (
-                ops.projects
-                  .filter((p) => p.status === "active")
-                  .map((project) => {
-                    // Completion percentage calculation
-                    let progress = 0;
-                    const ms = project.milestones ?? [];
-                    if (ms.length > 0) {
-                      progress = Math.round(
-                        (ms.filter((m) => m.status === "completed").length / ms.length) * 100,
-                      );
-                    } else {
-                      progress = 50; // active fallback
-                    }
-
-                    return (
-                      <div
-                        key={project.id}
-                        className="space-y-1.5 border border-border/60 rounded p-3 bg-muted/10"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <Link
-                              to="/projects/$id"
-                              params={{ id: project.id }}
-                              className="font-bold text-xs text-primary hover:underline"
-                            >
-                              {project.client}
-                            </Link>
-                            <p className="text-[10px] text-muted-foreground">
-                              {project.projectType || "General Work"}
-                            </p>
-                          </div>
-                          <span className="text-[10px] font-semibold tabular-nums text-foreground">
-                            {project.budget ? formatINRWhole(project.budget) : "—"}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                          <span>Progress: {progress}%</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-muted rounded overflow-hidden">
-                          <div className="h-full bg-primary" style={{ width: `${progress}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })
-              )}
-            </div>
-
-            <div className="mt-4 border-t border-border/40 pt-3 flex justify-between text-xs text-muted-foreground">
-              <span>Active Project Margin Forecast:</span>
-              <span className="font-bold text-foreground">
-                {formatINRWhole(dashboardData.projectProfit)}
-              </span>
-            </div>
-          </div>
-
-          {/* Today's Tasks / Milestone Deadlines */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center gap-2">
-              <ListTodo className="h-4 w-4 text-primary" /> Upcoming Milestones
-            </h2>
-            <div className="mt-4 space-y-3">
-              {dashboardData.upcomingTasks.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-4 text-center">
-                  All milestones completed!
-                </p>
-              ) : (
-                dashboardData.upcomingTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex justify-between items-center text-xs border border-border/40 rounded p-2.5 bg-muted/20"
-                  >
-                    <div>
-                      <p className="font-bold text-foreground">{task.name}</p>
-                      <p className="text-[9px] text-muted-foreground mt-0.5">
-                        {task.projectName} &middot; {task.dueDate || "No deadline"}
-                      </p>
-                    </div>
-                    <span className="inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] text-amber-600 dark:text-amber-400 font-bold uppercase">
-                      {task.status.replace("_", " ")}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Feeds & Recent Activity Logs */}
-        <div className="space-y-6">
-          {/* Upcoming Payments / Receivables Targets */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-indigo-500" /> Expected Payments
-            </h2>
-            <div className="mt-4 rounded bg-indigo-500/5 border border-indigo-500/15 p-4 text-center">
-              <p className="text-xs text-muted-foreground font-semibold">
-                Forecast Inflows (Unreleased Milestones)
-              </p>
-              <p className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 tabular-nums mt-1.5">
-                {formatINRWhole(dashboardData.upcomingPayments)}
-              </p>
             </div>
           </div>
 
@@ -722,6 +426,101 @@ function ExecutiveDashboard() {
                     </div>
                     <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
                       +{formatINRWhole(pay.amount)}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Middle Column: Operational Pipeline */}
+        <div className="space-y-6">
+          {/* Active Projects List */}
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
+              <span>Active Projects</span>
+              <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded font-bold uppercase">
+                {dashboardData.activeProjectsCount} Ongoing
+              </span>
+            </h2>
+
+            <div className="mt-4 space-y-4 max-h-[300px] overflow-y-auto pr-1">
+              {ops.projects.filter((p) => p.status === "active").length === 0 ? (
+                <p className="text-xs text-muted-foreground italic py-4 text-center">
+                  No active projects logged.
+                </p>
+              ) : (
+                ops.projects
+                  .filter((p) => p.status === "active")
+                  .map((project) => (
+                      <div
+                        key={project.id}
+                        className="border border-border/60 rounded p-3 bg-muted/10"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <Link
+                              to="/projects/$id"
+                              params={{ id: project.id }}
+                              className="font-bold text-xs text-primary hover:underline"
+                            >
+                              {project.client}
+                            </Link>
+                            <p className="text-[10px] text-muted-foreground">
+                              {project.projectType || "General Work"}
+                            </p>
+                          </div>
+                          <span className="text-[10px] font-semibold tabular-nums text-foreground">
+                            {project.budget ? formatINRWhole(project.budget) : "—"}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+              )}
+            </div>
+
+            <div className="mt-4 border-t border-border/40 pt-3 flex justify-between text-xs text-muted-foreground">
+              <span>Active Project Margin Forecast:</span>
+              <span className="font-bold text-foreground">
+                {formatINRWhole(dashboardData.projectProfit)}
+              </span>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Right Column */}
+        <div className="space-y-6">
+          {/* Top Clients */}
+          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" /> Top Clients
+              </span>
+              <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold uppercase">
+                By Project Value
+              </span>
+            </h2>
+            <div className="mt-4 space-y-3">
+              {dashboardData.topClients.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic py-4 text-center">
+                  No project values recorded yet.
+                </p>
+              ) : (
+                dashboardData.topClients.map((client, idx) => (
+                  <div
+                    key={client.name}
+                    className="flex items-center justify-between text-xs border-b border-border/40 pb-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="h-5 w-5 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-[10px]">
+                        {idx + 1}
+                      </span>
+                      <span className="font-bold text-foreground">{client.name}</span>
+                    </div>
+                    <span className="font-bold tabular-nums text-foreground">
+                      {formatINRWhole(client.total)}
                     </span>
                   </div>
                 ))

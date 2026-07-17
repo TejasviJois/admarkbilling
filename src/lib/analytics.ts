@@ -164,16 +164,9 @@ export function buildMoneyOutCategoryBreakdown(ops: OperationsData): CategoryAmo
     newEntryCount: row.newEntryCount,
   }));
 
+  // Handouts are loans to be repaid via the monthly EMI schedule — money that
+  // has not left the company yet, so they never appear as an outflow.
   const rows: CategoryAmountRow[] = moneyOut.map(({ newEntryCount: _n, ...row }) => row);
-
-  if (financial.totalHandoutsTaken > 0) {
-    rows.push({
-      key: "handout",
-      label: EXPENSE_CATEGORY_SHORT_LABELS.handout,
-      amount: financial.totalHandoutsTaken,
-      hint: EXPENSE_CATEGORY_DESCRIPTIONS.handout,
-    });
-  }
 
   return rows.sort((a, b) => b.amount - a.amount);
 }
@@ -342,7 +335,6 @@ export function paymentProofCoverage(
 export type AnalyticsSnapshot = {
   periodIncome: number;
   periodExpenses: number;
-  netFlow: number;
   cashBalance: number;
   activeMrr: number;
   futureMonthly: number;
@@ -358,7 +350,6 @@ export function buildAnalyticsSnapshot(ops: OperationsData, period: PeriodKey): 
   return {
     periodIncome,
     periodExpenses,
-    netFlow: periodIncome - periodExpenses,
     cashBalance: financial.currentCashBalance,
     activeMrr: sumActiveMrr(ops.projects),
     futureMonthly: sumFutureMonthlyPipeline(ops.projects),

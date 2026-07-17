@@ -12,8 +12,6 @@ import type {
   OperationsData,
   Project,
 } from "./types";
-import { isVerifiedPayment, sumVerifiedProjectPayments } from "./project-payments";
-
 export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   "company",
   "external_payout",
@@ -94,26 +92,26 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
   const withBaseline = withDefaultFinancialBaseline(ops);
   const baseline = withBaseline.financialBaseline!;
 
-  const txs = ops.transactions ?? [];
+  // Historical rows (imported pre-migration context) are ledger display only.
+  // The baseline totals + Opening Balance adjustment already account for them,
+  // so summing them again would double count and corrupt the cash balance.
+  const txs = (ops.transactions ?? []).filter((t) => !t.historical);
 
-  // Calculate directly from unified Transactions table
+  // Movements since migration — calculated from the unified Transactions table.
   const clientPayments = txs.filter((t) => t.type === "client_payment" || t.type === "refund");
   const revenueAmount = (transaction: (typeof txs)[number]) =>
     transaction.type === "refund" ? -Math.abs(transaction.amount) : transaction.amount;
-  const totalRevenueReceived = clientPayments.reduce(
+  const newRevenueAfterBaseline = clientPayments.reduce(
     (sum, transaction) => sum + revenueAmount(transaction),
     0,
   );
-
-  const newRevenueAfterBaseline = clientPayments
-    .filter((t) => t.date > baseline.asOfDate)
-    .reduce((sum, transaction) => sum + revenueAmount(transaction), 0);
+  const totalRevenueReceived = baseline.totalRevenueReceived + newRevenueAfterBaseline;
 
   const expenses = txs.filter((t) => t.type === "expense");
-  const totalExternalPayouts = expenses
+  const newExternalPayouts = expenses
     .filter((transaction) => normalizeCategory(transaction.category) === "external_payout")
     .reduce((sum, transaction) => sum + transaction.amount, 0);
-  const totalCompanyExpenses = expenses
+  const newCompanyExpenses = expenses
     .filter((transaction) => normalizeCategory(transaction.category) !== "external_payout")
     .reduce((sum, transaction) => sum + transaction.amount, 0);
 
@@ -123,16 +121,26 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
   const founderInvestments = txs
     .filter((t) => t.type === "founder_investment")
     .reduce((sum, t) => sum + t.amount, 0);
-  const totalHandoutsTaken = txs
+  const newHandoutsTaken = txs
     .filter((t) => t.type === "internal_transfer" && t.category === "handout")
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const totalExpense = totalExternalPayouts + totalCompanyExpenses + founderWithdrawals;
+  // Totals = reconciled baseline (Ground Zero Excel) + everything logged since.
+  const totalExternalPayouts = baseline.totalExternalPayouts + newExternalPayouts;
+  const totalCompanyExpenses = baseline.totalCompanyExpenses + newCompanyExpenses;
+  const founderPayoutPool = baseline.founderPayoutPool + founderWithdrawals;
+  const totalHandoutsTaken = baseline.totalHandoutsTaken + newHandoutsTaken;
+  const totalExpense = totalExternalPayouts + totalCompanyExpenses + founderPayoutPool;
+
+  // Cash = Opening Balance adjustment (authoritative, never recalculated)
+  //        + net movement of post-migration transactions.
   const cashAdjustments = txs
     .filter((transaction) => transaction.type === "adjustment")
     .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const newExpenseTotal = newExternalPayouts + newCompanyExpenses + founderWithdrawals;
   const currentCashBalance =
-    totalRevenueReceived + founderInvestments - totalExpense + cashAdjustments;
+    cashAdjustments + newRevenueAfterBaseline + founderInvestments - newExpenseTotal;
+
   const activePipelineBooked = sumPipelineBookedRevenue(ops.projects);
   const totalRevenueBooked =
     baseline.totalRevenueBooked != null ? baseline.totalRevenueBooked : activePipelineBooked;
@@ -145,7 +153,7 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
     totalRevenueReceived,
     totalExternalPayouts,
     totalCompanyExpenses,
-    founderPayoutPool: founderWithdrawals,
+    founderPayoutPool,
     founderInvestments,
     totalExpense,
     currentCashBalance,

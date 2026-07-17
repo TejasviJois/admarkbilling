@@ -12,5 +12,11 @@ export function normalizeCompanySettings(
   if (!merged.companyMembers?.length) {
     merged.companyMembers = DEFAULT_COMPANY.companyMembers;
   }
+  // Replace the old generic Net 30 default with Admark's actual project terms.
+  if (!raw?.paymentTerms?.trim() || raw.paymentTerms.trim().toLowerCase() === "net 30") {
+    merged.paymentTerms = DEFAULT_COMPANY.paymentTerms;
+  }
+  merged.paymentProofUploadsEnabled = raw?.paymentProofUploadsEnabled === true;
+  merged.companyValuationEnabled = raw?.companyValuationEnabled === true;
   return merged;
 }

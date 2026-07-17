@@ -1,5 +1,14 @@
 import { useRef, useState } from "react";
-import { FileText, Link2, Trash2, Upload } from "lucide-react";
+import { ExternalLink, FileText, Link2, Plus, Trash2, Upload } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { CompanySettings, ComplianceDocument } from "@/lib/types";
 import { udyamCertificateSrc } from "@/lib/company-branding";
 import { fileFromUpload } from "@/components/documents/proof-ui";
@@ -24,27 +33,43 @@ function isSafeHttpUrl(u: string): boolean {
   }
 }
 
-const btnRow =
-  "inline-flex items-center gap-1.5 rounded-md border border-input bg-card px-2.5 py-1.5 text-xs font-medium hover:bg-secondary";
+const openBtn =
+  "inline-flex items-center gap-1.5 rounded-md border border-input bg-card px-3 py-1.5 text-xs font-medium hover:bg-secondary";
 
+/** Simple flat list: every document by name with one Open button. */
 export function ComplianceDocumentsPanel({
   company,
   onUdyamUpload,
   onUdyamClear,
   onDocumentsChange,
+  addOpen,
+  onAddOpenChange,
 }: {
   company: CompanySettings;
   onUdyamUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onUdyamClear: () => void;
   onDocumentsChange: (docs: ComplianceDocument[]) => void;
+  /** Controlled add-dialog state — lets the page header own the + button. */
+  addOpen?: boolean;
+  onAddOpenChange?: (open: boolean) => void;
 }) {
   const docs = company.complianceDocuments ?? [];
+  const [internalAddOpen, setInternalAddOpen] = useState(false);
+  const isAddOpen = addOpen ?? internalAddOpen;
+  const setAddOpen = onAddOpenChange ?? setInternalAddOpen;
+
   const [newTitle, setNewTitle] = useState("");
   const [newUrl, setNewUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const udyamSrc = udyamCertificateSrc(company);
   const hasCustomUdyam = Boolean(company.udyamCertificateDataUrl?.trim());
+
+  const closeAddDialog = () => {
+    setNewTitle("");
+    setNewUrl("");
+    setAddOpen(false);
+  };
 
   const removeDoc = (id: string) => {
     onDocumentsChange(docs.filter((d) => d.id !== id));
@@ -54,15 +79,15 @@ export function ComplianceDocumentsPanel({
     const title = newTitle.trim();
     const url = newUrl.trim();
     if (!title) {
-      alert("Enter a title (e.g. DigiLocker issued document, Drive folder).");
+      alert("Enter a document name.");
       return;
     }
     if (!url) {
-      alert("Paste a link (https://…).");
+      alert("Paste a link (https://…) or upload a file instead.");
       return;
     }
     if (!isSafeHttpUrl(url)) {
-      alert("Enter a valid http(s) URL — e.g. a DigiLocker link or Google Drive share link.");
+      alert("Enter a valid http(s) URL — e.g. a DigiLocker or Google Drive link.");
       return;
     }
     if (docs.length >= MAX_ITEMS) {
@@ -70,13 +95,12 @@ export function ComplianceDocumentsPanel({
       return;
     }
     onDocumentsChange([...docs, { id: newComplianceId(), title, externalUrl: url }]);
-    setNewTitle("");
-    setNewUrl("");
+    closeAddDialog();
   };
 
   const pickFile = () => {
     if (!newTitle.trim()) {
-      alert("Enter a document title first, then choose a file.");
+      alert("Enter a document name first, then choose a file.");
       return;
     }
     fileInputRef.current?.click();
@@ -99,17 +123,8 @@ export function ComplianceDocumentsPanel({
     const docId = newComplianceId();
     void fileFromUpload(file, `company/compliance/${docId}`)
       .then(({ fileDataUrl, fileName, mimeType }) => {
-        onDocumentsChange([
-          ...docs,
-          {
-            id: docId,
-            title,
-            fileDataUrl,
-            fileName,
-            mimeType,
-          },
-        ]);
-        setNewTitle("");
+        onDocumentsChange([...docs, { id: docId, title, fileDataUrl, fileName, mimeType }]);
+        closeAddDialog();
       })
       .catch((err) => {
         logClientError("compliance.fileUpload", err);
@@ -117,180 +132,133 @@ export function ComplianceDocumentsPanel({
       });
   };
 
+  const sortedDocs = [...docs].sort((a, b) => a.title.localeCompare(b.title));
+
   return (
-    <div className="space-y-5">
-      <div>
-        <h3 className="mb-1 text-sm font-semibold text-foreground">Udyam / MSME (default)</h3>
-        <p className="mb-2 text-xs text-muted-foreground">
-          Bundled PDF by default; replace with your own (saved on Save). Use Open or Download — no
-          inline preview.
-        </p>
-        <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              File
-            </p>
-            <p className="truncate text-sm font-medium text-foreground">
-              {hasCustomUdyam ? "Uploaded Udyam certificate.pdf" : "ADMARK-Udyam-certificate.pdf"}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <a
-              href={udyamSrc}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={btnRow}
-            >
-              <FileText className="h-3.5 w-3.5" /> Open
+    <div>
+      {addOpen === undefined && (
+        <div className="mb-3 flex justify-end">
+          <Button type="button" size="sm" variant="outline" onClick={() => setAddOpen(true)} className="gap-1.5">
+            <Plus className="h-3.5 w-3.5" /> Add document
+          </Button>
+        </div>
+      )}
+      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-background/40">
+        {/* Udyam / MSME certificate — always present */}
+        <li className="flex items-center gap-3 p-4">
+          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+            Udyam / MSME Certificate
+          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <a href={udyamSrc} target="_blank" rel="noopener noreferrer" className={openBtn}>
+              <ExternalLink className="h-3.5 w-3.5" /> Open
             </a>
-            <a
-              href={udyamSrc}
-              download="ADMARK-Udyam-certificate.pdf"
-              className={btnRow}
+            <label
+              className="cursor-pointer rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+              title="Replace certificate PDF"
             >
-              <FileText className="h-3.5 w-3.5" /> Download
-            </a>
-            <label className={`${btnRow} cursor-pointer`}>
-              <Upload className="h-3.5 w-3.5" /> Replace
-              <input type="file" accept="application/pdf,.pdf" className="hidden" onChange={onUdyamUpload} />
+              <Upload className="h-3.5 w-3.5" />
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={onUdyamUpload}
+              />
             </label>
             {hasCustomUdyam && (
               <button
                 type="button"
                 onClick={onUdyamClear}
-                className="text-xs text-muted-foreground hover:text-destructive sm:ml-1"
+                className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                title="Restore default certificate"
               >
-                Use default
+                <Trash2 className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
-        </div>
-      </div>
+        </li>
 
-      <div>
-        <h3 className="mb-1 text-sm font-semibold text-foreground">Other compliance</h3>
-        <p className="mb-3 text-xs text-muted-foreground leading-relaxed">
-          PDFs, Word, images, or <span className="font-medium text-foreground/90">https links</span>. Files
-          show name + Open / Download only (no preview). Links: Open in a new tab.
-        </p>
-
-        <div className="mb-4 space-y-2 rounded-lg border border-dashed border-border bg-background/60 p-3">
-          <label className="block">
-            <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Title for next item
+        {sortedDocs.map((d) => (
+          <li key={d.id} className="flex items-center gap-3 p-4">
+            {d.externalUrl ? (
+              <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+            )}
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+              {d.title}
             </span>
-            <input
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="e.g. GST registration, PAN card"
-              className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            />
-          </label>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <label className="block min-w-0 flex-1">
-              <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                External link
+            <div className="flex shrink-0 items-center gap-2">
+              <a
+                href={d.externalUrl ?? d.fileDataUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={openBtn}
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Open
+              </a>
+              <button
+                type="button"
+                onClick={() => removeDoc(d.id)}
+                className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                title="Remove document"
+                aria-label={`Remove ${d.title}`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <Dialog open={isAddOpen} onOpenChange={(open) => (open ? setAddOpen(true) : closeAddDialog())}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add a document</DialogTitle>
+            <DialogDescription>
+              Upload a file (PDF, Word, image — up to 6 MB) or save an external link.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                Document name
               </span>
-              <input
+              <Input
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="e.g. GST registration"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                External link (optional)
+              </span>
+              <Input
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
                 placeholder="https://…"
-                className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
             </label>
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={addExternalLink}
-                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-              >
-                <Link2 className="h-3.5 w-3.5" /> Add link
-              </button>
-              <button
-                type="button"
-                onClick={pickFile}
-                className="inline-flex items-center gap-1.5 rounded-md border border-input bg-card px-2.5 py-1.5 text-xs font-medium hover:bg-secondary"
-              >
-                <Upload className="h-3.5 w-3.5" /> Add file
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={FILE_ACCEPT}
-                className="hidden"
-                onChange={onComplianceFile}
-              />
+              <Button type="button" size="sm" onClick={pickFile} className="gap-1.5">
+                <Upload className="h-3.5 w-3.5" /> Upload file
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={addExternalLink} className="gap-1.5">
+                <Link2 className="h-3.5 w-3.5" /> Save link
+              </Button>
             </div>
           </div>
-        </div>
-
-        {docs.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No extra documents yet.</p>
-        ) : (
-          <ul className="space-y-3">
-            {docs.map((d) => (
-              <li
-                key={d.id}
-                className="rounded-lg border border-border bg-card p-3 shadow-sm"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{d.title}</p>
-                    {d.fileName && (
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">{d.fileName}</p>
-                    )}
-                    {d.externalUrl && (
-                      <p className="mt-0.5 line-clamp-1 break-all text-[11px] text-muted-foreground">
-                        {d.externalUrl}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeDoc(d.id)}
-                    className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    title="Remove"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {d.externalUrl && (
-                    <a
-                      href={d.externalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={btnRow}
-                    >
-                      <Link2 className="h-3 w-3" /> Open
-                    </a>
-                  )}
-                  {d.fileDataUrl && (
-                    <>
-                      <a
-                        href={d.fileDataUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={btnRow}
-                      >
-                        <FileText className="h-3 w-3" /> Open
-                      </a>
-                      <a
-                        href={d.fileDataUrl}
-                        download={d.fileName || "document"}
-                        className={btnRow}
-                      >
-                        <FileText className="h-3 w-3" /> Download
-                      </a>
-                    </>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={FILE_ACCEPT}
+            className="hidden"
+            onChange={onComplianceFile}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

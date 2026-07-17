@@ -4,6 +4,12 @@ import { DEFAULT_PARTNERSHIPS, withDefaultPartnerships } from "@/lib/default-par
 import { withDefaultFinancialBaseline } from "@/lib/default-financial-baseline";
 import { withDefaultFixedMonthlyExpenses } from "@/lib/default-fixed-monthly-expenses";
 import { withDefaultLeads } from "@/lib/default-leads";
+import {
+  applyGroundZeroMigration,
+  ensureHistoricalProjectPaymentLogs,
+  repairBlxRealtyData,
+  repairNidhiEstatesData,
+} from "@/lib/ground-zero";
 import { normalizeAllProjectPayments } from "./project-payments";
 import { mergeAllProjectBilling } from "./project-billing";
 import { logClientError } from "./client-logger";
@@ -168,6 +174,21 @@ function runHistoricalMigration(data: OperationsData): OperationsData {
   };
 }
 
+/** One-time safety copy of the pre-Ground-Zero data before the financial wipe. */
+function backupBeforeGroundZero(data: OperationsData) {
+  if (data.groundZeroApplied || !isBrowser()) return;
+  const backupKey = `${OPERATIONS_KEY}.backup.pre-ground-zero`;
+  if (localStorage.getItem(backupKey)) return;
+  const rawPrev = localStorage.getItem(OPERATIONS_KEY);
+  if (rawPrev) {
+    try {
+      localStorage.setItem(backupKey, rawPrev);
+    } catch {
+      // Backup is best-effort — never block the migration on storage quota.
+    }
+  }
+}
+
 function mergeWithDefaults(data: OperationsData): OperationsData {
   const migrated = runHistoricalMigration(data);
   let base = !needsProjectSeed(migrated.projects)
@@ -180,8 +201,14 @@ function mergeWithDefaults(data: OperationsData): OperationsData {
     base = withDefaultPartnerships(base);
   }
 
-  const seededClients = data.clients && data.clients.length > 0 ? data.clients : seedClientsFromProjects(base.projects);
-  const seededPayments = data.payments && data.payments.length > 0 ? data.payments : seedPaymentsFromProjects(base.projects);
+  const seededClients =
+    migrated.clients && migrated.clients.length > 0
+      ? migrated.clients
+      : seedClientsFromProjects(base.projects);
+  const seededPayments =
+    migrated.payments && migrated.payments.length > 0
+      ? migrated.payments
+      : seedPaymentsFromProjects(base.projects);
 
   const projectsWithClientIds = base.projects.map((p) => {
     if (p.clientId) return p;
@@ -193,7 +220,7 @@ function mergeWithDefaults(data: OperationsData): OperationsData {
     };
   });
 
-  const merged = {
+  let merged: OperationsData = {
     ...base,
     clients: seededClients,
     payments: seededPayments,
@@ -201,16 +228,30 @@ function mergeWithDefaults(data: OperationsData): OperationsData {
     transactions: migrated.transactions ?? [],
     migrationApplied: migrated.migrationApplied,
     migrationDate: migrated.migrationDate,
+    groundZeroApplied: migrated.groundZeroApplied,
   };
 
-  return withDefaultLeads(
-    withDefaultFixedMonthlyExpenses(
-      withDefaultFinancialBaseline({
-        ...merged,
-        projects: mergeAllProjectBilling(normalizeAllProjectPayments(merged.projects)),
-      }),
-    ),
-  );
+  merged = withDefaultLeads(withDefaultFinancialBaseline(merged));
+
+  // Ground Zero financial reset — wipes old financials and imports the Excel data.
+  // Runs after all seeding so legacy defaults can never resurrect wiped records.
+  backupBeforeGroundZero(merged);
+  merged = applyGroundZeroMigration(merged);
+  // One-time fixes: legacy projects that Ground Zero couldn't match by name
+  // ("Dev" → BLX Realty, "k h kiran" → Nidhi Estates) — merge them and rebuild
+  // their ledger rows before the historical logs are (re)generated.
+  merged = repairBlxRealtyData(merged);
+  merged = repairNidhiEstatesData(merged);
+  merged = ensureHistoricalProjectPaymentLogs(merged);
+
+  // Seeds the handout repayment EMI (₹20k/month from 5 Aug 2026) when the
+  // list is empty — the handout itself is a liability, never a past outflow.
+  merged = withDefaultFixedMonthlyExpenses(merged);
+
+  return {
+    ...merged,
+    projects: mergeAllProjectBilling(normalizeAllProjectPayments(merged.projects)),
+  };
 }
 
 function loadOperationsLocal(): OperationsData {

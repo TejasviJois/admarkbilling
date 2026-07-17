@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { Plus } from "lucide-react";
 import { DocumentsBreadcrumb } from "@/components/documents/documents-ui";
 import { ComplianceDocumentsPanel } from "@/components/settings/ComplianceDocumentsPanel";
 import { OperationsPageHeader } from "@/components/operations/operations-ui";
+import { Button } from "@/components/ui/button";
 import { logClientError } from "@/lib/client-logger";
 import { loadCompany, saveCompany } from "@/lib/storage";
 import type { CompanySettings, ComplianceDocument } from "@/lib/types";
@@ -12,6 +14,7 @@ export const Route = createFileRoute("/documents/company")({ component: Document
 function DocumentsCompanyPage() {
   const [company, setCompany] = useState<CompanySettings | null>(null);
   const [saved, setSaved] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const latestRef = useRef<CompanySettings | null>(null);
   latestRef.current = company;
 
@@ -88,8 +91,21 @@ function DocumentsCompanyPage() {
       />
       <OperationsPageHeader
         title="Company documents"
-        description="Udyam / MSME certificate, GST, PAN, and other compliance files — stored in Supabase company settings."
-        action={saved ? <span className="text-xs font-medium text-emerald-400">Saved</span> : undefined}
+        description="All company files in one list — open any document, or add more with the + button."
+        action={
+          <div className="flex items-center gap-3">
+            {saved && <span className="text-xs font-medium text-emerald-400">Saved</span>}
+            <Button
+              type="button"
+              size="icon"
+              onClick={() => setAddOpen(true)}
+              aria-label="Add document"
+              title="Add document"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        }
       />
 
       <section className="rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
@@ -100,6 +116,8 @@ function DocumentsCompanyPage() {
           onDocumentsChange={(docs: ComplianceDocument[]) =>
             setCompany((prev) => (prev ? { ...prev, complianceDocuments: docs } : null))
           }
+          addOpen={addOpen}
+          onAddOpenChange={setAddOpen}
         />
       </section>
     </div>

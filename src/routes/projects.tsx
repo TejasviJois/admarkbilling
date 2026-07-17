@@ -3,21 +3,28 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProjectFormDialog } from "@/components/operations/ProjectFormDialog";
-import { ProjectPaymentsDialog } from "@/components/operations/ProjectPaymentsDialog";
 import { ProjectsSection } from "@/components/operations/ProjectsSection";
 import { ProjectsPipelineSummary } from "@/components/operations/ProjectsTable";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
-import type { Project } from "@/lib/types";
+import { resolveProjectClient } from "@/lib/project-clients";
+import type { Project, ProjectStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/projects")({ component: ProjectsPage });
+
+/** Default pipeline view — "In discussions" is the working base list. */
+const BASE_STATUS: ProjectStatus = "planning";
 
 function ProjectsPage() {
   const { ops, persist, loading } = useOperations();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
-  const [paymentsOpen, setPaymentsOpen] = useState(false);
-  const [paymentsProject, setPaymentsProject] = useState<Project | null>(null);
+  const [statusFilter, setStatusFilter] = useState<ProjectStatus | "all">(BASE_STATUS);
+
+  const handleSummarySelect = (status: ProjectStatus) => {
+    // Clicking the already-active card returns to the base (In discussions) view.
+    setStatusFilter((current) => (current === status ? BASE_STATUS : status));
+  };
 
   const openAdd = () => {
     setEditing(null);
@@ -29,33 +36,24 @@ function ProjectsPage() {
     setFormOpen(true);
   };
 
-  const openPayments = (project: Project) => {
-    setPaymentsProject(project);
-    setPaymentsOpen(true);
-  };
-
-  const updateProject = (project: Project) => {
-    persist({
-      ...ops,
-      projects: ops.projects.map((p) => (p.id === project.id ? project : p)),
-    });
-    setPaymentsProject(project);
-  };
-
   const handleSave = (saved: Project) => {
     const prior = editing ? ops.projects.find((p) => p.id === saved.id) : null;
-    const project: Project = {
+    const merged: Project = {
       ...saved,
       payments: prior?.payments ?? saved.payments,
       paymentProofs: prior?.paymentProofs ?? saved.paymentProofs,
       paymentStatus: prior?.paymentStatus ?? saved.paymentStatus,
+      historicalReceived: prior?.historicalReceived ?? saved.historicalReceived,
     };
+
+    // New client names typed in the dialog become real client records here.
+    const { project, clients } = resolveProjectClient(ops, merged);
 
     const nextProjects = editing
       ? ops.projects.map((p) => (p.id === project.id ? project : p))
       : [project, ...ops.projects];
 
-    persist({ ...ops, projects: nextProjects });
+    persist({ ...ops, projects: nextProjects, clients });
   };
 
   if (loading) return <OperationsLoading />;
@@ -72,7 +70,11 @@ function ProjectsPage() {
         }
       />
       <div className="mb-8">
-        <ProjectsPipelineSummary projects={ops.projects} />
+        <ProjectsPipelineSummary
+          projects={ops.projects}
+          selected={statusFilter === "all" ? undefined : statusFilter}
+          onSelect={handleSummarySelect}
+        />
       </div>
       <ProjectFormDialog
         open={formOpen}
@@ -80,17 +82,12 @@ function ProjectsPage() {
         project={editing}
         onSave={handleSave}
       />
-      <ProjectPaymentsDialog
-        open={paymentsOpen}
-        onOpenChange={setPaymentsOpen}
-        project={paymentsProject}
-        onUpdateProject={updateProject}
-      />
       <ProjectsSection
         ops={ops}
         persist={persist}
         onEdit={openEdit}
-        onManagePayments={openPayments}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
       />
     </div>
   );

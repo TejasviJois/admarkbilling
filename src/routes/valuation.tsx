@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import {
   AlertTriangle,
   BadgeIndianRupee,
@@ -24,6 +24,7 @@ import { ValuationAssumptionsPanel } from "@/components/valuation/ValuationAssum
 import { ValuationHistoryChart } from "@/components/valuation/ValuationHistoryChart";
 import { useOperations } from "@/hooks/use-operations";
 import { useInvoices } from "@/hooks/use-invoices";
+import { loadCompany } from "@/lib/storage";
 import { formatINRWhole } from "@/lib/invoice-calc";
 import {
   calculateValuation,
@@ -40,7 +41,15 @@ import {
 } from "@/lib/valuation-export";
 import type { ValuationAuditEntry, ValuationSettings, ValuationSnapshot } from "@/lib/types";
 
-export const Route = createFileRoute("/valuation")({ component: CompanyValuationPage });
+export const Route = createFileRoute("/valuation")({
+  beforeLoad: async () => {
+    const company = await loadCompany();
+    if (company.companyValuationEnabled !== true) {
+      throw redirect({ to: "/analytics" });
+    }
+  },
+  component: CompanyValuationPage,
+});
 
 const actor = "Admin (shared session)";
 

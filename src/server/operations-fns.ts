@@ -291,6 +291,8 @@ function parseTransaction(raw: unknown): Transaction | null {
     description: t.description,
     category: t.category ?? "",
     paymentMethod: t.paymentMethod ?? "",
+    vendor: t.vendor,
+    gst: typeof t.gst === "number" ? t.gst : undefined,
     relatedClientId: t.relatedClientId,
     relatedProjectId: t.relatedProjectId,
     relatedInvoiceId: t.relatedInvoiceId,
@@ -368,6 +370,12 @@ function parseProject(raw: unknown): Project | null {
     billing: p.billing,
     paymentStatus: p.paymentStatus,
     paymentProofs: p.paymentProofs,
+    historicalReceived:
+      typeof p.historicalReceived === "number" ? p.historicalReceived : undefined,
+    historicalOutstanding:
+      typeof p.historicalOutstanding === "number" || p.historicalOutstanding === null
+        ? p.historicalOutstanding
+        : undefined,
     payments: p.payments,
     startDate: p.startDate,
     endDate: p.endDate,
@@ -378,6 +386,7 @@ function parseProject(raw: unknown): Project | null {
       p.priority === "low" || p.priority === "medium" || p.priority === "high"
         ? p.priority
         : undefined,
+    assignedPartner: typeof p.assignedPartner === "string" ? p.assignedPartner : undefined,
     notes: p.notes,
     milestones,
     phone: p.phone,
@@ -447,6 +456,9 @@ function parseOperationsPayload(payload: unknown): OperationsData {
     valuationAudit,
     migrationApplied: raw.migrationApplied === true,
     migrationDate: typeof raw.migrationDate === "string" ? raw.migrationDate : undefined,
+    groundZeroApplied: raw.groundZeroApplied === true,
+    blxRepairApplied: raw.blxRepairApplied === true,
+    neRepairApplied: raw.neRepairApplied === true,
   };
   return injectTenantIntoOperations(parsed);
 }

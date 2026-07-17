@@ -15,8 +15,8 @@ import {
   Menu,
   Bell,
   Shield,
-  Moon,
-  Sun,
+  PanelLeftClose,
+  PanelLeftOpen,
   LayoutDashboard,
   Users,
   BriefcaseBusiness,
@@ -223,19 +223,22 @@ function SidebarNavigation({
   path,
   expandedGroups,
   onToggleGroup,
+  showValuation,
   onNavigate,
 }: {
   path: string;
   expandedGroups: NavGroupId[];
   onToggleGroup: (id: NavGroupId, keepOthers: boolean) => void;
+  showValuation: boolean;
   onNavigate?: () => void;
 }) {
   const isActive = (to: string, exact?: boolean) =>
     exact ? path === to : path === to || path.startsWith(`${to}/`);
 
   const renderGroup = (group: NavGroup) => {
+    const items = group.items.filter((item) => showValuation || item.to !== "/valuation");
     const expanded = expandedGroups.includes(group.id);
-    const active = group.items.some((item) => isActive(item.to, item.exact));
+    const active = items.some((item) => isActive(item.to, item.exact));
     const GroupIcon = group.icon;
     const regionId = `nav-group-${group.id}`;
 
@@ -269,7 +272,7 @@ function SidebarNavigation({
         >
           <div className="overflow-hidden">
             <div className="ml-5 space-y-0.5 border-l border-border/80 pb-1 pl-3 pt-0.5">
-              {group.items.map(({ to, label, exact }) => {
+              {items.map(({ to, label, exact }) => {
                 const childActive = isActive(to, exact);
                 return (
                   <Link
@@ -353,8 +356,8 @@ function AppShell() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [reminderClock, setReminderClock] = useState(() => Date.now());
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [expandedNavGroups, setExpandedNavGroups] = useState<NavGroupId[]>([]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const { ops, persist } = useOperations();
   const { invoices } = useInvoices();
@@ -376,12 +379,23 @@ function AppShell() {
   }, []);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("admark.theme");
-    const nextTheme = saved === "light" ? "light" : "dark";
-    setTheme(nextTheme);
-    document.documentElement.classList.toggle("light", nextTheme === "light");
-    document.documentElement.classList.toggle("dark", nextTheme === "dark");
+    // Dark mode only — clear any previously saved light-theme preference.
+    window.localStorage.removeItem("admark.theme");
+    document.documentElement.classList.remove("light");
+    document.documentElement.classList.add("dark");
   }, []);
+
+  useEffect(() => {
+    setSidebarCollapsed(window.localStorage.getItem("admark.sidebar.collapsed") === "1");
+  }, []);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem("admark.sidebar.collapsed", next ? "1" : "0");
+      return next;
+    });
+  };
 
   useEffect(() => {
     let savedGroups: NavGroupId[] = [];
@@ -409,14 +423,6 @@ function AppShell() {
   useEffect(() => {
     window.localStorage.setItem(NAV_EXPANSION_STORAGE_KEY, JSON.stringify(expandedNavGroups));
   }, [expandedNavGroups]);
-
-  const toggleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    window.localStorage.setItem("admark.theme", nextTheme);
-    document.documentElement.classList.toggle("light", nextTheme === "light");
-    document.documentElement.classList.toggle("dark", nextTheme === "dark");
-  };
 
   // Central Notification Sync
   useEffect(() => {
@@ -479,22 +485,29 @@ function AppShell() {
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card shrink-0 sticky top-0 h-screen">
-        <div className="flex h-16 items-center border-b border-border px-6">
-          <Link to="/" className="flex items-center shrink-0">
-            <img
-              src={brandLogo}
-              alt="Admark Digitals Logo"
-              className="h-10 w-auto max-h-10 object-contain"
-            />
-          </Link>
-        </div>
+      <aside
+        className={`hidden flex-col border-r border-border bg-card shrink-0 sticky top-0 h-screen overflow-hidden transition-[width] duration-200 ${
+          sidebarCollapsed ? "md:flex w-0 border-r-0" : "md:flex w-64"
+        }`}
+      >
+        <div className="flex h-full w-64 shrink-0 flex-col">
+          <div className="flex h-16 items-center border-b border-border px-6">
+            <Link to="/" className="flex items-center shrink-0">
+              <img
+                src={brandLogo}
+                alt="Admark Digitals Logo"
+                className="h-10 w-auto max-h-10 object-contain"
+              />
+            </Link>
+          </div>
 
-        <SidebarNavigation
-          path={path}
-          expandedGroups={expandedNavGroups}
-          onToggleGroup={toggleNavGroup}
-        />
+          <SidebarNavigation
+            path={path}
+            expandedGroups={expandedNavGroups}
+            onToggleGroup={toggleNavGroup}
+            showValuation={company.companyValuationEnabled === true}
+          />
+        </div>
       </aside>
 
       {/* Right Area */}
@@ -512,7 +525,20 @@ function AppShell() {
             </Link>
           </div>
 
-          <div className="hidden md:block">
+          <div className="hidden md:flex items-center gap-3">
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label={sidebarCollapsed ? "Open sidebar" : "Close sidebar"}
+              title={sidebarCollapsed ? "Open sidebar" : "Close sidebar"}
+            >
+              {sidebarCollapsed ? (
+                <PanelLeftOpen className="h-5 w-5" />
+              ) : (
+                <PanelLeftClose className="h-5 w-5" />
+              )}
+            </button>
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest bg-muted/60 px-2.5 py-1 rounded">
               Admark Operating System
             </span>
@@ -520,16 +546,6 @@ function AppShell() {
 
           {/* Right Area */}
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            >
-              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </button>
-
             {/* Notification Drawer Sheet Trigger */}
             <Sheet open={notificationsOpen} onOpenChange={setNotificationsOpen}>
               <SheetTrigger asChild>
@@ -650,6 +666,7 @@ function AppShell() {
                     path={path}
                     expandedGroups={expandedNavGroups}
                     onToggleGroup={toggleNavGroup}
+                    showValuation={company.companyValuationEnabled === true}
                     onNavigate={() => setMobileMenuOpen(false)}
                   />
                   <div className="border-t border-border pt-4">

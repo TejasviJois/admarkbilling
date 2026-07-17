@@ -26,16 +26,21 @@ export function ProjectsSection({
   ops,
   persist,
   onEdit,
-  onManagePayments,
+  statusFilter: controlledStatus,
+  onStatusFilterChange,
 }: {
   ops: OperationsData;
   persist: (next: OperationsData) => void;
   onEdit: (project: Project) => void;
-  onManagePayments?: (project: Project) => void;
+  /** Controlled status filter (e.g. driven by the pipeline summary cards). */
+  statusFilter?: ProjectStatus | "all";
+  onStatusFilterChange?: (status: ProjectStatus | "all") => void;
 }) {
   const [search, setSearch] = useState("");
   const [period, setPeriod] = useState<PeriodKey>(DEFAULT_PERIOD);
-  const [statusFilter, setStatusFilter] = useState<ProjectStatus | "all">("all");
+  const [internalStatus, setInternalStatus] = useState<ProjectStatus | "all">("all");
+  const statusFilter = controlledStatus ?? internalStatus;
+  const setStatusFilter = onStatusFilterChange ?? setInternalStatus;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -62,10 +67,13 @@ export function ProjectsSection({
     persist({ ...ops, projects: ops.projects.filter((p) => p.id !== id) });
   };
 
+  const sectionTitle =
+    statusFilter === "all" ? "All projects" : `${projectStatusLabel(statusFilter)} projects`;
+
   return (
     <DataSection
-      title="All projects"
-      description="Client pipeline with project type, revenue, and payment status."
+      title={sectionTitle}
+      description="Operational view of project status, progress, contacts, and contract revenue."
       icon={<Briefcase className="h-5 w-5 text-primary" strokeWidth={2} />}
     >
       <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
@@ -100,13 +108,21 @@ export function ProjectsSection({
       {ops.projects.length === 0 ? (
         <EmptyRow message="No projects logged yet." />
       ) : filtered.length === 0 ? (
-        <EmptyRow message="No projects match your search." />
+        <EmptyRow
+          message={
+            statusFilter === "all"
+              ? "No projects match your search."
+              : `No ${projectStatusLabel(statusFilter).toLowerCase()} projects${search.trim() ? " match your search" : ""}.`
+          }
+        />
       ) : (
         <ProjectsTable
           projects={filtered}
           onEdit={onEdit}
           onRemove={removeProject}
-          onManagePayments={onManagePayments}
+          showOutstanding={
+            statusFilter === "all" || statusFilter === "completed" || statusFilter === "active"
+          }
         />
       )}
     </DataSection>

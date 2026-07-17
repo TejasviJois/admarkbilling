@@ -42,14 +42,14 @@ export function FixedMonthlyExpensesSection({
   return (
     <>
       <section
-        id="monthly-retainers"
+        id="monthly-payments"
         className="scroll-mt-24 rounded-lg border border-border bg-muted/10 p-4 sm:p-5"
       >
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />
             <div>
-              <h3 className="text-base font-semibold text-foreground">Monthly retainers</h3>
+              <h3 className="text-base font-semibold text-foreground">Monthly payments</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 Fixed monthly costs — salary, EMI, rent, subscriptions. Log actual payments in the
                 ledger when paid.
@@ -61,7 +61,7 @@ export function FixedMonthlyExpensesSection({
             size="icon"
             variant="outline"
             onClick={() => setDialogOpen(true)}
-            aria-label="Add monthly retainer"
+            aria-label="Add monthly payment"
           >
             <Plus className="h-4 w-4" />
           </Button>
@@ -89,7 +89,7 @@ export function FixedMonthlyExpensesSection({
         )}
 
         {items.length === 0 ? (
-          <EmptyRow message="No monthly retainers yet. Tap + to add salary, rent, EMI, or other fixed costs." />
+          <EmptyRow message="No monthly payments yet. Tap + to add a loan EMI, salary, rent, subscription, or other fixed cost." />
         ) : (
           <DataTable
             headers={["Type", "Description", "Per month", "Starts", "Status", "Notes", ""]}

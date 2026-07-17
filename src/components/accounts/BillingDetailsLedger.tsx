@@ -6,6 +6,7 @@ import { DataTable, RowEdit } from "@/components/operations/operations-ui";
 import { formatINRWhole } from "@/lib/invoice-calc";
 import { matchesAnyDateInPeriod, DEFAULT_PERIOD, type PeriodKey, projectRelevantDates } from "@/lib/date-range-filter";
 import { projectBillingRows, recurringStatusLabel } from "@/lib/project-billing";
+import { resolveProjectClient } from "@/lib/project-clients";
 import type { OperationsData, Project } from "@/lib/types";
 
 export function BillingDetailsLedger({
@@ -43,15 +44,18 @@ export function BillingDetailsLedger({
 
   const handleSave = (saved: Project) => {
     const prior = ops.projects.find((p) => p.id === saved.id);
-    const project: Project = {
+    const merged: Project = {
       ...saved,
       payments: prior?.payments ?? saved.payments,
       paymentProofs: prior?.paymentProofs ?? saved.paymentProofs,
       paymentStatus: prior?.paymentStatus ?? saved.paymentStatus,
+      historicalReceived: prior?.historicalReceived ?? saved.historicalReceived,
     };
+    const { project, clients } = resolveProjectClient(ops, merged);
     persist({
       ...ops,
       projects: ops.projects.map((p) => (p.id === project.id ? project : p)),
+      clients,
     });
   };
 

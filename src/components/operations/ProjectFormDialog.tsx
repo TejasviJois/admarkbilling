@@ -22,8 +22,7 @@ import { buildRevenueValueFromBilling, resolveProjectBilling } from "@/lib/proje
 import { projectStatusLabel } from "@/lib/project-status";
 import { useOperations } from "@/hooks/use-operations";
 import { DEFAULT_COMPANY } from "@/lib/constants";
-import type { Project, ProjectBilling, ProjectStatus, Milestone } from "@/lib/types";
-import { Trash2, PlusCircle } from "lucide-react";
+import type { Project, ProjectBilling, ProjectStatus } from "@/lib/types";
 
 const PROJECT_STATUSES: ProjectStatus[] = [
   "completed",
@@ -33,11 +32,8 @@ const PROJECT_STATUSES: ProjectStatus[] = [
   "cancelled",
 ];
 
-const PRIORITIES = [
-  { value: "low", label: "Low Priority" },
-  { value: "medium", label: "Medium Priority" },
-  { value: "high", label: "High Priority" },
-];
+/** Sentinel option in the client dropdown — enables free-typed new clients. */
+const NEW_CLIENT_VALUE = "__new-client__";
 
 type BillingForm = {
   upfrontAmount: string;
@@ -65,7 +61,7 @@ const EMPTY_FORM = {
   email: "",
   status: "active" as ProjectStatus,
   estimatedCost: "",
-  priority: "medium" as "low" | "medium" | "high",
+  assignedPartner: "",
   startDate: "",
   deadline: "",
   budget: "",
@@ -114,15 +110,6 @@ export function ProjectFormDialog({
   onSave: (project: Project) => void;
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
-  
-  // Milestone Sub-form state
-  const [msName, setMsName] = useState("");
-  const [msDesc, setMsDesc] = useState("");
-  const [msDueDate, setMsDueDate] = useState("");
-  const [msUser, setMsUser] = useState("");
-  const [msTrigger, setMsTrigger] = useState(false);
-  const [msStatus, setMsStatus] = useState<Milestone["status"]>("pending");
 
   const isEdit = Boolean(project);
 
@@ -141,64 +128,38 @@ export function ProjectFormDialog({
         email: project.email ?? "",
         status: project.status,
         estimatedCost: project.estimatedCost != null ? String(project.estimatedCost) : "",
-        priority: project.priority ?? "medium",
+        assignedPartner: project.assignedPartner ?? "",
         startDate: project.startDate ?? "",
         deadline: project.deadline ?? "",
         budget: project.budget != null ? String(project.budget) : "",
         notes: project.notes ?? "",
         ...billingFromProject(project),
       });
-      setMilestones(project.milestones ?? []);
     } else {
       setForm({
         ...EMPTY_FORM,
         startDate: new Date().toISOString().slice(0, 10),
       });
-      setMilestones([]);
     }
-    // Clear milestone sub-form
-    setMsName("");
-    setMsDesc("");
-    setMsDueDate("");
-    setMsUser("");
-    setMsTrigger(false);
-    setMsStatus("pending");
   }, [open, project, clients]);
-
-  const handleAddMilestone = () => {
-    if (!msName.trim()) {
-      alert("Milestone name is required.");
-      return;
-    }
-    const newMs: Milestone = {
-      id: "ms-" + crypto.randomUUID().slice(0, 8),
-      name: msName.trim(),
-      description: msDesc.trim() || undefined,
-      dueDate: msDueDate || undefined,
-      status: msStatus,
-      paymentTrigger: msTrigger,
-      assignedUser: msUser || undefined,
-      completedDate: msStatus === "completed" ? new Date().toISOString().slice(0, 10) : undefined,
-    };
-    setMilestones([...milestones, newMs]);
-    
-    // Reset sub-form
-    setMsName("");
-    setMsDesc("");
-    setMsDueDate("");
-    setMsUser("");
-    setMsTrigger(false);
-    setMsStatus("pending");
-  };
-
-  const handleRemoveMilestone = (id: string) => {
-    setMilestones(milestones.filter((m) => m.id !== id));
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.client.trim()) return;
-    const billing = buildBilling(form);
+    const built = buildBilling(form);
+    // Fields not editable in this form must survive a save: the authoritative
+    // Ground Zero contract value and a permanently-closed retainer marker.
+    const preserved = project?.billing;
+    const billing: ProjectBilling | undefined =
+      built || preserved?.contractValue != null || preserved?.monthlyEndDate != null
+        ? {
+            ...(built ?? {}),
+            ...(preserved?.contractValue != null ? { contractValue: preserved.contractValue } : {}),
+            ...(preserved?.monthlyEndDate != null
+              ? { monthlyEndDate: preserved.monthlyEndDate }
+              : {}),
+          }
+        : undefined;
     
     // Automatically calculate default budget if not explicitly set
     let budgetNum = form.budget ? Number(form.budget) : undefined;
@@ -220,11 +181,10 @@ export function ProjectFormDialog({
       revenueValue: billing ? buildRevenueValueFromBilling(billing) : project?.revenueValue,
       budget: budgetNum,
       estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : undefined,
-      priority: form.priority,
+      assignedPartner: form.assignedPartner || undefined,
       startDate: form.startDate || undefined,
       deadline: form.deadline || undefined,
       notes: form.notes.trim() || undefined,
-      milestones,
     };
     onSave(saved);
     onOpenChange(false);
@@ -236,7 +196,7 @@ export function ProjectFormDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit project" : "New project"}</DialogTitle>
           <DialogDescription>
-            Configure project specifications, billing, priority, and timeline milestones.
+            Configure client, project details, timeline, and billing.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -244,10 +204,14 @@ export function ProjectFormDialog({
           {/* Section: Client & Profile */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-foreground border-b border-border pb-1">1. Client Profile</h3>
-            <Field label="Select Client *" id="dialog-client">
+            <Field label="Client" id="dialog-client">
               <Select
-                value={form.clientId}
+                value={form.clientId || NEW_CLIENT_VALUE}
                 onValueChange={(v) => {
+                  if (v === NEW_CLIENT_VALUE) {
+                    setForm((f) => ({ ...f, clientId: "", client: "", phone: "", email: "" }));
+                    return;
+                  }
                   const found = clients.find((c) => c.id === v);
                   if (found) {
                     setForm((f) => ({
@@ -261,9 +225,10 @@ export function ProjectFormDialog({
                 }}
               >
                 <SelectTrigger id="dialog-client">
-                  <SelectValue placeholder="Select client" />
+                  <SelectValue placeholder="Select client or create new" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={NEW_CLIENT_VALUE}>+ New client (type name below)</SelectItem>
                   {clients.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.companyName}
@@ -274,12 +239,23 @@ export function ProjectFormDialog({
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Client Name" id="dialog-client-name">
+              <Field label="Client Name *" id="dialog-client-name">
                 <Input
                   id="dialog-client-name"
                   value={form.client}
-                  readOnly
-                  className="bg-muted/40 cursor-default"
+                  onChange={(e) =>
+                    // Typing a different name detaches the selected client — a
+                    // new client record is created on save and reused everywhere.
+                    setForm((f) => {
+                      const selected = clients.find((c) => c.id === f.clientId);
+                      const detach =
+                        selected &&
+                        selected.companyName.trim().toLowerCase() !==
+                          e.target.value.trim().toLowerCase();
+                      return { ...f, client: e.target.value, clientId: detach ? "" : f.clientId };
+                    })
+                  }
+                  placeholder="Existing or brand-new client name"
                 />
               </Field>
               <Field label="Project Type" id="dialog-type">
@@ -337,18 +313,18 @@ export function ProjectFormDialog({
                 </Select>
               </Field>
 
-              <Field label="Priority" id="dialog-priority">
+              <Field label="Assigned Partner" id="dialog-partner">
                 <Select
-                  value={form.priority}
-                  onValueChange={(v) => setForm((f) => ({ ...f, priority: v as "low" | "medium" | "high" }))}
+                  value={form.assignedPartner}
+                  onValueChange={(v) => setForm((f) => ({ ...f, assignedPartner: v }))}
                 >
-                  <SelectTrigger id="dialog-priority">
-                    <SelectValue />
+                  <SelectTrigger id="dialog-partner">
+                    <SelectValue placeholder="Select partner..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {PRIORITIES.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        {p.label}
+                    {members.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -403,137 +379,68 @@ export function ProjectFormDialog({
                   min={0}
                   value={form.upfrontAmount}
                   onChange={(e) => setForm((f) => ({ ...f, upfrontAmount: e.target.value }))}
-                  placeholder="Milestone 1"
+                  placeholder="One-time amount"
                 />
               </Field>
             </div>
           </div>
 
-          {/* Section: Milestones Builder */}
-          <div className="space-y-4 rounded-lg border border-border bg-muted/10 p-4">
-            <h3 className="text-sm font-semibold text-foreground border-b border-border pb-1">3. Project Milestones</h3>
-            
-            {/* Added Milestones list */}
-            {milestones.length > 0 ? (
-              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                {milestones.map((ms) => (
-                  <div key={ms.id} className="flex items-center justify-between rounded border border-border bg-card p-2 text-xs">
-                    <div>
-                      <p className="font-semibold text-foreground">
-                        {ms.name}
-                        {ms.paymentTrigger && <span className="ml-1.5 text-[9px] bg-amber-500/10 text-amber-500 font-bold px-1 py-0.5 rounded">Payment Trigger</span>}
-                      </p>
-                      {ms.dueDate && <p className="text-[10px] text-muted-foreground mt-0.5">Due: {ms.dueDate}</p>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold">{ms.status}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveMilestone(ms.id)}
-                        className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-4.5 w-4.5" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground italic text-center py-2">No milestones configured for this project yet.</p>
-            )}
+          {/* Section: Recurring billing — drives the Revenue label in the projects table */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-foreground border-b border-border pb-1">3. Recurring Billing</h3>
 
-            {/* Quick add milestone sub-form */}
-            <div className="border-t border-dashed border-border pt-3 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configure New Milestone</p>
-              
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Milestone Name" id="ms-new-name">
-                  <Input
-                    id="ms-new-name"
-                    value={msName}
-                    onChange={(e) => setMsName(e.target.value)}
-                    placeholder="e.g. Wireframes Sign-off"
-                  />
-                </Field>
-                <Field label="Due Date" id="ms-new-due">
-                  <Input
-                    id="ms-new-due"
-                    type="date"
-                    value={msDueDate}
-                    onChange={(e) => setMsDueDate(e.target.value)}
-                  />
-                </Field>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Field label="Status" id="ms-new-status">
-                  <Select
-                    value={msStatus}
-                    onValueChange={(v) => setMsStatus(v as Milestone["status"])}
-                  >
-                    <SelectTrigger id="ms-new-status">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="delayed">Delayed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                
-                <Field label="Assigned Partner" id="ms-new-user">
-                  <Select
-                    value={msUser}
-                    onValueChange={(v) => setMsUser(v)}
-                  >
-                    <SelectTrigger id="ms-new-user">
-                      <SelectValue placeholder="Select partner..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {members.map((m) => (
-                        <SelectItem key={m.id} value={m.id}>
-                          {m.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-
-                <div className="flex items-center h-full pt-6">
-                  <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={msTrigger}
-                      onChange={(e) => setMsTrigger(e.target.checked)}
-                      className="rounded border-input text-primary focus:ring-primary"
-                    />
-                    Payment Trigger?
-                  </label>
-                </div>
-              </div>
-
-              <Field label="Milestone Description" id="ms-new-desc">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Monthly amount (₹)" id="dialog-monthly-amount">
                 <Input
-                  id="ms-new-desc"
-                  value={msDesc}
-                  onChange={(e) => setMsDesc(e.target.value)}
-                  placeholder="Scope of work details..."
+                  id="dialog-monthly-amount"
+                  type="number"
+                  min={0}
+                  value={form.monthlyAmount}
+                  onChange={(e) => setForm((f) => ({ ...f, monthlyAmount: e.target.value }))}
+                  placeholder="e.g. 10000"
                 />
               </Field>
+              <Field label="Number of months" id="dialog-monthly-months">
+                <Input
+                  id="dialog-monthly-months"
+                  type="number"
+                  min={0}
+                  value={form.monthlyMonths}
+                  onChange={(e) => setForm((f) => ({ ...f, monthlyMonths: e.target.value }))}
+                  placeholder="Blank = ongoing"
+                />
+              </Field>
+              <Field label="Billing starts" id="dialog-monthly-start">
+                <Input
+                  id="dialog-monthly-start"
+                  type="date"
+                  value={form.monthlyStartDate}
+                  onChange={(e) => setForm((f) => ({ ...f, monthlyStartDate: e.target.value }))}
+                />
+              </Field>
+            </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddMilestone}
-                className="w-full inline-flex items-center justify-center gap-1.5"
-              >
-                <PlusCircle className="h-4 w-4 text-primary" /> Add Milestone to List
-              </Button>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Maintenance (₹/month)" id="dialog-maintenance-amount">
+                <Input
+                  id="dialog-maintenance-amount"
+                  type="number"
+                  min={0}
+                  value={form.maintenanceAmount}
+                  onChange={(e) => setForm((f) => ({ ...f, maintenanceAmount: e.target.value }))}
+                  placeholder="Optional"
+                />
+              </Field>
+              <Field label="Maintenance months" id="dialog-maintenance-months">
+                <Input
+                  id="dialog-maintenance-months"
+                  type="number"
+                  min={0}
+                  value={form.maintenanceMonths}
+                  onChange={(e) => setForm((f) => ({ ...f, maintenanceMonths: e.target.value }))}
+                  placeholder="Optional"
+                />
+              </Field>
             </div>
           </div>
 

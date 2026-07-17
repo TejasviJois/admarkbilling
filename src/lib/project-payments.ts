@@ -87,6 +87,24 @@ export function sumProjectPayments(payments: ProjectPayment[] | undefined): numb
   return (payments ?? []).reduce((s, p) => s + (p.amount || 0), 0);
 }
 
+/** Payments collected before the Ground Zero migration — imported once from Excel. */
+export function historicalReceived(project: Project): number {
+  return project.historicalReceived ?? 0;
+}
+
+/** Payments explicitly created from the Accounts ledger after Ground Zero. */
+export function sumReceivedAfterMigration(project: Project): number {
+  const payments = project.payments ?? [];
+  // Projects outside the Ground Zero model retain their legacy behavior.
+  if (project.historicalReceived == null) return sumProjectPayments(payments);
+  return sumProjectPayments(payments.filter((payment) => payment.recordedAfterMigration === true));
+}
+
+/** Total Received = Historical Received + Received After Migration. */
+export function totalReceived(project: Project): number {
+  return historicalReceived(project) + sumReceivedAfterMigration(project);
+}
+
 /** Income from project payments that have an uploaded proof screenshot. */
 export function sumVerifiedProjectPayments(projects: Project[]): number {
   return projects.reduce((total, project) => {
@@ -114,7 +132,8 @@ export function verifiedProjectPaymentsByMonth(
 
 export function syncPaymentStatusFromPayments(project: Project): Project {
   const payments = project.payments ?? [];
-  if (payments.length === 0) {
+  const historical = historicalReceived(project);
+  if (payments.length === 0 && historical <= 0) {
     return {
       ...project,
       payments: [],
@@ -122,13 +141,27 @@ export function syncPaymentStatusFromPayments(project: Project): Project {
     };
   }
 
-  const total = sumProjectPayments(payments);
-  const target = parseRevenueTarget(project.revenueValue);
+  const total = historical + sumReceivedAfterMigration(project);
+  const fromBilling = contractTargetFromProject(project);
+  const target =
+    project.billing?.contractValue != null
+      ? project.billing.contractValue
+      : fromBilling > 0
+        ? fromBilling
+        : parseRevenueTarget(project.revenueValue);
   const parts = [`${formatINRWhole(total)} received`];
+  const pending =
+    project.historicalOutstanding !== undefined
+      ? project.historicalOutstanding == null
+        ? null
+        : Math.max(0, project.historicalOutstanding - sumReceivedAfterMigration(project))
+      : target != null
+        ? Math.max(0, target - total)
+        : null;
 
   if (payments.length > 1) parts.push(`${payments.length} payments`);
-  if (target != null && total < target) parts.push(`${formatINRWhole(target - total)} remaining`);
-  if (target != null && total >= target) parts.push("settled");
+  if (pending != null && pending > 0) parts.push(`${formatINRWhole(pending)} remaining`);
+  if (pending === 0) parts.push("settled");
 
   return { ...project, paymentStatus: parts.join(" · ") };
 }
@@ -136,6 +169,11 @@ export function syncPaymentStatusFromPayments(project: Project): Project {
 export function normalizeProjectPayments(project: Project): Project {
   if (project.payments && project.payments.length > 0) {
     return syncPaymentStatusFromPayments(attachLegacyProofs(project));
+  }
+
+  // Ground Zero projects: historical received is a field, never synthesized rows.
+  if (project.historicalReceived != null) {
+    return syncPaymentStatusFromPayments(project);
   }
 
   const payments: ProjectPayment[] = [];
@@ -176,22 +214,49 @@ export function normalizeAllProjectPayments(projects: Project[]): Project[] {
 }
 
 export function paymentSummary(project: Project): {
+  /** Total Received = Historical Received + Received After Migration. */
   received: number;
+  historicalReceived: number;
+  receivedAfterMigration: number;
   target: number | null;
   pending: number | null;
   count: number;
 } {
   const payments = project.payments ?? [];
-  const received = sumProjectPayments(payments);
+  const receivedAfterMigration = sumReceivedAfterMigration(project);
+  const historical = historicalReceived(project);
+  const received = historical + receivedAfterMigration;
   const fromBilling = contractTargetFromProject(project);
-  const target = fromBilling > 0 ? fromBilling : parseRevenueTarget(project.revenueValue);
-  const pending = target != null && received < target ? target - received : null;
-  return { received, target, pending, count: payments.length };
+  const target =
+    project.billing?.contractValue != null
+      ? project.billing.contractValue
+      : fromBilling > 0
+        ? fromBilling
+        : parseRevenueTarget(project.revenueValue);
+  const pending =
+    project.historicalOutstanding !== undefined
+      ? project.historicalOutstanding == null
+        ? null
+        : Math.max(0, project.historicalOutstanding - receivedAfterMigration)
+      : target != null && received < target
+        ? target - received
+        : target != null
+          ? 0
+          : null;
+  return {
+    received,
+    historicalReceived: historical,
+    receivedAfterMigration,
+    target,
+    pending,
+    count: payments.length,
+  };
 }
 
 /** Contract total without importing project-billing (avoids circular deps). */
 function contractTargetFromProject(project: Project): number {
   const b = project.billing ?? {};
+  if (b.contractValue != null) return b.contractValue;
   let total = b.upfrontAmount ?? 0;
   total += b.maintenanceAmount ?? 0;
   if (b.monthlyAmount && b.monthlyMonths != null) {

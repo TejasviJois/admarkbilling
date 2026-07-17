@@ -4,14 +4,11 @@ import {
   ArrowLeft,
   Calendar,
   DollarSign,
-  TrendingUp,
-  Percent,
   CheckCircle2,
   Clock,
   User,
   PlusCircle,
   Trash2,
-  Briefcase,
   AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,10 +16,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Field, OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
-import { formatINR, formatINRWhole } from "@/lib/invoice-calc";
+import { formatINRWhole } from "@/lib/invoice-calc";
+import { projectContractValue } from "@/lib/project-billing";
 import { projectStatusBadgeClass, projectStatusLabel } from "@/lib/project-status";
 import { DEFAULT_COMPANY } from "@/lib/constants";
-import type { Project, Milestone, Transaction } from "@/lib/types";
+import type { Project, Milestone } from "@/lib/types";
 
 export const Route = createFileRoute("/projects/$id")({ component: ProjectDetailsPage });
 
@@ -44,34 +42,12 @@ function ProjectDetailsPage() {
   }, [ops.projects, id]);
 
   const members = DEFAULT_COMPANY.companyMembers ?? [];
-  const transactions = ops.transactions ?? [];
 
-  // 1. Calculations
+  // Operational project progress only. Financial movement belongs in Accounts.
   const calculations = useMemo(() => {
     if (!project) return null;
 
-    const budget = project.budget || 0;
-
-    // Received (From Transactions where type = client_payment / refund)
-    const projectTxs = transactions.filter((t) => t.relatedProjectId === project.id);
-    const received = projectTxs
-      .filter((t) => t.type === "client_payment")
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const pending = Math.max(0, budget - received);
-
-    // Internal Expenses (From Transactions where type = expense)
-    const internalExpenses = projectTxs
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const estimatedCost = project.estimatedCost || 0;
-
-    // Profit = Budget - Internal Expenses - Estimated Cost
-    const profit = budget - internalExpenses - estimatedCost;
-
-    // Profit % = Profit / Budget * 100
-    const profitMargin = budget > 0 ? (profit / budget) * 100 : 0;
+    const budget = projectContractValue(project) || project.budget || 0;
 
     // Milestones completion
     const ms = project.milestones ?? [];
@@ -89,16 +65,9 @@ function ProjectDetailsPage() {
 
     return {
       budget,
-      received,
-      pending,
-      internalExpenses,
-      estimatedCost,
-      profit,
-      profitMargin,
       completionPercentage,
-      projectTxs,
     };
-  }, [project, transactions]);
+  }, [project]);
 
   if (loading) return <OperationsLoading />;
   if (!project || !calculations) {
@@ -246,64 +215,15 @@ function ProjectDetailsPage() {
         </div>
       </div>
 
-      {/* KPI Widgets */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Budget */}
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+      {/* Revenue context only — payment movement is managed in Accounts. */}
+      <div className="max-w-sm rounded-lg border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase">Total Budget</span>
+            <span className="text-xs font-semibold uppercase">Contract revenue</span>
             <DollarSign className="h-5 w-5 text-primary" />
           </div>
           <p className="mt-2 text-2xl font-bold tabular-nums text-foreground">
             {formatINRWhole(calculations.budget)}
           </p>
-          <div className="mt-1 text-[11px] text-muted-foreground flex justify-between">
-            <span>Collected: {formatINRWhole(calculations.received)}</span>
-            <span className="text-amber-500 font-medium">Pending: {formatINRWhole(calculations.pending)}</span>
-          </div>
-        </div>
-
-        {/* Internal Expenses */}
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase">Internal Expenses</span>
-            <Trash2 className="h-5 w-5 text-rose-500" />
-          </div>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-rose-600 dark:text-rose-400">
-            {formatINRWhole(calculations.internalExpenses)}
-          </p>
-          <div className="mt-1 text-[11px] text-muted-foreground flex justify-between">
-            <span>Estimated Cost: {formatINRWhole(calculations.estimatedCost)}</span>
-          </div>
-        </div>
-
-        {/* Profit */}
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase">Calculated Profit</span>
-            <TrendingUp className="h-5 w-5 text-emerald-500" />
-          </div>
-          <p className={`mt-2 text-2xl font-bold tabular-nums ${calculations.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600"}`}>
-            {formatINRWhole(calculations.profit)}
-          </p>
-          <div className="mt-1 text-[11px] text-muted-foreground">
-            <span>Budget &minus; Costs &minus; Expenses</span>
-          </div>
-        </div>
-
-        {/* Profit Margin */}
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase">Profit Margin</span>
-            <Percent className="h-5 w-5 text-blue-500" />
-          </div>
-          <p className={`mt-2 text-2xl font-bold tabular-nums ${calculations.profitMargin >= 0 ? "text-blue-600 dark:text-blue-400" : "text-rose-600"}`}>
-            {calculations.profitMargin.toFixed(1)}%
-          </p>
-          <div className="mt-1 text-[11px] text-muted-foreground">
-            <span>Overall profitability index</span>
-          </div>
-        </div>
       </div>
 
       {/* Main Content Layout */}
@@ -467,37 +387,8 @@ function ProjectDetailsPage() {
           </div>
         </div>
 
-        {/* Right: Project Financial Audit / Transactions List (1 Column) */}
+        {/* Right: Operational notes */}
         <div className="space-y-6">
-          {/* Linked transactions */}
-          <div className="rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
-            <h2 className="text-lg font-bold text-foreground border-b border-border pb-2 flex items-center gap-2">
-              <Briefcase className="h-5 w-5 text-primary" /> Financial History
-            </h2>
-
-            <div className="mt-4 space-y-3 max-h-[450px] overflow-y-auto pr-1">
-              {calculations.projectTxs.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic text-center py-6">
-                  No invoices or expenses logged for this project yet.
-                </p>
-              ) : (
-                calculations.projectTxs.map((tx) => (
-                  <div key={tx.id} className="flex justify-between items-start text-xs border border-border rounded p-3 bg-muted/20">
-                    <div>
-                      <p className="font-semibold text-foreground">{tx.description}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{tx.date} &middot; {tx.paymentMethod.toUpperCase()}</p>
-                    </div>
-                    <span className={`font-bold tabular-nums ${
-                      tx.type === "client_payment" ? "text-emerald-600" : "text-rose-600"
-                    }`}>
-                      {tx.type === "client_payment" ? "+" : "-"}{formatINRWhole(tx.amount)}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-          
           {/* Notes */}
           {project.notes && (
             <div className="rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">

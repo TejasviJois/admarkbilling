@@ -42,6 +42,7 @@ import { Route as AnalyticsOngoingRouteImport } from './routes/analytics/ongoing
 import { Route as AnalyticsIncomeRouteImport } from './routes/analytics/income'
 import { Route as AnalyticsExpensesRouteImport } from './routes/analytics/expenses'
 import { Route as AnalyticsBalanceRouteImport } from './routes/analytics/balance'
+import { Route as AccountsRetainersRouteImport } from './routes/accounts.retainers'
 import { Route as AccountsBillingRouteImport } from './routes/accounts.billing'
 import { Route as DocumentsPaymentsIndexRouteImport } from './routes/documents/payments/index'
 import { Route as DocumentsPaymentsVendorsIndexRouteImport } from './routes/documents/payments/vendors/index'
@@ -216,6 +217,11 @@ const AnalyticsBalanceRoute = AnalyticsBalanceRouteImport.update({
   path: '/analytics/balance',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountsRetainersRoute = AccountsRetainersRouteImport.update({
+  id: '/retainers',
+  path: '/retainers',
+  getParentRoute: () => AccountsRoute,
+} as any)
 const AccountsBillingRoute = AccountsBillingRouteImport.update({
   id: '/billing',
   path: '/billing',
@@ -283,6 +289,7 @@ export interface FileRoutesByFullPath {
   '/transactions': typeof TransactionsRoute
   '/valuation': typeof ValuationRoute
   '/accounts/billing': typeof AccountsBillingRoute
+  '/accounts/retainers': typeof AccountsRetainersRoute
   '/analytics/balance': typeof AnalyticsBalanceRoute
   '/analytics/expenses': typeof AnalyticsExpensesRoute
   '/analytics/income': typeof AnalyticsIncomeRoute
@@ -324,6 +331,7 @@ export interface FileRoutesByTo {
   '/transactions': typeof TransactionsRoute
   '/valuation': typeof ValuationRoute
   '/accounts/billing': typeof AccountsBillingRoute
+  '/accounts/retainers': typeof AccountsRetainersRoute
   '/analytics/balance': typeof AnalyticsBalanceRoute
   '/analytics/expenses': typeof AnalyticsExpensesRoute
   '/analytics/income': typeof AnalyticsIncomeRoute
@@ -368,6 +376,7 @@ export interface FileRoutesById {
   '/transactions': typeof TransactionsRoute
   '/valuation': typeof ValuationRoute
   '/accounts/billing': typeof AccountsBillingRoute
+  '/accounts/retainers': typeof AccountsRetainersRoute
   '/analytics/balance': typeof AnalyticsBalanceRoute
   '/analytics/expenses': typeof AnalyticsExpensesRoute
   '/analytics/income': typeof AnalyticsIncomeRoute
@@ -413,6 +422,7 @@ export interface FileRouteTypes {
     | '/transactions'
     | '/valuation'
     | '/accounts/billing'
+    | '/accounts/retainers'
     | '/analytics/balance'
     | '/analytics/expenses'
     | '/analytics/income'
@@ -454,6 +464,7 @@ export interface FileRouteTypes {
     | '/transactions'
     | '/valuation'
     | '/accounts/billing'
+    | '/accounts/retainers'
     | '/analytics/balance'
     | '/analytics/expenses'
     | '/analytics/income'
@@ -497,6 +508,7 @@ export interface FileRouteTypes {
     | '/transactions'
     | '/valuation'
     | '/accounts/billing'
+    | '/accounts/retainers'
     | '/analytics/balance'
     | '/analytics/expenses'
     | '/analytics/income'
@@ -793,6 +805,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AnalyticsBalanceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/accounts/retainers': {
+      id: '/accounts/retainers'
+      path: '/retainers'
+      fullPath: '/accounts/retainers'
+      preLoaderRoute: typeof AccountsRetainersRouteImport
+      parentRoute: typeof AccountsRoute
+    }
     '/accounts/billing': {
       id: '/accounts/billing'
       path: '/billing'
@@ -854,11 +873,13 @@ declare module '@tanstack/react-router' {
 
 interface AccountsRouteChildren {
   AccountsBillingRoute: typeof AccountsBillingRoute
+  AccountsRetainersRoute: typeof AccountsRetainersRoute
   AccountsIndexRoute: typeof AccountsIndexRoute
 }
 
 const AccountsRouteChildren: AccountsRouteChildren = {
   AccountsBillingRoute: AccountsBillingRoute,
+  AccountsRetainersRoute: AccountsRetainersRoute,
   AccountsIndexRoute: AccountsIndexRoute,
 }
 

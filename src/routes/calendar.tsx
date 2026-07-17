@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   CalendarDays,
@@ -19,7 +19,13 @@ import { useOperations } from "@/hooks/use-operations";
 import { formatScheduleDateTime, sortScheduleEvents } from "@/lib/schedule";
 import type { ScheduleEvent } from "@/lib/types";
 
-export const Route = createFileRoute("/calendar")({ component: CalendarPage });
+export const Route = createFileRoute("/calendar")({
+  component: CalendarPage,
+  // `?new=1` opens the schedule dialog immediately (used by Dashboard shortcuts).
+  validateSearch: (search: Record<string, unknown>): { new?: boolean } => ({
+    new: search.new === true || search.new === "true" || search.new === 1 ? true : undefined,
+  }),
+});
 
 function dateKey(date: Date): string {
   const year = date.getFullYear();
@@ -30,9 +36,19 @@ function dateKey(date: Date): string {
 
 function CalendarPage() {
   const { ops, persist, loading } = useOperations();
+  const { new: openNewOnArrival } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ScheduleEvent | null>(null);
+
+  useEffect(() => {
+    if (!openNewOnArrival) return;
+    setEditing(null);
+    setDialogOpen(true);
+    // Drop the param so refresh/back doesn't reopen the dialog.
+    navigate({ search: {}, replace: true });
+  }, [openNewOnArrival, navigate]);
   const events = useMemo(() => ops.scheduleEvents ?? [], [ops.scheduleEvents]);
   const selectedKey = dateKey(selectedDate);
 

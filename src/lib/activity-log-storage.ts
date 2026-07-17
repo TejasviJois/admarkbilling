@@ -75,6 +75,11 @@ async function persistActivityLogs(entries: ActivityLogEntry[]) {
   saveActivityLogsLocal(trimmed);
 }
 
+/** Replace the complete activity-log history (used by full-system restore). */
+export async function replaceActivityLogs(entries: ActivityLogEntry[]): Promise<void> {
+  await persistActivityLogs(entries);
+}
+
 export async function appendActivityLogs(drafts: LogDraft[]): Promise<void> {
   if (drafts.length === 0) return;
   const current = await loadActivityLogs();

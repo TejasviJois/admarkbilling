@@ -19,8 +19,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
+import { useCompany } from "@/hooks/use-company";
 import { FOUNDER_SALARY_CATEGORY, FOUNDER_SHARE_WITHDRAWAL_CATEGORY } from "@/lib/founder-ledger";
-import type { Transaction, TransactionType, Client, Project } from "@/lib/types";
+import { formatINRWhole } from "@/lib/invoice-calc";
+import { paymentSummary } from "@/lib/project-payments";
+import { projectClientLabel } from "@/lib/project-status";
+import type { Project, Transaction, TransactionType } from "@/lib/types";
 
 const TRANSACTION_TYPES: { value: TransactionType; label: string }[] = [
   { value: "client_payment", label: "Client Payment (Income)" },
@@ -71,9 +75,12 @@ export function TransactionFormDialog({
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const { ops } = useOperations();
+  const { company } = useCompany();
   const clients = ops.clients ?? [];
   const projects = ops.projects ?? [];
   const founders = ops.founders ?? [];
+  const proofUploadsEnabled = company.paymentProofUploadsEnabled === true;
+  const selectedProject = projects.find((project) => project.id === form.relatedProjectId);
 
   const isEdit = Boolean(transaction);
 
@@ -137,7 +144,7 @@ export function TransactionFormDialog({
     // FUTURE VALIDATION RULES
     if (!transaction || !transaction.historical) {
       // 1. Encourage payment proof upload for Income (client_payment)
-      if (form.type === "client_payment" && !form.attachmentDataUrl) {
+      if (proofUploadsEnabled && form.type === "client_payment" && !form.attachmentDataUrl) {
         const confirmSave = confirm(
           "Tip: It is highly encouraged to upload a payment proof or screenshot for client payments. Save anyway?",
         );
@@ -157,11 +164,36 @@ export function TransactionFormDialog({
       }
 
       // 4. Large Expenses (> ₹10,000) should support attachments
-      if (form.type === "expense" && amountNum > 10000 && !form.attachmentDataUrl) {
+      if (
+        proofUploadsEnabled &&
+        form.type === "expense" &&
+        amountNum > 10000 &&
+        !form.attachmentDataUrl
+      ) {
         const confirmSave = confirm(
           "Large Expense Notice: Expenses above ₹10,000 should have a supporting receipt/attachment. Save anyway?",
         );
         if (!confirmSave) return;
+      }
+    }
+
+    if (form.type === "client_payment" && !form.relatedProjectId) {
+      alert("Select the project this income belongs to.");
+      return;
+    }
+    if (form.type === "client_payment" && selectedProject) {
+      const { pending } = paymentSummary(selectedProject);
+      const priorAmount =
+        transaction?.type === "client_payment" &&
+        transaction.relatedProjectId === selectedProject.id
+          ? transaction.amount
+          : 0;
+      const editableOutstanding = pending == null ? null : pending + priorAmount;
+      if (editableOutstanding != null && amountNum > editableOutstanding) {
+        alert(
+          `This amount exceeds the project outstanding of ${formatINRWhole(editableOutstanding)}.`,
+        );
+        return;
       }
     }
 
@@ -344,21 +376,46 @@ export function TransactionFormDialog({
               <Field label="Related Project" id="tx-project">
                 <Select
                   value={form.relatedProjectId}
-                  onValueChange={(v) => setForm((f) => ({ ...f, relatedProjectId: v }))}
+                  onValueChange={(v) => {
+                    const project = projects.find((item) => item.id === v);
+                    setForm((f) => ({
+                      ...f,
+                      relatedProjectId: v,
+                      relatedClientId: project?.clientId ?? f.relatedClientId,
+                      description:
+                        f.description ||
+                        (project ? `Payment from ${projectClientLabel(project)}` : ""),
+                    }));
+                  }}
                 >
                   <SelectTrigger id="tx-project">
                     <SelectValue placeholder="Select project..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {projects.map((p) => (
+                    {projects
+                      .filter((project) => project.status === "active" || project.status === "completed")
+                      .map((p) => (
                       <SelectItem key={p.id} value={p.id}>
-                        {p.name}
+                        {projectClientLabel(p)}
                       </SelectItem>
-                    ))}
+                      ))}
                   </SelectContent>
                 </Select>
               </Field>
             </div>
+          ) : null}
+
+          {form.type === "client_payment" && selectedProject ? (
+            <ProjectOutstanding
+              project={selectedProject}
+              enteredAmount={Number(form.amount) || 0}
+              existingAmount={
+                transaction?.type === "client_payment" &&
+                transaction.relatedProjectId === selectedProject.id
+                  ? transaction.amount
+                  : 0
+              }
+            />
           ) : null}
 
           {form.type === "founder_investment" || form.type === "founder_withdrawal" ? (
@@ -381,32 +438,34 @@ export function TransactionFormDialog({
             </Field>
           ) : null}
 
-          <Field label="Upload Attachment / Proof Receipt" id="tx-attachment">
-            <Input
-              id="tx-attachment"
-              type="file"
-              accept="image/*,application/pdf"
-              onChange={handleAttachmentChange}
-            />
-            {form.attachmentDataUrl && (
-              <div className="mt-2 flex items-center gap-2">
-                <img
-                  src={form.attachmentDataUrl}
-                  alt="Receipt Preview"
-                  className="h-16 w-auto rounded border border-border object-contain"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setForm((f) => ({ ...f, attachmentDataUrl: "" }))}
-                  className="text-destructive text-xs"
-                >
-                  Remove
-                </Button>
-              </div>
-            )}
-          </Field>
+          {proofUploadsEnabled ? (
+            <Field label="Upload Attachment / Proof Receipt" id="tx-attachment">
+              <Input
+                id="tx-attachment"
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={handleAttachmentChange}
+              />
+              {form.attachmentDataUrl && (
+                <div className="mt-2 flex items-center gap-2">
+                  <img
+                    src={form.attachmentDataUrl}
+                    alt="Receipt Preview"
+                    className="h-16 w-auto rounded border border-border object-contain"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setForm((f) => ({ ...f, attachmentDataUrl: "" }))}
+                    className="text-destructive text-xs"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              )}
+            </Field>
+          ) : null}
 
           <Field label="Internal Remarks / Notes" id="tx-notes">
             <Textarea
@@ -434,5 +493,60 @@ export function TransactionFormDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ProjectOutstanding({
+  project,
+  enteredAmount,
+  existingAmount,
+}: {
+  project: Project;
+  enteredAmount: number;
+  existingAmount: number;
+}) {
+  const { historicalReceived, receivedAfterMigration, received, target, pending } =
+    paymentSummary(project);
+  const editableOutstanding = pending == null ? null : pending + existingAmount;
+  const remainingAfterEntry =
+    editableOutstanding == null
+      ? null
+      : Math.max(0, editableOutstanding - Math.max(0, enteredAmount));
+
+  return (
+    <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-xs">
+      <p className="font-semibold text-foreground">{projectClientLabel(project)}</p>
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <AmountStat label="Contract" value={target} />
+        <AmountStat label="Historical" value={historicalReceived} />
+        <AmountStat label="After migration" value={receivedAfterMigration} />
+        <AmountStat label="Outstanding" value={editableOutstanding} accent />
+      </div>
+      <p className="mt-2 text-muted-foreground">
+        Total received: {formatINRWhole(received)}
+        {remainingAfterEntry != null && enteredAmount > 0
+          ? ` · Outstanding after this entry: ${formatINRWhole(remainingAfterEntry)}`
+          : ""}
+      </p>
+    </div>
+  );
+}
+
+function AmountStat({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: number | null;
+  accent?: boolean;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={`font-semibold tabular-nums ${accent ? "text-amber-400" : "text-foreground"}`}>
+        {value == null ? "—" : formatINRWhole(value)}
+      </p>
+    </div>
   );
 }

@@ -36,6 +36,10 @@ export interface CompanySettings {
   paymentTerms?: string;
   remarks?: string;
   paymentMode?: string;
+  /** Whether receipt/proof uploads are shown in financial transaction forms. */
+  paymentProofUploadsEnabled?: boolean;
+  /** Feature flag for the unfinished Company Valuation module. */
+  companyValuationEnabled?: boolean;
 }
 
 /** Saved with company settings — file as data URL and/or a trusted https link only. */
@@ -75,6 +79,10 @@ export interface ProjectPayment {
   amount: number;
   date: string;
   note?: string;
+  /** Created from an Accounts transaction after Ground Zero. */
+  recordedAfterMigration?: boolean;
+  /** Marks this as a monthly recurring installment (retainer/contract). */
+  recurring?: boolean;
   proof?: {
     imageDataUrl: string;
     fileName?: string;
@@ -112,6 +120,17 @@ export interface Project {
   paymentStatus?: string;
   /** @deprecated Migrated into `payments[].proof` */
   paymentProofs?: PaymentProof[];
+  /**
+   * Payments collected before the Ground Zero migration (imported once from Excel).
+   * Never creates accounting transactions — Total Received = historicalReceived + Σ payments.
+   */
+  historicalReceived?: number;
+  /**
+   * Authoritative remaining balance imported at Ground Zero. `null` means the
+   * source did not define an outstanding amount. New payments deduct from it.
+   */
+  historicalOutstanding?: number | null;
+  /** Installments received after migration — each one mirrors into the Accounts ledger. */
   payments?: ProjectPayment[];
   startDate?: string;
   endDate?: string;
@@ -119,6 +138,8 @@ export interface Project {
   budget?: number;
   estimatedCost?: number;
   priority?: "low" | "medium" | "high";
+  /** Company member id responsible for delivering this project. */
+  assignedPartner?: string;
   notes?: string;
   milestones?: Milestone[];
   phone?: string;
@@ -127,6 +148,11 @@ export interface Project {
 
 /** How a project is billed — upfront, recurring, or both. */
 export interface ProjectBilling {
+  /**
+   * Authoritative total contract value (₹) imported from the Ground Zero Excel.
+   * When set, it overrides any derived upfront/monthly totals — Pending = contractValue − Total Received.
+   */
+  contractValue?: number;
   /** One-time / upfront amount (₹). Counts in booked revenue when project is active. */
   upfrontAmount?: number;
   /** Flat maintenance package (₹). Counts in booked only when there is no separate project/upfront fee. */
@@ -139,6 +165,8 @@ export interface ProjectBilling {
   monthlyMonths?: number;
   /** When monthly billing starts — until then, monthly is excluded from booked revenue. */
   monthlyStartDate?: string;
+  /** Retainer closed permanently on this date — no longer active MRR or future monthly. */
+  monthlyEndDate?: string;
 }
 
 export type PartnershipStatus = "active" | "inactive" | "prospect";
@@ -409,6 +437,12 @@ export interface OperationsData {
   valuationAudit?: ValuationAuditEntry[];
   migrationApplied?: boolean;
   migrationDate?: string;
+  /** Ground Zero financial reset applied — Excel is the single source of truth from this point. */
+  groundZeroApplied?: boolean;
+  /** One-time repair: merged the legacy "Dev" project with BLX Realty and rebuilt its ledger rows. */
+  blxRepairApplied?: boolean;
+  /** One-time repair: merged the legacy "k h kiran" project with Nidhi Estates. */
+  neRepairApplied?: boolean;
 }
 
 export type TransactionType =

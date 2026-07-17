@@ -31,6 +31,8 @@ import { DEFAULT_COMPANY, DEFAULT_PUBLIC_LOGO_URL } from "@/lib/constants";
 import { companyLogoSrc } from "@/lib/company-branding";
 import { logClientError } from "@/lib/client-logger";
 import { readAndPersistFile } from "@/lib/remote-file";
+import { loadDocuments, saveDocuments } from "@/lib/documents-storage";
+import { loadActivityLogs, replaceActivityLogs } from "@/lib/activity-log-storage";
 import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
 import { loadCompany, normalizeCompanySettings, saveCompany, upsertInvoice } from "@/lib/storage";
 import { getDataBackendStatus } from "@/server/invoice-fns";
@@ -39,8 +41,10 @@ import { pushLocalDataToCloud, hasLocalDataToSync } from "@/lib/sync-to-cloud";
 import { logoutFn } from "@/server/auth-fns";
 import { useOperations } from "@/hooks/use-operations";
 import { useInvoices } from "@/hooks/use-invoices";
+import { useCompany } from "@/hooks/use-company";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import type { CompanyMember, CompanySettings, Invoice } from "@/lib/types";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
@@ -49,6 +53,7 @@ type SettingsTab =
   | "company"
   | "branding"
   | "invoice"
+  | "finance"
   | "tax"
   | "bank"
   | "security"
@@ -63,6 +68,7 @@ function SettingsPage() {
   const router = useRouter();
   const { ops, persist } = useOperations();
   const { invoices, setInvoices } = useInvoices();
+  const { invalidate: invalidateCompany } = useCompany();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("company");
   const [c, setC] = useState<CompanySettings>(() => normalizeCompanySettings(DEFAULT_COMPANY));
@@ -204,6 +210,7 @@ function SettingsPage() {
     if (!cur) return;
     void saveCompany(cur)
       .then(() => {
+        void invalidateCompany();
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
       })
@@ -239,14 +246,48 @@ function SettingsPage() {
   };
 
   // BACKUP & RESTORE UTILITIES
-  const handleExportBackup = () => {
+  const handleExportBackup = async () => {
     try {
+      const [documents, activityLogs] = await Promise.all([
+        loadDocuments(),
+        loadActivityLogs(),
+      ]);
+      const exportedAt = new Date().toISOString();
       const backupData = {
-        version: "1.0",
-        timestamp: new Date().toISOString(),
-        ops,
-        invoices,
-        company: c,
+        format: "admark-os-full-system-backup",
+        version: "2.0",
+        metadata: {
+          exportedAt,
+          application: "Admark OS",
+          organization: c.name,
+          description:
+            "Complete system backup. All operational, financial, CRM, document, calendar, settings, and invoice records are included.",
+        },
+        manifest: {
+          companySettings: 1,
+          invoices: invoices.length,
+          clients: ops.clients?.length ?? 0,
+          leads: ops.leads?.length ?? 0,
+          projects: ops.projects?.length ?? 0,
+          transactions: ops.transactions?.length ?? 0,
+          expenses: ops.expenses?.length ?? 0,
+          payments: ops.payments?.length ?? 0,
+          partnerships: ops.partnerships?.length ?? 0,
+          founders: ops.founders?.length ?? 0,
+          scheduleEvents: ops.scheduleEvents?.length ?? 0,
+          fixedMonthlyExpenses: ops.fixedMonthlyExpenses?.length ?? 0,
+          agreements: documents.agreements?.length ?? 0,
+          activityLogs: activityLogs.length,
+          valuationSnapshots: ops.valuationSnapshots?.length ?? 0,
+          valuationAuditEntries: ops.valuationAudit?.length ?? 0,
+        },
+        data: {
+          companySettings: c,
+          invoices,
+          operations: ops,
+          documents,
+          activityLogs,
+        },
       };
       const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -269,27 +310,37 @@ function SettingsPage() {
       try {
         setRestoring(true);
         const data = JSON.parse(event.target?.result as string);
-        if (!data.ops || !data.invoices) {
-          alert("Invalid backup file format. Must contain 'ops' and 'invoices' data structures.");
+        // v2 stores records under `data`; v1 remains supported for old backups.
+        const operations = data.data?.operations ?? data.ops;
+        const restoredInvoices = data.data?.invoices ?? data.invoices;
+        const companySettings = data.data?.companySettings ?? data.company;
+        const documents = data.data?.documents;
+        const activityLogs = data.data?.activityLogs;
+        if (!operations || !Array.isArray(restoredInvoices)) {
+          alert("Invalid backup file format. Operations and invoices data are required.");
           return;
         }
 
         if (confirm("WARNING: Importing this backup will overwrite ALL current local and cloud database records. Proceed?")) {
           // 1. Restore Operations (Clients, Leads, Expenses, Projects, Partnerships)
-          await persist(data.ops);
+          await persist(operations);
 
           // 2. Restore Invoices
-          const restoredInvoices: Invoice[] = data.invoices;
-          for (const inv of restoredInvoices) {
+          const invoicesToRestore: Invoice[] = restoredInvoices;
+          for (const inv of invoicesToRestore) {
             await upsertInvoice(inv);
           }
-          setInvoices(restoredInvoices);
+          setInvoices(invoicesToRestore);
 
           // 3. Restore Company Branding
-          if (data.company) {
-            setC(data.company);
-            await saveCompany(data.company);
+          if (companySettings) {
+            setC(companySettings);
+            await saveCompany(companySettings);
           }
+
+          // 4. Restore document repository and activity history (v2 backups).
+          if (documents) await saveDocuments(documents);
+          if (Array.isArray(activityLogs)) await replaceActivityLogs(activityLogs);
 
           alert("Success! System backup restored successfully. Reloading route context...");
           router.invalidate();
@@ -351,6 +402,7 @@ function SettingsPage() {
     { value: "company", label: "Company Profile", icon: <Settings className="h-4 w-4" /> },
     { value: "branding", label: "Branding", icon: <Image className="h-4 w-4" /> },
     { value: "invoice", label: "Invoice Settings", icon: <FileText className="h-4 w-4" /> },
+    { value: "finance", label: "Finance Rules", icon: <CreditCard className="h-4 w-4" /> },
     { value: "tax", label: "Tax Configuration", icon: <Percent className="h-4 w-4" /> },
     { value: "bank", label: "Bank Details", icon: <CreditCard className="h-4 w-4" /> },
     { value: "security", label: "Security & Access", icon: <Shield className="h-4 w-4" /> },
@@ -462,8 +514,8 @@ function SettingsPage() {
               <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Invoice Defaults</h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <SettingsField
-                  label="Default Payment Terms (Days)"
-                  value={c.paymentTerms || "Net 30"}
+                  label="Default Payment Terms"
+                  value={c.paymentTerms || "50% at project start; remaining 50% before deployment."}
                   onChange={(v) => set("paymentTerms", v)}
                 />
                 <SettingsField
@@ -477,6 +529,58 @@ function SettingsPage() {
                   onChange={(v) => set("paymentMode", v)}
                 />
               </div>
+            </div>
+          )}
+
+          {/* Tab: Finance Rules */}
+          {activeTab === "finance" && (
+            <div className="space-y-6">
+              <h2 className="border-b border-border pb-3 text-base font-bold text-foreground">
+                Finance Entry Rules
+              </h2>
+              <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-muted/10 p-4">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Payment proof uploads</p>
+                  <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                    Show image/PDF receipt uploads while adding income and expenses. Disabled by
+                    default; financial entries can be saved without screenshots.
+                  </p>
+                </div>
+                <Switch
+                  checked={c.paymentProofUploadsEnabled === true}
+                  onCheckedChange={(checked) => set("paymentProofUploadsEnabled", checked)}
+                  aria-label="Toggle payment proof uploads"
+                  className="mt-0.5"
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-muted/10 p-4">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Company Valuation module
+                  </p>
+                  <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                    Show Company Valuation under Insights and allow access to the module. Keep this
+                    disabled until the feature is ready for use.
+                  </p>
+                </div>
+                <Switch
+                  checked={c.companyValuationEnabled === true}
+                  onCheckedChange={(checked) => set("companyValuationEnabled", checked)}
+                  aria-label="Toggle Company Valuation module"
+                  className="mt-0.5"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Payment proof uploads:{" "}
+                <span className="font-semibold text-foreground">
+                  {c.paymentProofUploadsEnabled ? "Enabled" : "Disabled"}
+                </span>
+                {" · "}Company Valuation:{" "}
+                <span className="font-semibold text-foreground">
+                  {c.companyValuationEnabled ? "Enabled" : "Disabled"}
+                </span>
+                . Use “Save Changes” after updating these rules.
+              </p>
             </div>
           )}
 

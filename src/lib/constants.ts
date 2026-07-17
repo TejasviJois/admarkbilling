@@ -43,6 +43,11 @@ export const DEFAULT_COMPANY: CompanySettings = {
   branch: "",
   upi: "",
   authorizedName: "Authorized Signatory",
+  paymentTerms: "50% at project start; remaining 50% before deployment.",
+  remarks: "Thank you for your business!",
+  paymentMode: "Bank Transfer / UPI",
+  paymentProofUploadsEnabled: false,
+  companyValuationEnabled: false,
   companyMembers: [
     {
       id: "member-harshith",

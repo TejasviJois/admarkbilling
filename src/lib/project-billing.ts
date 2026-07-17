@@ -1,5 +1,5 @@
 import { formatINRWhole } from "./invoice-calc";
-import { sumProjectPayments } from "./project-payments";
+import { totalReceived } from "./project-payments";
 import { isRevenueProject, projectClientLabel } from "./project-status";
 import type { Project, ProjectBilling } from "./types";
 
@@ -118,12 +118,14 @@ export function resolveProjectBilling(project: Project): ProjectBilling {
   const explicit = project.billing;
   const parsed = parseBillingFromRevenueValue(project.revenueValue);
   const merged: ProjectBilling = {
+    contractValue: explicit?.contractValue,
     upfrontAmount: explicit?.upfrontAmount ?? parsed.upfrontAmount,
     maintenanceAmount: explicit?.maintenanceAmount ?? parsed.maintenanceAmount,
     maintenanceMonths: explicit?.maintenanceMonths ?? parsed.maintenanceMonths,
     monthlyAmount: explicit?.monthlyAmount ?? parsed.monthlyAmount,
     monthlyMonths: explicit?.monthlyMonths ?? parsed.monthlyMonths,
     monthlyStartDate: explicit?.monthlyStartDate ?? parsed.monthlyStartDate,
+    monthlyEndDate: explicit?.monthlyEndDate,
   };
   return normalizeBilling(merged, project);
 }
@@ -166,6 +168,21 @@ function normalizeBilling(billing: ProjectBilling, project: Project): ProjectBil
 }
 
 export function formatBillingLabel(billing: ProjectBilling): string {
+  // Authoritative contract total (Ground Zero import) — monthly split is informational.
+  if (billing.contractValue) {
+    let label = `${formatINRWhole(billing.contractValue)} total`;
+    if (billing.monthlyAmount) {
+      label += ` (incl. ${formatINRWhole(billing.monthlyAmount)}/month${
+        billing.monthlyMonths != null ? ` × ${billing.monthlyMonths}` : ""
+      })`;
+    } else if (billing.maintenanceAmount) {
+      label += ` (incl. ${formatINRWhole(billing.maintenanceAmount)} maintenance${
+        billing.maintenanceMonths != null ? ` for ${billing.maintenanceMonths} months` : ""
+      })`;
+    }
+    return label;
+  }
+
   const parts: string[] = [];
   const hasMaintenance = (billing.maintenanceAmount ?? 0) > 0;
   const hasMonthly = (billing.monthlyAmount ?? 0) > 0;
@@ -200,6 +217,7 @@ export function formatBillingLabel(billing: ProjectBilling): string {
     parts.push(m);
   }
   if (billing.monthlyStartDate) parts.push(`starts ${billing.monthlyStartDate}`);
+  if (billing.monthlyEndDate) parts.push(`closed ${billing.monthlyEndDate}`);
   return parts.length > 0 ? parts.join(" + ") : "—";
 }
 
@@ -213,6 +231,8 @@ export function recurringStatus(
   asOfDate: string,
 ): RecurringBillingStatus {
   if (!billing.monthlyAmount) return "none";
+  // Permanently closed retainers never come back as active or future.
+  if (billing.monthlyEndDate && billing.monthlyEndDate <= asOfDate) return "ended";
   if (!billing.monthlyStartDate) return "not_started";
   if (billing.monthlyStartDate > asOfDate) return "not_started";
 
@@ -240,6 +260,7 @@ function maintenanceCountsInBooked(billing: ProjectBilling): boolean {
 export function computeBookedRevenue(project: Project, asOfDate: string): number {
   if (!isRevenueProject(project.status)) return 0;
   const billing = resolveProjectBilling(project);
+  if (billing.contractValue) return billing.contractValue;
   let total = billing.upfrontAmount ?? 0;
 
   if (maintenanceCountsInBooked(billing)) {
@@ -271,6 +292,7 @@ export function computeBookedRevenue(project: Project, asOfDate: string): number
 /** Full contract value including maintenance — for payment targets. */
 export function computeTotalContractValue(project: Project, asOfDate: string): number {
   const billing = resolveProjectBilling(project);
+  if (billing.contractValue) return billing.contractValue;
   let total = billing.upfrontAmount ?? 0;
   total += billing.maintenanceAmount ?? 0;
 
@@ -297,24 +319,21 @@ export function activeMrr(project: Project, asOfDate: string): number {
   const billing = resolveProjectBilling(project);
   if (!isRevenueProject(project.status)) return 0;
   if (recurringStatus(billing, asOfDate) !== "active") return 0;
-  if (billing.monthlyMonths != null) return 0;
+  // Fixed-term retainers count as MRR while they run — recurringStatus
+  // flips them to "ended" once the term completes.
   return billing.monthlyAmount ?? 0;
 }
 
+/**
+ * Monthly rate (₹/month) of retainers that haven't started yet — the exact
+ * mirror of activeMrr. Maintenance lump sums are contract totals, not rates,
+ * so they never count here.
+ */
 export function futureMonthlyRevenue(project: Project, asOfDate: string): number {
   if (!isRevenueProject(project.status)) return 0;
   const billing = resolveProjectBilling(project);
-
-  // Hybrid maintenance (excluded from booked) — tracked as future monthly
-  if ((billing.maintenanceAmount ?? 0) > 0 && (billing.upfrontAmount ?? 0) > 0) {
-    return billing.maintenanceAmount ?? 0;
-  }
-
   if (!billing.monthlyAmount) return 0;
-  // Fixed-term contracts without upfront maintenance are in revenue booked
-  if (billing.monthlyMonths != null) return 0;
-  const status = recurringStatus(billing, asOfDate);
-  if (status !== "not_started") return 0;
+  if (recurringStatus(billing, asOfDate) !== "not_started") return 0;
   return billing.monthlyAmount;
 }
 
@@ -342,7 +361,7 @@ export function projectBillingRows(projects: Project[], asOfDate?: string): Proj
         recurringStatus: status,
         bookedRevenue,
         activeMrr: mrr,
-        received: sumProjectPayments(project.payments),
+        received: totalReceived(project),
         countsInBooked:
           bookedRevenue > 0 ||
           (hasUpfront && isRevenueProject(project.status)) ||
@@ -472,44 +491,15 @@ export function futureMonthlyBreakdown(projects: Project[], asOfDate?: string): 
   const asOf = asOfDate ?? new Date().toISOString().slice(0, 10);
   return projects
     .filter((p) => isRevenueProject(p.status))
-    .map((project) => {
+    .map((project): FutureMonthlyRow | null => {
       const amount = futureMonthlyRevenue(project, asOf);
       if (amount <= 0) return null;
       const billing = resolveProjectBilling(project);
 
-      const isHybridMaintenance =
-        (billing.maintenanceAmount ?? 0) > 0 &&
-        (billing.upfrontAmount ?? 0) > 0 &&
-        !(billing.monthlyAmount ?? 0);
-
-      let scheduleLabel: string;
-      let termKind: FutureMonthlyTermKind;
-      let amountSubtext: string;
-
-      if (isHybridMaintenance) {
-        if (
-          billing.maintenanceMonths != null &&
-          billing.maintenanceMonths > 0 &&
-          billing.maintenanceAmount! % billing.maintenanceMonths === 0
-        ) {
-          const perMonth = billing.maintenanceAmount! / billing.maintenanceMonths;
-          scheduleLabel = `${formatINRWhole(perMonth)}/month maintenance for ${billing.maintenanceMonths} months`;
-          termKind = "fixed";
-          amountSubtext = `${formatINRWhole(amount)} total (${formatINRWhole(perMonth)} × ${billing.maintenanceMonths})`;
-        } else {
-          scheduleLabel = `${formatINRWhole(billing.maintenanceAmount!)} maintenance`;
-          if (billing.maintenanceMonths != null) {
-            scheduleLabel += ` for ${billing.maintenanceMonths} months`;
-          }
-          termKind = "fixed";
-          amountSubtext = formatINRWhole(amount);
-        }
-      } else {
-        const schedule = formatUnstartedMonthlySchedule(billing);
-        scheduleLabel = schedule.scheduleLabel;
-        termKind = schedule.termKind;
-        amountSubtext = futureMonthlyAmountSubtext(billing, amount, termKind);
-      }
+      const schedule = formatUnstartedMonthlySchedule(billing);
+      const scheduleLabel = schedule.scheduleLabel;
+      const termKind = schedule.termKind;
+      const amountSubtext = futureMonthlyAmountSubtext(billing, amount, termKind);
 
       const upfrontNote =
         (billing.upfrontAmount ?? 0) > 0
@@ -545,6 +535,7 @@ export function recurringStatusLabel(status: RecurringBillingStatus): string {
 export function mergeProjectBilling(project: Project): Project {
   const billing = resolveProjectBilling(project);
   const hasBilling =
+    billing.contractValue != null ||
     billing.upfrontAmount != null ||
     billing.maintenanceAmount != null ||
     billing.monthlyAmount != null ||

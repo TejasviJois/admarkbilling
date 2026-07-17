@@ -57,9 +57,9 @@ export default function InvoiceForm({ onSaved }: Props) {
   const [items, setItems] = useState<LineItem[]>([blankItem()]);
   const [advance, setAdvance] = useState(0);
   const [taxPercent, setTaxPercent] = useState(0);
-  const [remarks, setRemarks] = useState("");
-  const [paymentTerms, setPaymentTerms] = useState("");
-  const [paymentMode, setPaymentMode] = useState("");
+  const [remarks, setRemarks] = useState(() => company.remarks ?? "");
+  const [paymentTerms, setPaymentTerms] = useState(() => company.paymentTerms ?? "");
+  const [paymentMode, setPaymentMode] = useState(() => company.paymentMode ?? "");
   const [paymentDate, setPaymentDate] = useState("");
   const [status, setStatus] = useState<Invoice["status"]>("paid");
   const [showPreview, setShowPreview] = useState(false);

@@ -1,14 +1,14 @@
 import type { FixedMonthlyExpense } from "./types";
 
-/** Prajwal handout / loan — EMI starts on the 5th of next month; not counted until then. */
+/** Prajwal handout / loan — first ₹20k EMI due 5 Aug 2026; not counted before then. */
 export const DEFAULT_FIXED_MONTHLY_EXPENSES: FixedMonthlyExpense[] = [
   {
     id: "fixed-prajwal-loan-emi",
     label: "Prajwal — company loan EMI",
     amountPerMonth: 20_000,
     kind: "emi",
-    startDate: "2026-07-05",
-    notes: "Handout from Prajwal — loan not disbursed yet. First EMI on the 5th.",
+    startDate: "2026-08-05",
+    notes: "Repayment of the ₹1,23,745 handout — ₹20,000/month starting 5 Aug 2026.",
     active: true,
   },
 ];

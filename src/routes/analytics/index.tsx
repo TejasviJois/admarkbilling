@@ -1,24 +1,18 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
-  Briefcase,
   Building2,
-  LineChart,
-  ShieldCheck,
   TrendingUp,
   Users,
-  Wallet,
 } from "lucide-react";
 import { CategoryBreakdownPanel } from "@/components/analytics/CategoryBreakdownPanel";
 import { LazyMonthlyChart } from "@/components/analytics/LazyMonthlyChart";
 import {
   AnalyticsKpiGrid,
   AnalyticsPageHeader,
-  AnalyticsPeriodFilter,
-  AnalyticsQuickLinks,
 } from "@/components/analytics/analytics-ui";
 import { OperationsLoading } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
@@ -28,17 +22,19 @@ import {
   buildIncomeSourceForPeriod,
   buildMoneyOutForPeriod,
 } from "@/lib/analytics";
-import { DEFAULT_PERIOD, periodLabel, type PeriodKey } from "@/lib/date-range-filter";
-import { computeFinancialSummary, formatFinancialINR } from "@/lib/financial";
+import type { PeriodKey } from "@/lib/date-range-filter";
+import { computeFinancialSummary } from "@/lib/financial";
 import { formatINRWhole } from "@/lib/invoice-calc";
 
 export const Route = createFileRoute("/analytics/")({
   component: AnalyticsPage,
 });
 
+// Analytics is fixed to the complete history — the Dashboard covers recent months.
+const period: PeriodKey = "all";
+
 function AnalyticsPage() {
   const { ops, loading } = useOperations();
-  const [period, setPeriod] = useState<PeriodKey>(DEFAULT_PERIOD);
 
   const financial = useMemo(() => computeFinancialSummary(ops), [ops]);
   const snapshot = useMemo(() => buildAnalyticsSnapshot(ops, period), [ops, period]);
@@ -54,7 +50,7 @@ function AnalyticsPage() {
 
   const clientIncomeTotal = incomeByClient.reduce((sum, row) => sum + row.amount, 0);
   const totalSpent = moneyOutByCategory.reduce((sum, row) => sum + row.amount, 0);
-  const periodHint = period === "all" ? "All time" : `Last ${periodLabel(period)}`;
+  const periodHint = "All time";
 
   if (loading) return <OperationsLoading />;
 
@@ -65,8 +61,7 @@ function AnalyticsPage() {
     <div className="space-y-8">
       <AnalyticsPageHeader
         title="Analytics"
-        description="Cash flow, category splits, and client trends — filtered by time period."
-        action={<AnalyticsPeriodFilter period={period} onPeriodChange={setPeriod} />}
+        description="Complete cash flow history, category splits, and client trends — all time."
       />
 
       <AnalyticsKpiGrid
@@ -83,25 +78,7 @@ function AnalyticsPage() {
             value: formatINRWhole(snapshot.periodExpenses),
             icon: ArrowUpRight,
             tone: "negative",
-            hint:
-              period === "all"
-                ? "Baseline + logged (excl. handouts)"
-                : `${periodHint} · incl. retainers`,
-          },
-          {
-            label: "Net flow",
-            value: formatINRWhole(snapshot.netFlow),
-            icon: LineChart,
-            tone: snapshot.netFlow >= 0 ? "positive" : "negative",
-            hint: "Income minus money out",
-          },
-          {
-            label: "Cash balance",
-            value: formatFinancialINR(snapshot.cashBalance),
-            icon: Wallet,
-            tone: snapshot.cashBalance >= 0 ? "accent" : "negative",
-            hint: "All-time position",
-            to: "/accounts",
+            hint: "Baseline + logged (excl. handouts)",
           },
           {
             label: "Active MRR",
@@ -109,15 +86,7 @@ function AnalyticsPage() {
             icon: TrendingUp,
             tone: "accent",
             hint: "Started retainers / month",
-            to: "/accounts",
-          },
-          {
-            label: "Revenue booked",
-            value: formatINRWhole(snapshot.revenueBooked),
-            icon: Briefcase,
-            tone: "neutral",
-            hint: `${snapshot.activeProjects} active projects`,
-            to: "/accounts/billing",
+            to: "/accounts/retainers",
           },
           {
             label: "Future monthly",
@@ -125,18 +94,7 @@ function AnalyticsPage() {
             icon: Building2,
             tone: "neutral",
             hint: "Unstarted retainers",
-            to: "/accounts/billing",
-          },
-          {
-            label: "Proof coverage",
-            value: snapshot.proofCoverage.total > 0 ? `${snapshot.proofCoverage.pct}%` : "—",
-            icon: ShieldCheck,
-            tone: snapshot.proofCoverage.pct >= 80 ? "positive" : "neutral",
-            hint:
-              snapshot.proofCoverage.total > 0
-                ? `${snapshot.proofCoverage.withProof} of ${snapshot.proofCoverage.total} payments`
-                : "No payments in period",
-            to: "/documents/payments/clients",
+            to: "/accounts/retainers",
           },
         ]}
       />
@@ -191,20 +149,16 @@ function AnalyticsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <CategoryBreakdownPanel
           title="Money in — by source"
-          description={
-            period === "all"
-              ? "Baseline reconciliation plus new project payments."
-              : "Project payments received in the selected period."
-          }
+          description="Baseline reconciliation plus new project payments."
           rows={incomeBySource}
-          total={period === "all" ? financial.totalRevenueReceived : snapshot.periodIncome}
+          total={financial.totalRevenueReceived}
           tone="income"
           emptyMessage="No income recorded for this period."
           icon={ArrowDownRight}
         />
         <CategoryBreakdownPanel
           title="Money out — by category"
-          description="Operating payouts logged in the period. Handouts excluded from cash balance."
+          description="Operating payouts logged in the period. Handout loans are not outflows — they're repaid monthly via EMI."
           rows={moneyOutByCategory}
           total={totalSpent}
           tone="expense"
@@ -224,41 +178,6 @@ function AnalyticsPage() {
         maxRows={10}
       />
 
-      <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
-        <h2 className="text-lg font-semibold tracking-tight">Explore further</h2>
-        <p className="mt-1 mb-4 text-sm text-muted-foreground">
-          Drill into ledgers, billing, and payment proofs.
-        </p>
-        <AnalyticsQuickLinks
-          links={[
-            {
-              label: "Projects",
-              description: "Manage active delivery, timelines, milestones, and payments.",
-              to: "/projects",
-            },
-            {
-              label: "Accounts",
-              description: "Project billing, collected income, and company assets.",
-              to: "/accounts",
-            },
-            {
-              label: "Expenses",
-              description: "Cash expenses, historical payouts, and monthly commitments.",
-              to: "/expenses",
-            },
-            {
-              label: "Billing details",
-              description: "Full project billing ledger with search.",
-              to: "/accounts/billing",
-            },
-            {
-              label: "Payment proofs",
-              description: "Client, partner, and vendor payment archives.",
-              to: "/documents/payments/clients",
-            },
-          ]}
-        />
-      </section>
     </div>
   );
 }
