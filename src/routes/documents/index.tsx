@@ -36,14 +36,26 @@ function DocumentsHubPage() {
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <QuickLink to="/documents/invoices" icon={<FileText className="h-4 w-4" />} label="All invoices" />
-          <QuickLink to="/documents/payments/clients" icon={<Users className="h-4 w-4" />} label="All clients" />
+          <QuickLink
+            to="/documents/invoices"
+            icon={<FileText className="h-4 w-4" />}
+            label="Invoice archive"
+          />
+          <QuickLink
+            to="/documents/payments/clients"
+            icon={<Users className="h-4 w-4" />}
+            label="All clients"
+          />
           <QuickLink
             to="/documents/payments/partners"
             icon={<Handshake className="h-4 w-4" />}
             label="All partners"
           />
-          <QuickLink to="/documents/payments/vendors" icon={<Truck className="h-4 w-4" />} label="All vendors" />
+          <QuickLink
+            to="/documents/payments/vendors"
+            icon={<Truck className="h-4 w-4" />}
+            label="All vendors"
+          />
           <QuickLink
             to="/documents/company"
             icon={<Building2 className="h-4 w-4" />}

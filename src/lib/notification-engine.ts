@@ -1,10 +1,11 @@
 import type { OperationsData, Invoice, AppNotification, Agreement } from "./types";
+import { formatScheduleDateTime, scheduleEventDate } from "./schedule";
 
 export function syncSystemNotifications(
   ops: OperationsData,
   invoices: Invoice[],
   agreements: Agreement[],
-  supabaseConfigured: boolean
+  supabaseConfigured: boolean,
 ): AppNotification[] {
   const existing = ops.notifications ?? [];
   const existingMap = new Map(existing.map((n) => [n.id, n]));
@@ -160,6 +161,26 @@ export function syncSystemNotifications(
   }
 
   // 7. Backup Completed
+  const now = Date.now();
+  for (const event of ops.scheduleEvents ?? []) {
+    if (event.status !== "scheduled") continue;
+    const eventTime = scheduleEventDate(event).getTime();
+    const minutesUntil = (eventTime - now) / 60_000;
+    const stillRelevant = minutesUntil >= -event.durationMinutes;
+    if (stillRelevant && minutesUntil <= event.reminderMinutes) {
+      addOrPreserve({
+        id: `schedule-reminder-${event.id}`,
+        title: `${event.type === "call" ? "Call" : "Meeting"} reminder`,
+        message: `${event.title} — ${formatScheduleDateTime(event)}.`,
+        priority: minutesUntil <= 10 ? "high" : "medium",
+        relatedModule: "calendar",
+        actionUrl: "/calendar",
+        actionLabel: event.meetingUrl ? "Open schedule" : "View calendar",
+      });
+    }
+  }
+
+  // 8. Backup Completed
   addOrPreserve({
     id: "system-backup-complete",
     title: "Database Backup Completed",
@@ -170,7 +191,7 @@ export function syncSystemNotifications(
     actionLabel: "Storage Settings",
   });
 
-  // 8. User Login
+  // 9. User Login
   addOrPreserve({
     id: "system-login-alert",
     title: "Security Login Alert",
@@ -181,12 +202,13 @@ export function syncSystemNotifications(
     actionLabel: "Audit Logs",
   });
 
-  // 9. System Errors
+  // 10. System Errors
   if (!supabaseConfigured) {
     addOrPreserve({
       id: "system-db-warning",
       title: "Local Database Fallback Active",
-      message: "WARNING: Server database configuration missing. Data is isolated to this browser session.",
+      message:
+        "WARNING: Server database configuration missing. Data is isolated to this browser session.",
       priority: "high",
       relatedModule: "system",
       actionUrl: "/settings",
@@ -196,7 +218,8 @@ export function syncSystemNotifications(
     addOrPreserve({
       id: "system-db-sync-ok",
       title: "Cloud Database Sync Successful",
-      message: "Successfully verified Supabase operational backend connection. Cloud records matched.",
+      message:
+        "Successfully verified Supabase operational backend connection. Cloud records matched.",
       priority: "low",
       relatedModule: "system",
       actionUrl: "/settings",

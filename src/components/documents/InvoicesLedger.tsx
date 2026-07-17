@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Download, Trash2 } from "lucide-react";
+import { Download } from "lucide-react";
 import { SearchWithPeriodFilter } from "@/components/operations/SearchWithPeriodFilter";
-import { deleteInvoice, loadCompany, loadInvoices } from "@/lib/storage";
+import { loadCompany, loadInvoices } from "@/lib/storage";
 import { computeTotals, formatINR, deriveInvoiceStatus } from "@/lib/invoice-calc";
 import { isWithinPeriod, DEFAULT_PERIOD, type PeriodKey } from "@/lib/date-range-filter";
 import { downloadInvoicePdf } from "@/lib/pdf";
@@ -21,7 +21,7 @@ export function InvoicesLedger({
   const [period, setPeriod] = useState<PeriodKey>(DEFAULT_PERIOD);
   const [status, setStatus] = useState<"all" | Invoice["status"]>("all");
   const { ops } = useOperations();
-  const payments = ops.payments ?? [];
+  const payments = useMemo(() => ops.payments ?? [], [ops.payments]);
 
   const refresh = () =>
     void loadInvoices()
@@ -53,13 +53,6 @@ export function InvoicesLedger({
       );
     });
   }, [derivedInvoices, q, period, status]);
-
-  const handleDelete = (id: string) => {
-    if (!confirm("Delete this invoice? This cannot be undone.")) return;
-    void deleteInvoice(id)
-      .then(refresh)
-      .catch((e) => logClientError("invoicesLedger.delete", e));
-  };
 
   const handleDownload = (inv: Invoice) => {
     void loadCompany()
@@ -115,7 +108,9 @@ export function InvoicesLedger({
                         >
                           {inv.number}
                         </Link>
-                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{inv.clientName}</p>
+                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                          {inv.clientName}
+                        </p>
                       </div>
                       <StatusBadge status={inv.status} />
                     </div>
@@ -130,19 +125,14 @@ export function InvoicesLedger({
                       </div>
                       <div className="flex justify-between gap-3">
                         <dt className="font-medium text-foreground">Payable</dt>
-                        <dd className="font-semibold tabular-nums text-foreground">{formatINR(t.payable)}</dd>
+                        <dd className="font-semibold tabular-nums text-foreground">
+                          {formatINR(t.payable)}
+                        </dd>
                       </div>
                     </dl>
                     <div className="mt-4 flex justify-end gap-1 border-t border-border pt-3">
                       <IconButton title="Download PDF" onClick={() => handleDownload(inv)}>
                         <Download className="h-4 w-4" />
-                      </IconButton>
-                      <IconButton
-                        title="Delete"
-                        onClick={() => handleDelete(inv.id)}
-                        destructive
-                      >
-                        <Trash2 className="h-4 w-4" />
                       </IconButton>
                     </div>
                   </li>
@@ -166,7 +156,10 @@ export function InvoicesLedger({
                   {filtered.map((inv) => {
                     const t = computeTotals(inv);
                     return (
-                      <tr key={inv.id} className="border-t border-border transition-colors hover:bg-muted/40">
+                      <tr
+                        key={inv.id}
+                        className="border-t border-border transition-colors hover:bg-muted/40"
+                      >
                         <td className="max-w-[11rem] px-4 py-3">
                           <Link
                             to="/invoice/$id"
@@ -180,8 +173,12 @@ export function InvoicesLedger({
                         <td className="max-w-[10rem] truncate px-4 py-3" title={inv.clientName}>
                           {inv.clientName}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{inv.date}</td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{formatINR(t.total)}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                          {inv.date}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">
+                          {formatINR(t.total)}
+                        </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums">
                           {formatINR(t.payable)}
                         </td>
@@ -192,9 +189,6 @@ export function InvoicesLedger({
                           <div className="inline-flex gap-1">
                             <IconButton title="Download PDF" onClick={() => handleDownload(inv)}>
                               <Download className="h-4 w-4" />
-                            </IconButton>
-                            <IconButton title="Delete" onClick={() => handleDelete(inv.id)} destructive>
-                              <Trash2 className="h-4 w-4" />
                             </IconButton>
                           </div>
                         </td>
@@ -231,23 +225,17 @@ function IconButton({
   title,
   onClick,
   children,
-  destructive,
 }: {
   title: string;
   onClick: () => void;
   children: React.ReactNode;
-  destructive?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       title={title}
-      className={
-        destructive
-          ? "inline-flex h-10 w-10 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:h-9 md:w-9 md:border-0"
-          : "inline-flex h-10 w-10 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-secondary hover:text-foreground md:h-9 md:w-9 md:border-0 md:hover:bg-secondary"
-      }
+      className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-secondary hover:text-foreground md:h-9 md:w-9 md:border-0 md:hover:bg-secondary"
     >
       {children}
     </button>

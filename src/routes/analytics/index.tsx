@@ -50,10 +50,7 @@ function AnalyticsPage() {
     () => buildIncomeSourceForPeriod(financial, snapshot.periodIncome, period),
     [financial, snapshot.periodIncome, period],
   );
-  const moneyOutByCategory = useMemo(
-    () => buildMoneyOutForPeriod(ops, period),
-    [ops, period],
-  );
+  const moneyOutByCategory = useMemo(() => buildMoneyOutForPeriod(ops, period), [ops, period]);
 
   const clientIncomeTotal = incomeByClient.reduce((sum, row) => sum + row.amount, 0);
   const totalSpent = moneyOutByCategory.reduce((sum, row) => sum + row.amount, 0);
@@ -132,10 +129,7 @@ function AnalyticsPage() {
           },
           {
             label: "Proof coverage",
-            value:
-              snapshot.proofCoverage.total > 0
-                ? `${snapshot.proofCoverage.pct}%`
-                : "—",
+            value: snapshot.proofCoverage.total > 0 ? `${snapshot.proofCoverage.pct}%` : "—",
             icon: ShieldCheck,
             tone: snapshot.proofCoverage.pct >= 80 ? "positive" : "neutral",
             hint:
@@ -155,7 +149,9 @@ function AnalyticsPage() {
                 Top client · {periodHint}
               </p>
               <p className="mt-1 font-semibold text-foreground">{topClient.label}</p>
-              <p className="text-sm tabular-nums text-emerald-400">{formatINRWhole(topClient.amount)}</p>
+              <p className="text-sm tabular-nums text-emerald-400">
+                {formatINRWhole(topClient.amount)}
+              </p>
             </div>
           )}
           {topExpense && topExpense.amount > 0 && (
@@ -164,7 +160,9 @@ function AnalyticsPage() {
                 Largest outflow · {periodHint}
               </p>
               <p className="mt-1 font-semibold text-foreground">{topExpense.label}</p>
-              <p className="text-sm tabular-nums text-rose-400">{formatINRWhole(topExpense.amount)}</p>
+              <p className="text-sm tabular-nums text-rose-400">
+                {formatINRWhole(topExpense.amount)}
+              </p>
             </div>
           )}
         </div>
@@ -234,14 +232,19 @@ function AnalyticsPage() {
         <AnalyticsQuickLinks
           links={[
             {
-              label: "Ongoing projects",
-              description: "Active billing, booked value, and received amounts.",
-              to: "/analytics/ongoing",
+              label: "Projects",
+              description: "Manage active delivery, timelines, milestones, and payments.",
+              to: "/projects",
             },
             {
               label: "Accounts",
-              description: "Income, expenses, assets, and monthly retainers.",
+              description: "Project billing, collected income, and company assets.",
               to: "/accounts",
+            },
+            {
+              label: "Expenses",
+              description: "Cash expenses, historical payouts, and monthly commitments.",
+              to: "/expenses",
             },
             {
               label: "Billing details",

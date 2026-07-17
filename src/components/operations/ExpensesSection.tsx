@@ -38,9 +38,7 @@ export function ExpensesSection({
 
   const loggedExpenses = useMemo(
     () =>
-      [...ops.expenses.filter((e) => !e.isBaseline)].sort((a, b) =>
-        b.date.localeCompare(a.date),
-      ),
+      [...ops.expenses.filter((e) => !e.isBaseline)].sort((a, b) => b.date.localeCompare(a.date)),
     [ops.expenses],
   );
 
@@ -71,8 +69,8 @@ export function ExpensesSection({
       defaultOpen={false}
       open={open}
       onOpenChange={onOpenChange}
-      title="Expense ledger"
-      description="Logged payouts after the historical baseline — each entry requires proof."
+      title="Historical payout records"
+      description="Legacy payout and proof records retained for audit continuity. New cash expenses are entered below."
       icon={<Wallet className="h-5 w-5 text-primary" strokeWidth={2} />}
     >
       <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">

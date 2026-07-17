@@ -1,12 +1,23 @@
 import { useState, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Search, Filter, Download, ArrowUpRight, ArrowDownRight, Wallet, DollarSign, FileSpreadsheet } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Filter,
+  Download,
+  ArrowUpRight,
+  ArrowDownRight,
+  Wallet,
+  DollarSign,
+  FileSpreadsheet,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TransactionFormDialog } from "@/components/operations/TransactionFormDialog";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
 import { formatINR, formatINRWhole } from "@/lib/invoice-calc";
+import { isFounderSalary } from "@/lib/founder-ledger";
 import { statusBadgeClassDark } from "@/lib/invoice-status";
 import type { Transaction, TransactionType } from "@/lib/types";
 
@@ -16,12 +27,12 @@ function TransactionsPage() {
   const { ops, persist, loading } = useOperations();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
-  
+
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [methodFilter, setMethodFilter] = useState<string>("all");
 
-  const transactions = ops.transactions ?? [];
+  const transactions = useMemo(() => ops.transactions ?? [], [ops.transactions]);
   const clients = ops.clients ?? [];
   const projects = ops.projects ?? [];
 
@@ -43,7 +54,12 @@ function TransactionsPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("Are you sure you want to delete this transaction record? This will instantly recalculate all financial statistics.")) return;
+    if (
+      !confirm(
+        "Are you sure you want to delete this transaction record? This will instantly recalculate all financial statistics.",
+      )
+    )
+      return;
     persist({ ...ops, transactions: transactions.filter((t) => t.id !== id) });
   };
 
@@ -108,8 +124,8 @@ function TransactionsPage() {
   return (
     <div className="space-y-6">
       <OperationsPageHeader
-        title="Unified Ledger"
-        description="Unified Transactions database. Single source of truth for all business accounts, payouts, and client collections."
+        title="Transactions"
+        description="The primary financial ledger for business accounts, payouts, transfers, and client collections."
         action={
           <Button type="button" onClick={handleAdd} className="inline-flex items-center gap-2">
             <Plus className="h-4 w-4" /> Add Transaction
@@ -144,14 +160,18 @@ function TransactionsPage() {
             <span className="text-xs font-semibold uppercase tracking-wider">Net Cash Flow</span>
             <Wallet className="h-5 w-5 text-blue-500" />
           </div>
-          <p className={`mt-2 text-2xl font-bold tabular-nums ${stats.netFlow >= 0 ? "text-blue-600" : "text-rose-600"}`}>
+          <p
+            className={`mt-2 text-2xl font-bold tabular-nums ${stats.netFlow >= 0 ? "text-blue-600" : "text-rose-600"}`}
+          >
             {formatINRWhole(stats.netFlow)}
           </p>
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Founder Withdrawals</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">
+              Founder Withdrawals
+            </span>
             <DollarSign className="h-5 w-5 text-indigo-500" />
           </div>
           <p className="mt-2 text-2xl font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">
@@ -171,7 +191,7 @@ function TransactionsPage() {
             className="pl-9"
           />
         </div>
-        
+
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
@@ -228,26 +248,34 @@ function TransactionsPage() {
                     {tx.date}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      tx.type === "client_payment"
-                        ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
-                        : tx.type === "expense"
-                        ? "bg-rose-500/20 text-rose-700 dark:text-rose-300"
-                        : tx.type === "founder_investment"
-                        ? "bg-blue-500/20 text-blue-700 dark:text-blue-300"
-                        : tx.type === "founder_withdrawal"
-                        ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
-                        : tx.type === "refund"
-                        ? "bg-cyan-500/20 text-cyan-700 dark:text-cyan-300"
-                        : "bg-indigo-500/20 text-indigo-700 dark:text-indigo-300"
-                    }`}>
-                      {tx.type.replace("_", " ")}
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                        tx.type === "client_payment"
+                          ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                          : tx.type === "expense"
+                            ? "bg-rose-500/20 text-rose-700 dark:text-rose-300"
+                            : tx.type === "founder_investment"
+                              ? "bg-blue-500/20 text-blue-700 dark:text-blue-300"
+                              : tx.type === "founder_withdrawal"
+                                ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+                                : tx.type === "refund"
+                                  ? "bg-cyan-500/20 text-cyan-700 dark:text-cyan-300"
+                                  : "bg-indigo-500/20 text-indigo-700 dark:text-indigo-300"
+                      }`}
+                    >
+                      {tx.type === "founder_withdrawal"
+                        ? isFounderSalary(tx)
+                          ? "founder salary"
+                          : "share withdrawal"
+                        : tx.type.replace("_", " ")}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <div>
                       <p className="font-semibold text-foreground">{tx.description}</p>
-                      {tx.notes && <p className="text-xs text-muted-foreground mt-0.5">{tx.notes}</p>}
+                      {tx.notes && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{tx.notes}</p>
+                      )}
                       <div className="flex flex-wrap gap-1.5 mt-1 text-[10px]">
                         {tx.relatedClientId && (
                           <span className="text-blue-600 bg-blue-500/10 px-1.5 py-0.5 rounded">
@@ -267,9 +295,7 @@ function TransactionsPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground font-medium">
-                    {tx.category}
-                  </td>
+                  <td className="px-4 py-3 text-muted-foreground font-medium">{tx.category}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-foreground">
                     {formatINR(tx.amount)}
                   </td>

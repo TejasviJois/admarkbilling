@@ -13,12 +13,25 @@ import {
   FileText,
   Percent,
   ListTodo,
-  Sparkles,
+  CalendarDays,
+  Clock3,
+  Phone,
 } from "lucide-react";
 import { useOperations } from "@/hooks/use-operations";
 import { useInvoices } from "@/hooks/use-invoices";
 import { computeFinancialSummary } from "@/lib/financial";
-import { formatINR, formatINRWhole, computeTotals, calculateInvoicePayments } from "@/lib/invoice-calc";
+import {
+  formatINR,
+  formatINRWhole,
+  computeTotals,
+  calculateInvoicePayments,
+} from "@/lib/invoice-calc";
+import {
+  formatScheduleDateTime,
+  isUpcomingScheduleEvent,
+  scheduleReminderState,
+  sortScheduleEvents,
+} from "@/lib/schedule";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({ component: ExecutiveDashboard });
@@ -27,12 +40,21 @@ function ExecutiveDashboard() {
   const { ops, loading: opsLoading } = useOperations();
   const { invoices, loading: invoicesLoading } = useInvoices();
   const [mounted, setMounted] = useState(false);
+  const [reminderClock, setReminderClock] = useState(() => Date.now());
 
   useEffect(() => {
     setMounted(true);
+    const timer = window.setInterval(() => setReminderClock(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   const loading = opsLoading || invoicesLoading;
+  const upcomingSchedule = useMemo(() => {
+    const now = new Date(reminderClock);
+    return sortScheduleEvents(
+      (ops.scheduleEvents ?? []).filter((event) => isUpcomingScheduleEvent(event, now)),
+    ).slice(0, 5);
+  }, [ops.scheduleEvents, reminderClock]);
 
   // Dynamic calculations
   const dashboardData = useMemo(() => {
@@ -66,10 +88,10 @@ function ExecutiveDashboard() {
     // 2. Upcoming Payments / Milestone Targets
     const upcomingPayments = projects.reduce((sum, p) => {
       const ms = p.milestones ?? [];
-      const pendingMilestonesValue = ms
-        .filter((m) => m.status !== "completed" && m.paymentTrigger)
-        .length;
-      
+      const pendingMilestonesValue = ms.filter(
+        (m) => m.status !== "completed" && m.paymentTrigger,
+      ).length;
+
       // Pro-rate upcoming from remaining budget
       const received = transactions
         .filter((t) => t.relatedProjectId === p.id && t.type === "client_payment")
@@ -118,17 +140,7 @@ function ExecutiveDashboard() {
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 4);
 
-    // 7. Recent Invoices
-    const recentInvoices = [...invoices]
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(0, 4);
-
-    // 8. Recent Activity Feed
-    const recentActivities = transactions
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(0, 5);
-
-    // 9. Monthly Revenue & Profit Chart (Last 6 Months)
+    // 7. Monthly Revenue & Profit Chart (Last 6 Months)
     const monthKeys = Array.from({ length: 6 }, (_, i) => {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
@@ -136,15 +148,21 @@ function ExecutiveDashboard() {
     }).reverse();
 
     const monthlyChartData = monthKeys.map((mKey) => {
-      const monthPayments = transactions.filter((t) => t.type === "client_payment" && t.date.startsWith(mKey));
-      const monthExpenses = transactions.filter((t) => t.type === "expense" && t.date.startsWith(mKey));
-      
+      const monthPayments = transactions.filter(
+        (t) => t.type === "client_payment" && t.date.startsWith(mKey),
+      );
+      const monthExpenses = transactions.filter(
+        (t) => t.type === "expense" && t.date.startsWith(mKey),
+      );
+
       const rev = monthPayments.reduce((s, t) => s + t.amount, 0);
       const exp = monthExpenses.reduce((s, t) => s + t.amount, 0);
       const profit = rev - exp;
-      
+
       const parts = mKey.split("-");
-      const label = new Date(Number(parts[0]), Number(parts[1]) - 1).toLocaleString("default", { month: "short" });
+      const label = new Date(Number(parts[0]), Number(parts[1]) - 1).toLocaleString("default", {
+        month: "short",
+      });
 
       return {
         label,
@@ -155,9 +173,12 @@ function ExecutiveDashboard() {
     });
 
     // Max value for chart scaling
-    const maxChartValue = Math.max(...monthlyChartData.map((d) => Math.max(d.revenue, d.expenses)), 10000);
+    const maxChartValue = Math.max(
+      ...monthlyChartData.map((d) => Math.max(d.revenue, d.expenses)),
+      10000,
+    );
 
-    // 10. Expense Category Allocation
+    // 8. Expense Category Allocation
     const expenseCategoriesMap: Record<string, number> = {};
     const totalExpenses = transactions
       .filter((t) => t.type === "expense")
@@ -176,11 +197,12 @@ function ExecutiveDashboard() {
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
 
-    // 11. Top Clients by Revenue
+    // 9. Top Clients by Revenue
     const clientRevenueMap: Record<string, number> = {};
     for (const t of transactions) {
       if (t.type === "client_payment") {
-        const clientName = t.description.replace("Payment from ", "").split(" (")[0] || "General Client";
+        const clientName =
+          t.description.replace("Payment from ", "").split(" (")[0] || "General Client";
         clientRevenueMap[clientName] = (clientRevenueMap[clientName] || 0) + t.amount;
       }
     }
@@ -204,8 +226,6 @@ function ExecutiveDashboard() {
       weightedPipeline,
       upcomingTasks,
       recentPayments,
-      recentInvoices,
-      recentActivities,
       monthlyChartData,
       maxChartValue,
       expenseBreakdown,
@@ -217,20 +237,18 @@ function ExecutiveDashboard() {
     return (
       <div className="flex min-h-[60vh] items-center justify-center text-sm text-muted-foreground">
         <Activity className="mr-2 h-5 w-5 animate-spin text-primary" />
-        Compiling Executive Diagnostics…
+        Loading dashboard…
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      
       {/* Header Welcome banner */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-border pb-5">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary animate-pulse" />
-            Executive Command Center
+            Business Overview
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Real-time financial status, pipeline forecasts, and operational analytics.
@@ -239,20 +257,92 @@ function ExecutiveDashboard() {
         <div className="flex flex-wrap gap-2.5">
           <Link to="/invoices">
             <Button size="sm" variant="outline">
-              <FileText className="mr-1.5 h-4 w-4" /> Billing Center
+              <FileText className="mr-1.5 h-4 w-4" /> Invoices
             </Button>
           </Link>
           <Link to="/leads">
-            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+            <Button
+              size="sm"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+            >
               <TrendingUp className="mr-1.5 h-4 w-4" /> Sales Pipeline
             </Button>
           </Link>
         </div>
       </div>
 
+      {/* Meetings and calls reminder strip */}
+      <section className="rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="rounded-lg bg-primary/10 p-2 text-primary">
+              <CalendarDays className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 className="text-sm font-bold text-foreground">Meetings & Calls</h2>
+              <p className="text-xs text-muted-foreground">Your next scheduled reminders</p>
+            </div>
+          </div>
+          <Link to="/calendar">
+            <Button size="sm" variant="outline">
+              Open Calendar
+            </Button>
+          </Link>
+        </div>
+
+        {upcomingSchedule.length === 0 ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-border bg-background/60 px-4 py-3">
+            <p className="text-xs text-muted-foreground">No upcoming meetings or calls.</p>
+            <Link to="/calendar" className="text-xs font-bold text-primary hover:underline">
+              Create a schedule
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {upcomingSchedule.map((event) => {
+              const reminderState = scheduleReminderState(event, new Date(reminderClock));
+              return (
+                <Link
+                  key={event.id}
+                  to="/calendar"
+                  className={`rounded-lg border bg-card p-3 transition-colors hover:border-primary/50 ${
+                    reminderState === "due"
+                      ? "border-rose-500/50 ring-1 ring-rose-500/20"
+                      : "border-border"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-foreground">{event.title}</p>
+                      <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                        {event.type === "call" ? (
+                          <Phone className="h-3 w-3" />
+                        ) : (
+                          <CalendarDays className="h-3 w-3" />
+                        )}
+                        {event.type === "call" ? "Call" : "Meeting"}
+                        {event.contact ? ` · ${event.contact}` : ""}
+                      </p>
+                    </div>
+                    {reminderState === "due" && (
+                      <span className="shrink-0 rounded-full bg-rose-500/10 px-2 py-0.5 text-[9px] font-bold uppercase text-rose-600">
+                        Reminder
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-primary">
+                    <Clock3 className="h-3.5 w-3.5" />
+                    {formatScheduleDateTime(event)}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       {/* Row 1: Premium Financial KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        
         {/* Cash Balance */}
         <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between text-muted-foreground">
@@ -299,11 +389,19 @@ function ExecutiveDashboard() {
         <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-semibold uppercase tracking-wider">Net Profit</span>
-            <span className={`p-0.5 rounded ${dashboardData.netProfit >= 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}`}>
-              {dashboardData.netProfit >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+            <span
+              className={`p-0.5 rounded ${dashboardData.netProfit >= 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}`}
+            >
+              {dashboardData.netProfit >= 0 ? (
+                <ArrowUpRight className="h-4 w-4" />
+              ) : (
+                <ArrowDownRight className="h-4 w-4" />
+              )}
             </span>
           </div>
-          <p className={`mt-3 text-2xl font-bold tracking-tight tabular-nums ${dashboardData.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600"}`}>
+          <p
+            className={`mt-3 text-2xl font-bold tracking-tight tabular-nums ${dashboardData.netProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600"}`}
+          >
             {formatINRWhole(dashboardData.netProfit)}
           </p>
           <div className="mt-2 text-[10px] text-muted-foreground flex justify-between font-semibold">
@@ -324,28 +422,30 @@ function ExecutiveDashboard() {
             Receivables Pending Invoice
           </div>
         </div>
-
       </div>
 
       {/* Row 2: Secondary Grid (Desktop First: Left Content, Middle Ops, Right Feeds) */}
       <div className="grid gap-6 lg:grid-cols-3">
-        
         {/* Left Column: Visual Charts & Analytics */}
         <div className="space-y-6">
-          
           {/* Monthly Revenue Chart */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
               <span>Monthly Revenue Trend</span>
-              <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold uppercase">Last 6 Months</span>
+              <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold uppercase">
+                Last 6 Months
+              </span>
             </h2>
-            
+
             {/* Visual HTML Bar Chart */}
             <div className="mt-6 flex h-40 items-end justify-between gap-2.5 px-2">
               {dashboardData.monthlyChartData.map((d) => {
                 const heightPercent = Math.round((d.revenue / dashboardData.maxChartValue) * 100);
                 return (
-                  <div key={d.label} className="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
+                  <div
+                    key={d.label}
+                    className="flex-1 flex flex-col items-center gap-2 group cursor-pointer"
+                  >
                     <div className="w-full relative flex items-end justify-center h-28">
                       {/* Revenue Bar */}
                       <div
@@ -359,29 +459,38 @@ function ExecutiveDashboard() {
                 );
               })}
             </div>
-            
+
             <div className="mt-4 flex justify-center gap-6 text-[10px] font-bold text-muted-foreground border-t border-border/40 pt-3">
-              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-primary" /> Revenue (INR)</span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded bg-primary" /> Revenue (INR)
+              </span>
             </div>
           </div>
 
           {/* Expense Allocation */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center gap-2">
-              <Percent className="h-4 w-4 text-rose-500" /> Expense Breakdown
+              <Percent className="h-4 w-4 text-rose-500" /> Expense Summary
             </h2>
             <div className="mt-4 space-y-3">
               {dashboardData.expenseBreakdown.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-4 text-center">No categories logged yet.</p>
+                <p className="text-xs text-muted-foreground italic py-4 text-center">
+                  No categories logged yet.
+                </p>
               ) : (
                 dashboardData.expenseBreakdown.map((item) => (
                   <div key={item.category} className="space-y-1">
                     <div className="flex items-center justify-between text-xs font-semibold">
                       <span className="text-foreground">{item.category}</span>
-                      <span className="tabular-nums text-muted-foreground">{item.percentage.toFixed(1)}% &middot; {formatINRWhole(item.amount)}</span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {item.percentage.toFixed(1)}% &middot; {formatINRWhole(item.amount)}
+                      </span>
                     </div>
                     <div className="h-1.5 w-full bg-muted rounded overflow-hidden">
-                      <div className="h-full bg-rose-500 rounded" style={{ width: `${item.percentage}%` }} />
+                      <div
+                        className="h-full bg-rose-500 rounded"
+                        style={{ width: `${item.percentage}%` }}
+                      />
                     </div>
                   </div>
                 ))
@@ -392,44 +501,64 @@ function ExecutiveDashboard() {
           {/* Top Clients */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" /> Top Client Accounts
+              <Users className="h-4 w-4 text-primary" /> Top Clients
             </h2>
             <div className="mt-4 space-y-3">
               {dashboardData.topClients.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-4 text-center">No client payments recorded yet.</p>
+                <p className="text-xs text-muted-foreground italic py-4 text-center">
+                  No client payments recorded yet.
+                </p>
               ) : (
                 dashboardData.topClients.map((client, idx) => (
-                  <div key={client.name} className="flex items-center justify-between text-xs border-b border-border/40 pb-2">
+                  <div
+                    key={client.name}
+                    className="flex items-center justify-between text-xs border-b border-border/40 pb-2"
+                  >
                     <div className="flex items-center gap-2">
-                      <span className="h-5 w-5 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-[10px]">{idx + 1}</span>
+                      <span className="h-5 w-5 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-[10px]">
+                        {idx + 1}
+                      </span>
                       <span className="font-bold text-foreground">{client.name}</span>
                     </div>
-                    <span className="font-bold tabular-nums text-foreground">{formatINR(client.total)}</span>
+                    <span className="font-bold tabular-nums text-foreground">
+                      {formatINR(client.total)}
+                    </span>
                   </div>
                 ))
               )}
             </div>
           </div>
-
         </div>
 
         {/* Middle Column: Operational Pipeline */}
         <div className="space-y-6">
-          
           {/* Sales Pipeline Forecast */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
-              <span>Sales CRM Funnel</span>
-              <Link to="/leads" className="text-[10px] text-primary hover:underline font-bold uppercase">Pipeline View</Link>
+              <span>Sales Pipeline</span>
+              <Link
+                to="/leads"
+                className="text-[10px] text-primary hover:underline font-bold uppercase"
+              >
+                Pipeline View
+              </Link>
             </h2>
             <div className="mt-4 grid gap-3 grid-cols-2">
               <div className="rounded border border-border bg-muted/20 p-3">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase">Pipeline Value</p>
-                <p className="text-lg font-bold tabular-nums text-foreground mt-1">{formatINRWhole(dashboardData.pipelineValue)}</p>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase">
+                  Pipeline Value
+                </p>
+                <p className="text-lg font-bold tabular-nums text-foreground mt-1">
+                  {formatINRWhole(dashboardData.pipelineValue)}
+                </p>
               </div>
               <div className="rounded border border-border bg-muted/20 p-3">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase">Expected (Weighted)</p>
-                <p className="text-lg font-bold tabular-nums text-primary mt-1">{formatINRWhole(dashboardData.weightedPipeline)}</p>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase">
+                  Expected (Weighted)
+                </p>
+                <p className="text-lg font-bold tabular-nums text-primary mt-1">
+                  {formatINRWhole(dashboardData.weightedPipeline)}
+                </p>
               </div>
             </div>
           </div>
@@ -438,12 +567,16 @@ function ExecutiveDashboard() {
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
               <span>Active Projects</span>
-              <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded font-bold uppercase">{dashboardData.activeProjectsCount} Ongoing</span>
+              <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded font-bold uppercase">
+                {dashboardData.activeProjectsCount} Ongoing
+              </span>
             </h2>
-            
+
             <div className="mt-4 space-y-4 max-h-[300px] overflow-y-auto pr-1">
               {ops.projects.filter((p) => p.status === "active").length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-4 text-center">No active projects logged.</p>
+                <p className="text-xs text-muted-foreground italic py-4 text-center">
+                  No active projects logged.
+                </p>
               ) : (
                 ops.projects
                   .filter((p) => p.status === "active")
@@ -452,19 +585,30 @@ function ExecutiveDashboard() {
                     let progress = 0;
                     const ms = project.milestones ?? [];
                     if (ms.length > 0) {
-                      progress = Math.round((ms.filter((m) => m.status === "completed").length / ms.length) * 100);
+                      progress = Math.round(
+                        (ms.filter((m) => m.status === "completed").length / ms.length) * 100,
+                      );
                     } else {
                       progress = 50; // active fallback
                     }
 
                     return (
-                      <div key={project.id} className="space-y-1.5 border border-border/60 rounded p-3 bg-muted/10">
+                      <div
+                        key={project.id}
+                        className="space-y-1.5 border border-border/60 rounded p-3 bg-muted/10"
+                      >
                         <div className="flex justify-between items-start">
                           <div>
-                            <Link to="/projects/$id" params={{ id: project.id }} className="font-bold text-xs text-primary hover:underline">
+                            <Link
+                              to="/projects/$id"
+                              params={{ id: project.id }}
+                              className="font-bold text-xs text-primary hover:underline"
+                            >
                               {project.client}
                             </Link>
-                            <p className="text-[10px] text-muted-foreground">{project.projectType || "General Work"}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {project.projectType || "General Work"}
+                            </p>
                           </div>
                           <span className="text-[10px] font-semibold tabular-nums text-foreground">
                             {project.budget ? formatINRWhole(project.budget) : "—"}
@@ -484,24 +628,33 @@ function ExecutiveDashboard() {
 
             <div className="mt-4 border-t border-border/40 pt-3 flex justify-between text-xs text-muted-foreground">
               <span>Active Project Margin Forecast:</span>
-              <span className="font-bold text-foreground">{formatINRWhole(dashboardData.projectProfit)}</span>
+              <span className="font-bold text-foreground">
+                {formatINRWhole(dashboardData.projectProfit)}
+              </span>
             </div>
           </div>
 
           {/* Today's Tasks / Milestone Deadlines */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center gap-2">
-              <ListTodo className="h-4 w-4 text-primary" /> Operations Checklist
+              <ListTodo className="h-4 w-4 text-primary" /> Upcoming Milestones
             </h2>
             <div className="mt-4 space-y-3">
               {dashboardData.upcomingTasks.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-4 text-center">All milestones completed!</p>
+                <p className="text-xs text-muted-foreground italic py-4 text-center">
+                  All milestones completed!
+                </p>
               ) : (
                 dashboardData.upcomingTasks.map((task) => (
-                  <div key={task.id} className="flex justify-between items-center text-xs border border-border/40 rounded p-2.5 bg-muted/20">
+                  <div
+                    key={task.id}
+                    className="flex justify-between items-center text-xs border border-border/40 rounded p-2.5 bg-muted/20"
+                  >
                     <div>
                       <p className="font-bold text-foreground">{task.name}</p>
-                      <p className="text-[9px] text-muted-foreground mt-0.5">{task.projectName} &middot; {task.dueDate || "No deadline"}</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">
+                        {task.projectName} &middot; {task.dueDate || "No deadline"}
+                      </p>
                     </div>
                     <span className="inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] text-amber-600 dark:text-amber-400 font-bold uppercase">
                       {task.status.replace("_", " ")}
@@ -511,19 +664,19 @@ function ExecutiveDashboard() {
               )}
             </div>
           </div>
-
         </div>
 
         {/* Right Column: Feeds & Recent Activity Logs */}
         <div className="space-y-6">
-          
           {/* Upcoming Payments / Receivables Targets */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-indigo-500" /> Payment Target Inflows
+              <Calendar className="h-4 w-4 text-indigo-500" /> Expected Payments
             </h2>
             <div className="mt-4 rounded bg-indigo-500/5 border border-indigo-500/15 p-4 text-center">
-              <p className="text-xs text-muted-foreground font-semibold">Forecast Inflows (Unreleased Milestones)</p>
+              <p className="text-xs text-muted-foreground font-semibold">
+                Forecast Inflows (Unreleased Milestones)
+              </p>
               <p className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 tabular-nums mt-1.5">
                 {formatINRWhole(dashboardData.upcomingPayments)}
               </p>
@@ -533,19 +686,31 @@ function ExecutiveDashboard() {
           {/* Recent Payments Logs */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
-              <span>Recent Inflow Payments</span>
-              <Link to="/transactions" className="text-[10px] text-primary hover:underline font-bold uppercase">Ledger</Link>
+              <span>Recent Payments</span>
+              <Link
+                to="/transactions"
+                className="text-[10px] text-primary hover:underline font-bold uppercase"
+              >
+                Ledger
+              </Link>
             </h2>
-            
+
             <div className="mt-4 space-y-3">
               {dashboardData.recentPayments.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-4 text-center">No payment transactions found.</p>
+                <p className="text-xs text-muted-foreground italic py-4 text-center">
+                  No payment transactions found.
+                </p>
               ) : (
                 dashboardData.recentPayments.map((pay) => (
-                  <div key={pay.id} className="flex justify-between items-center text-xs border-b border-border/40 pb-2.5">
+                  <div
+                    key={pay.id}
+                    className="flex justify-between items-center text-xs border-b border-border/40 pb-2.5"
+                  >
                     <div>
                       <p className="font-bold text-foreground leading-snug">{pay.description}</p>
-                      <p className="text-[9px] text-muted-foreground mt-0.5">{pay.date} &middot; {pay.paymentMethod.toUpperCase()}</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">
+                        {pay.date} &middot; {pay.paymentMethod.toUpperCase()}
+                      </p>
                     </div>
                     <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
                       +{formatINRWhole(pay.amount)}
@@ -555,34 +720,8 @@ function ExecutiveDashboard() {
               )}
             </div>
           </div>
-
-          {/* Recent Activity Audit Feed */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary animate-pulse" /> Command Audit Timeline
-            </h2>
-            
-            <div className="mt-4 space-y-3.5 max-h-[300px] overflow-y-auto pr-1">
-              {dashboardData.recentActivities.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-4 text-center">No command logs found.</p>
-              ) : (
-                dashboardData.recentActivities.map((act) => (
-                  <div key={act.id} className="flex items-start gap-2.5 text-xs">
-                    <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
-                    <div>
-                      <p className="font-semibold text-foreground leading-snug">{act.description}</p>
-                      <p className="text-[9px] text-muted-foreground mt-0.5">{act.date} &middot; {act.type.replace("_", " ").toUpperCase()}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
         </div>
-
       </div>
-
     </div>
   );
 }

@@ -244,9 +244,149 @@ export interface AppNotification {
   priority: "low" | "medium" | "high";
   read: boolean;
   timestamp: string;
-  relatedModule: "invoices" | "payments" | "projects" | "leads" | "documents" | "system";
+  relatedModule:
+    | "invoices"
+    | "payments"
+    | "projects"
+    | "leads"
+    | "documents"
+    | "calendar"
+    | "system";
   actionUrl?: string;
   actionLabel?: string;
+}
+
+export type ScheduleEventType = "meeting" | "call";
+export type ScheduleEventStatus = "scheduled" | "completed" | "cancelled";
+
+export interface ScheduleEvent {
+  id: string;
+  title: string;
+  type: ScheduleEventType;
+  date: string;
+  startTime: string;
+  durationMinutes: number;
+  contact?: string;
+  location?: string;
+  meetingUrl?: string;
+  notes?: string;
+  reminderMinutes: number;
+  status: ScheduleEventStatus;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type ValuationMethodKey =
+  | "asset"
+  | "revenue"
+  | "ebitda"
+  | "dcf"
+  | "startupScore"
+  | "goodwill";
+
+export type ValuationRiskKey =
+  | "singleFounder"
+  | "singleClient"
+  | "negativeCashFlow"
+  | "legalIssues"
+  | "heavyDebt";
+
+export interface ValuationSettings {
+  schemaVersion: 2;
+  businessType: "service" | "software" | "mixed";
+  revenueMultiple: number;
+  ebitdaMultiple: number;
+  dcfEnabled: boolean;
+  dcfDiscountRate: number;
+  dcfGrowthRate: number;
+  dcfTerminalGrowthRate: number;
+  dcfYears: number;
+  growthStage: "pre_revenue" | "early_revenue" | "growing" | "scaling" | "established";
+  marketPosition: "unknown" | "local" | "regional" | "national" | "international";
+  founderDependency: number;
+  founderMaxDeduction: number;
+  competitiveAdvantage: number;
+  technologyAdvantage: number;
+  brandRecognition: number;
+  customerRetention: number;
+  recurringRevenueQuality: number;
+  customerConcentrationOverride?: number;
+  weights: Record<ValuationMethodKey, number>;
+  goodwillWeight: number;
+  goodwillScores: Record<
+    | "brand"
+    | "clientReputation"
+    | "repeatClients"
+    | "whiteLabelPartnerships"
+    | "technology"
+    | "aiCapability"
+    | "saasProducts"
+    | "researchIp"
+    | "marketNetwork"
+    | "operationalMaturity",
+    number
+  >;
+  startupPremiumCriteria: {
+    ownSoftware: boolean;
+    ownSourceCode: boolean;
+    ownDomain: boolean;
+    ownBrand: boolean;
+    ownGithub: boolean;
+    teamSize: number;
+  };
+  financialStatementsComplete: boolean;
+  goodwillManualAdjustment: number;
+  manualValuationAdjustment: number;
+  manualAssets: {
+    bankBalance: number;
+    deposits: number;
+    investments: number;
+    otherAssets: number;
+  };
+  liabilities: {
+    loans: number;
+    creditors: number;
+    taxesPayable: number;
+    vendorPayments: number;
+    pendingSalaries: number;
+    otherLiabilities: number;
+  };
+  liabilitiesConfirmed: boolean;
+  riskEnabled: Record<ValuationRiskKey, boolean>;
+  riskDeductions: Record<ValuationRiskKey, number>;
+  healthManualScores: {
+    teamStability: number;
+    financialDiscipline: number;
+    documentation: number;
+    operationalMaturity: number;
+  };
+  updatedAt: number;
+}
+
+export interface ValuationSnapshot {
+  id: string;
+  date: string;
+  createdAt: number;
+  calculatedValuation: number;
+  manualAdjustment: number;
+  reason: string;
+  revenue: number;
+  assets: number;
+  profit: number;
+  growth: number;
+  netWorth: number;
+  enterpriseValue: number;
+  assumptionsHash: string;
+}
+
+export interface ValuationAuditEntry {
+  id: string;
+  timestamp: number;
+  actor: string;
+  reason: string;
+  field: string;
+  oldValue: string;
+  newValue: string;
 }
 
 export interface OperationsData {
@@ -263,6 +403,10 @@ export interface OperationsData {
   transactions?: Transaction[];
   founders?: Founder[];
   notifications?: AppNotification[];
+  scheduleEvents?: ScheduleEvent[];
+  valuationSettings?: ValuationSettings;
+  valuationSnapshots?: ValuationSnapshot[];
+  valuationAudit?: ValuationAuditEntry[];
   migrationApplied?: boolean;
   migrationDate?: string;
 }
@@ -439,6 +583,14 @@ export interface Invoice {
   paymentTerms?: string;
   paymentMode?: string;
   paymentDate?: string;
-  status: "draft" | "generated" | "sent" | "viewed" | "partially_paid" | "paid" | "cancelled" | "overdue";
+  status:
+    | "draft"
+    | "generated"
+    | "sent"
+    | "viewed"
+    | "partially_paid"
+    | "paid"
+    | "cancelled"
+    | "overdue";
   createdAt: number;
 }

@@ -91,6 +91,39 @@
   --sidebar-ring: oklch(0.56 0.22 27);
 }
 
+html.light {
+  --background: oklch(0.975 0.004 270);
+  --foreground: oklch(0.19 0.012 270);
+  --ink: oklch(0.14 0.01 270);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.19 0.012 270);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.19 0.012 270);
+  --brand: oklch(0.52 0.21 27);
+  --brand-foreground: oklch(0.99 0 0);
+  --primary: oklch(0.52 0.21 27);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.94 0.006 270);
+  --secondary-foreground: oklch(0.22 0.012 270);
+  --muted: oklch(0.94 0.006 270);
+  --muted-foreground: oklch(0.48 0.018 270);
+  --accent: oklch(0.93 0.025 27);
+  --accent-foreground: oklch(0.35 0.12 27);
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.3 0.012 270 / 0.16);
+  --input: oklch(0.92 0.008 270);
+  --ring: oklch(0.52 0.21 27);
+  --sidebar: oklch(0.96 0.005 270);
+  --sidebar-foreground: oklch(0.2 0.012 270);
+  --sidebar-primary: oklch(0.52 0.21 27);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.91 0.012 270);
+  --sidebar-accent-foreground: oklch(0.2 0.012 270);
+  --sidebar-border: oklch(0.3 0.012 270 / 0.14);
+  --sidebar-ring: oklch(0.52 0.21 27);
+}
+
 /*
  * On-screen invoice / receipt preview only — paper-like light surface (not logo black).
  * Tailwind tokens here align with PDF output feel.
@@ -197,6 +230,9 @@
   }
   html.dark {
     color-scheme: dark;
+  }
+  html.light {
+    color-scheme: light;
   }
   body {
     font-family: var(--font-sans);

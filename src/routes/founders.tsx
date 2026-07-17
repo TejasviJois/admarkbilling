@@ -8,6 +8,7 @@ import { Field, OperationsLoading, OperationsPageHeader } from "@/components/ope
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useOperations } from "@/hooks/use-operations";
 import { formatINR, formatINRWhole } from "@/lib/invoice-calc";
+import { isFounderSalary } from "@/lib/founder-ledger";
 import type { Founder, Transaction } from "@/lib/types";
 
 export const Route = createFileRoute("/founders")({ component: FoundersLedgerPage });
@@ -29,8 +30,12 @@ function FoundersLedgerPage() {
       const totalInvestment = history
         .filter((t) => t.type === "founder_investment")
         .reduce((sum, t) => sum + t.amount, 0);
+      // Salary is company pay — only equity draws reduce the founder's share balance.
       const totalWithdrawals = history
-        .filter((t) => t.type === "founder_withdrawal" && t.category !== "Salary")
+        .filter((t) => t.type === "founder_withdrawal" && !isFounderSalary(t))
+        .reduce((sum, t) => sum + t.amount, 0);
+      const totalSalary = history
+        .filter((t) => isFounderSalary(t))
         .reduce((sum, t) => sum + t.amount, 0);
       const currentBalance = totalInvestment - totalWithdrawals;
 
@@ -38,6 +43,7 @@ function FoundersLedgerPage() {
         founder,
         totalInvestment,
         totalWithdrawals,
+        totalSalary,
         currentBalance,
         history: history.sort((a, b) => b.date.localeCompare(a.date)),
       };
@@ -121,17 +127,26 @@ function FoundersLedgerPage() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Withdrawn:</span>
+                  <span className="text-muted-foreground">Share Withdrawn:</span>
                   <span className="font-semibold text-rose-600 dark:text-rose-400">
                     {formatINRWhole(l.totalWithdrawals)}
                   </span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Salary Paid:</span>
+                  <span className="font-semibold text-amber-600 dark:text-amber-400">
+                    {formatINRWhole(l.totalSalary)}
+                  </span>
+                </div>
                 <div className="flex justify-between border-t border-border/80 pt-1.5 font-semibold text-sm">
-                  <span className="text-foreground">Current Balance:</span>
+                  <span className="text-foreground">Share Balance:</span>
                   <span className={l.currentBalance >= 0 ? "text-primary" : "text-rose-600"}>
                     {formatINRWhole(l.currentBalance)}
                   </span>
                 </div>
+                <p className="text-[10px] text-muted-foreground leading-snug">
+                  Salary is company pay — it does not reduce the share balance.
+                </p>
               </div>
               {l.founder.notes && (
                 <p className="mt-3 text-[10px] text-muted-foreground italic border-t border-dashed border-border pt-1.5 line-clamp-2">
@@ -191,9 +206,15 @@ function FoundersLedgerPage() {
                         <span className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                           tx.type === "founder_investment"
                             ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                            : isFounderSalary(tx)
+                            ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
                             : "bg-rose-500/10 text-rose-700 dark:text-rose-300"
                         }`}>
-                          {tx.type === "founder_investment" ? "Investment" : "Withdrawal"}
+                          {tx.type === "founder_investment"
+                            ? "Investment"
+                            : isFounderSalary(tx)
+                            ? "Salary"
+                            : "Share Withdrawal"}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -206,7 +227,11 @@ function FoundersLedgerPage() {
                         {tx.paymentMethod}
                       </td>
                       <td className={`whitespace-nowrap px-6 py-4 text-right font-bold tabular-nums ${
-                        tx.type === "founder_investment" ? "text-emerald-600" : "text-rose-600"
+                        tx.type === "founder_investment"
+                          ? "text-emerald-600"
+                          : isFounderSalary(tx)
+                          ? "text-amber-600"
+                          : "text-rose-600"
                       }`}>
                         {tx.type === "founder_investment" ? "+" : "-"}{formatINR(tx.amount)}
                       </td>

@@ -1,6 +1,24 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { Client, FinancialBaseline, FixedMonthlyExpense, Lead, LeadStatus, OperationsData, Payment, Transaction, Founder, TransactionType, Milestone, Project, ProjectStatus } from "@/lib/types";
+import type {
+  Client,
+  FinancialBaseline,
+  FixedMonthlyExpense,
+  Lead,
+  LeadStatus,
+  OperationsData,
+  Payment,
+  Transaction,
+  Founder,
+  TransactionType,
+  Milestone,
+  Project,
+  ProjectStatus,
+  ScheduleEvent,
+  ValuationAuditEntry,
+  ValuationSnapshot,
+} from "@/lib/types";
 import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
+import { normalizeValuationSettings } from "@/lib/valuation-engine";
 import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
@@ -40,7 +58,11 @@ function parseFinancialBaseline(raw: unknown): FinancialBaseline | undefined {
 function parseFixedMonthlyExpense(raw: unknown): FixedMonthlyExpense | null {
   if (!raw || typeof raw !== "object") return null;
   const e = raw as Partial<FixedMonthlyExpense>;
-  if (typeof e.id !== "string" || typeof e.label !== "string" || typeof e.amountPerMonth !== "number") {
+  if (
+    typeof e.id !== "string" ||
+    typeof e.label !== "string" ||
+    typeof e.amountPerMonth !== "number"
+  ) {
     return null;
   }
   return {
@@ -54,13 +76,97 @@ function parseFixedMonthlyExpense(raw: unknown): FixedMonthlyExpense | null {
   };
 }
 
+function parseScheduleEvent(raw: unknown): ScheduleEvent | null {
+  if (!raw || typeof raw !== "object") return null;
+  const event = raw as Partial<ScheduleEvent>;
+  if (
+    typeof event.id !== "string" ||
+    typeof event.title !== "string" ||
+    typeof event.date !== "string" ||
+    typeof event.startTime !== "string"
+  ) {
+    return null;
+  }
+  return {
+    id: event.id,
+    title: event.title,
+    type: event.type === "call" ? "call" : "meeting",
+    date: event.date,
+    startTime: event.startTime,
+    durationMinutes:
+      typeof event.durationMinutes === "number" && event.durationMinutes > 0
+        ? event.durationMinutes
+        : 30,
+    contact: event.contact,
+    location: event.location,
+    meetingUrl: event.meetingUrl,
+    notes: event.notes,
+    reminderMinutes:
+      typeof event.reminderMinutes === "number" && event.reminderMinutes >= 0
+        ? event.reminderMinutes
+        : 30,
+    status:
+      event.status === "completed" || event.status === "cancelled" ? event.status : "scheduled",
+    createdAt: typeof event.createdAt === "number" ? event.createdAt : Date.now(),
+    updatedAt: typeof event.updatedAt === "number" ? event.updatedAt : Date.now(),
+  };
+}
+
+function parseValuationSnapshot(raw: unknown): ValuationSnapshot | null {
+  if (!raw || typeof raw !== "object") return null;
+  const item = raw as Partial<ValuationSnapshot>;
+  if (
+    typeof item.id !== "string" ||
+    typeof item.date !== "string" ||
+    typeof item.calculatedValuation !== "number"
+  ) {
+    return null;
+  }
+  return {
+    id: item.id,
+    date: item.date,
+    createdAt: typeof item.createdAt === "number" ? item.createdAt : Date.now(),
+    calculatedValuation: item.calculatedValuation,
+    manualAdjustment: typeof item.manualAdjustment === "number" ? item.manualAdjustment : 0,
+    reason: typeof item.reason === "string" ? item.reason : "Monthly valuation snapshot",
+    revenue: typeof item.revenue === "number" ? item.revenue : 0,
+    assets: typeof item.assets === "number" ? item.assets : 0,
+    profit: typeof item.profit === "number" ? item.profit : 0,
+    growth: typeof item.growth === "number" ? item.growth : 0,
+    netWorth: typeof item.netWorth === "number" ? item.netWorth : 0,
+    enterpriseValue: typeof item.enterpriseValue === "number" ? item.enterpriseValue : 0,
+    assumptionsHash: typeof item.assumptionsHash === "string" ? item.assumptionsHash : "",
+  };
+}
+
+function parseValuationAudit(raw: unknown): ValuationAuditEntry | null {
+  if (!raw || typeof raw !== "object") return null;
+  const item = raw as Partial<ValuationAuditEntry>;
+  if (
+    typeof item.id !== "string" ||
+    typeof item.timestamp !== "number" ||
+    typeof item.field !== "string"
+  ) {
+    return null;
+  }
+  return {
+    id: item.id,
+    timestamp: item.timestamp,
+    actor: typeof item.actor === "string" ? item.actor : "Admin (shared session)",
+    reason: typeof item.reason === "string" ? item.reason : "No reason recorded",
+    field: item.field,
+    oldValue: typeof item.oldValue === "string" ? item.oldValue : "",
+    newValue: typeof item.newValue === "string" ? item.newValue : "",
+  };
+}
+
 function parseLead(raw: unknown): Lead | null {
   if (!raw || typeof raw !== "object") return null;
   const l = raw as Partial<Lead>;
   if (typeof l.id !== "string") return null;
-  
+
   // Legacy fallback mapping
-  const company = l.company ? l.company : (l.business || "General Inquiries");
+  const company = l.company ? l.company : l.business || "General Inquiries";
   const contactPerson = l.contactPerson ? l.contactPerson : l.name;
 
   let status: LeadStatus = "new_lead";
@@ -124,7 +230,12 @@ function parseClient(raw: unknown): Client | null {
 function parsePayment(raw: unknown): Payment | null {
   if (!raw || typeof raw !== "object") return null;
   const p = raw as Partial<Payment>;
-  if (typeof p.id !== "string" || typeof p.amount !== "number" || typeof p.date !== "string" || typeof p.method !== "string") {
+  if (
+    typeof p.id !== "string" ||
+    typeof p.amount !== "number" ||
+    typeof p.date !== "string" ||
+    typeof p.method !== "string"
+  ) {
     return null;
   }
   return {
@@ -145,7 +256,12 @@ function parsePayment(raw: unknown): Payment | null {
 function parseFounder(raw: unknown): Founder | null {
   if (!raw || typeof raw !== "object") return null;
   const f = raw as Partial<Founder>;
-  if (typeof f.id !== "string" || typeof f.name !== "string" || typeof f.sharePercentage !== "number") return null;
+  if (
+    typeof f.id !== "string" ||
+    typeof f.name !== "string" ||
+    typeof f.sharePercentage !== "number"
+  )
+    return null;
   return {
     id: f.id,
     name: f.name,
@@ -221,7 +337,10 @@ function parseMilestone(raw: unknown): Milestone | null {
     name: m.name,
     description: m.description,
     dueDate: m.dueDate,
-    status: (m.status === "in_progress" || m.status === "completed" || m.status === "delayed") ? m.status : "pending",
+    status:
+      m.status === "in_progress" || m.status === "completed" || m.status === "delayed"
+        ? m.status
+        : "pending",
     paymentTrigger: m.paymentTrigger === true,
     assignedUser: m.assignedUser,
     completedDate: m.completedDate,
@@ -232,7 +351,7 @@ function parseProject(raw: unknown): Project | null {
   if (!raw || typeof raw !== "object") return null;
   const p = raw as Partial<Project>;
   if (typeof p.id !== "string" || typeof p.client !== "string") return null;
-  
+
   const milestones = Array.isArray(p.milestones)
     ? p.milestones.map(parseMilestone).filter((m): m is Milestone => m != null)
     : undefined;
@@ -255,7 +374,10 @@ function parseProject(raw: unknown): Project | null {
     deadline: p.deadline,
     budget: typeof p.budget === "number" ? p.budget : undefined,
     estimatedCost: typeof p.estimatedCost === "number" ? p.estimatedCost : undefined,
-    priority: (p.priority === "low" || p.priority === "medium" || p.priority === "high") ? p.priority : undefined,
+    priority:
+      p.priority === "low" || p.priority === "medium" || p.priority === "high"
+        ? p.priority
+        : undefined,
     notes: p.notes,
     milestones,
     phone: p.phone,
@@ -267,7 +389,9 @@ function parseOperationsPayload(payload: unknown): OperationsData {
   if (!payload || typeof payload !== "object") return EMPTY_OPERATIONS;
   const raw = payload as Partial<OperationsData>;
   const fixedMonthlyExpenses = Array.isArray(raw.fixedMonthlyExpenses)
-    ? raw.fixedMonthlyExpenses.map(parseFixedMonthlyExpense).filter((e): e is FixedMonthlyExpense => e != null)
+    ? raw.fixedMonthlyExpenses
+        .map(parseFixedMonthlyExpense)
+        .filter((e): e is FixedMonthlyExpense => e != null)
     : undefined;
   const assets = Array.isArray(raw.assets) ? raw.assets : [];
   const leads = Array.isArray(raw.leads)
@@ -285,8 +409,28 @@ function parseOperationsPayload(payload: unknown): OperationsData {
   const founders = Array.isArray(raw.founders)
     ? raw.founders.map(parseFounder).filter((f): f is Founder => f != null)
     : DEFAULT_FOUNDERS;
+  const scheduleEvents = Array.isArray(raw.scheduleEvents)
+    ? raw.scheduleEvents
+        .map(parseScheduleEvent)
+        .filter((event): event is ScheduleEvent => event != null)
+    : [];
+  const valuationSettings = raw.valuationSettings
+    ? normalizeValuationSettings(raw.valuationSettings)
+    : undefined;
+  const valuationSnapshots = Array.isArray(raw.valuationSnapshots)
+    ? raw.valuationSnapshots
+        .map(parseValuationSnapshot)
+        .filter((item): item is ValuationSnapshot => item != null)
+    : [];
+  const valuationAudit = Array.isArray(raw.valuationAudit)
+    ? raw.valuationAudit
+        .map(parseValuationAudit)
+        .filter((item): item is ValuationAuditEntry => item != null)
+    : [];
   const parsed = {
-    projects: Array.isArray(raw.projects) ? raw.projects.map(parseProject).filter((p): p is Project => p != null) : [],
+    projects: Array.isArray(raw.projects)
+      ? raw.projects.map(parseProject).filter((p): p is Project => p != null)
+      : [],
     partnerships: Array.isArray(raw.partnerships) ? raw.partnerships : [],
     expenses: Array.isArray(raw.expenses) ? raw.expenses : [],
     leads,
@@ -297,6 +441,10 @@ function parseOperationsPayload(payload: unknown): OperationsData {
     payments,
     transactions,
     founders,
+    scheduleEvents,
+    valuationSettings,
+    valuationSnapshots,
+    valuationAudit,
     migrationApplied: raw.migrationApplied === true,
     migrationDate: typeof raw.migrationDate === "string" ? raw.migrationDate : undefined,
   };

@@ -19,6 +19,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
+import { FOUNDER_SALARY_CATEGORY, FOUNDER_SHARE_WITHDRAWAL_CATEGORY } from "@/lib/founder-ledger";
 import type { Transaction, TransactionType, Client, Project } from "@/lib/types";
 
 const TRANSACTION_TYPES: { value: TransactionType; label: string }[] = [
@@ -191,7 +192,7 @@ export function TransactionFormDialog({
                 let defaultCat = form.category;
                 if (v === "client_payment") defaultCat = "Client Income";
                 else if (v === "founder_investment") defaultCat = "Founder Equity";
-                else if (v === "founder_withdrawal") defaultCat = "Founder Payout";
+                else if (v === "founder_withdrawal") defaultCat = FOUNDER_SHARE_WITHDRAWAL_CATEGORY;
                 else if (v === "refund") defaultCat = "Refund";
                 else if (v === "internal_transfer") defaultCat = "Transfer";
                 setForm((f) => ({ ...f, type: v as TransactionType, category: defaultCat }));
@@ -245,15 +246,36 @@ export function TransactionFormDialog({
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Category *" id="tx-category">
-              <Input
-                id="tx-category"
-                value={form.category}
-                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                placeholder="e.g. Software, Salary, Marketing"
-                required
-              />
-            </Field>
+            {form.type === "founder_withdrawal" ? (
+              <Field label="Payout Nature *" id="tx-category">
+                <Select
+                  value={/salary/i.test(form.category) ? FOUNDER_SALARY_CATEGORY : FOUNDER_SHARE_WITHDRAWAL_CATEGORY}
+                  onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}
+                >
+                  <SelectTrigger id="tx-category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={FOUNDER_SHARE_WITHDRAWAL_CATEGORY}>
+                      Share Withdrawal (reduces equity balance)
+                    </SelectItem>
+                    <SelectItem value={FOUNDER_SALARY_CATEGORY}>
+                      Salary (company pay — equity untouched)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            ) : (
+              <Field label="Category *" id="tx-category">
+                <Input
+                  id="tx-category"
+                  value={form.category}
+                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                  placeholder="e.g. Software, Salary, Marketing"
+                  required
+                />
+              </Field>
+            )}
 
             <Field label="Payment Method *" id="tx-method">
               <Select

@@ -1,9 +1,23 @@
 import { useState, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Search, Filter, TrendingUp, TrendingDown, DollarSign, PieChart, Landmark, FileText, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Filter,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  PieChart,
+  Landmark,
+  FileText,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ExpenseFormDialog, EXPENSE_CATEGORIES } from "@/components/operations/ExpenseFormDialog";
+import { ExpensesSection } from "@/components/operations/ExpensesSection";
+import { ExpensesPipelineSummary } from "@/components/operations/ExpensesTable";
+import { FixedMonthlyExpensesSection } from "@/components/operations/FixedMonthlyExpensesSection";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
 import { formatINR, formatINRWhole } from "@/lib/invoice-calc";
@@ -17,7 +31,7 @@ function ExpensesDashboardPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
-  const transactions = ops.transactions ?? [];
+  const transactions = useMemo(() => ops.transactions ?? [], [ops.transactions]);
   const expenses = useMemo(() => {
     return transactions.filter((t) => t.type === "expense");
   }, [transactions]);
@@ -38,12 +52,19 @@ function ExpensesDashboardPage() {
     }
 
     const categoryBreakdown = Object.entries(catMap)
-      .map(([name, amount]) => ({ name, amount, percentage: total > 0 ? (amount / total) * 100 : 0 }))
+      .map(([name, amount]) => ({
+        name,
+        amount,
+        percentage: total > 0 ? (amount / total) * 100 : 0,
+      }))
       .sort((a, b) => b.amount - a.amount);
 
     // Group expenses by month (YYYY-MM)
-    const monthlyMap: Record<string, { total: number; count: number; gst: number; netBurn: number }> = {};
-    
+    const monthlyMap: Record<
+      string,
+      { total: number; count: number; gst: number; netBurn: number }
+    > = {};
+
     // Group inflows by month for net cash burn
     const inflowMap: Record<string, number> = {};
     for (const tx of transactions) {
@@ -65,29 +86,31 @@ function ExpensesDashboardPage() {
 
     // Calculate net cash burn per month (expense total - inflows total)
     const months = Object.keys({ ...monthlyMap, ...inflowMap }).sort();
-    const monthlySummary = months.map((mKey) => {
-      const expTotal = monthlyMap[mKey]?.total || 0;
-      const inflowTotal = inflowMap[mKey] || 0;
-      const netBurn = Math.max(0, expTotal - inflowTotal); // amount of expenses exceeding inflows
-      
-      if (monthlyMap[mKey]) {
-        monthlyMap[mKey].netBurn = netBurn;
-      }
+    const monthlySummary = months
+      .map((mKey) => {
+        const expTotal = monthlyMap[mKey]?.total || 0;
+        const inflowTotal = inflowMap[mKey] || 0;
+        const netBurn = Math.max(0, expTotal - inflowTotal); // amount of expenses exceeding inflows
 
-      return {
-        month: mKey,
-        total: expTotal,
-        count: monthlyMap[mKey]?.count || 0,
-        gst: monthlyMap[mKey]?.gst || 0,
-        inflow: inflowTotal,
-        netBurn,
-      };
-    }).reverse(); // newest month first
+        if (monthlyMap[mKey]) {
+          monthlyMap[mKey].netBurn = netBurn;
+        }
+
+        return {
+          month: mKey,
+          total: expTotal,
+          count: monthlyMap[mKey]?.count || 0,
+          gst: monthlyMap[mKey]?.gst || 0,
+          inflow: inflowTotal,
+          netBurn,
+        };
+      })
+      .reverse(); // newest month first
 
     // Calculate Average Cash Burn (gross & net)
     const activeMonthsCount = months.length || 1;
     const averageGrossBurn = total / activeMonthsCount;
-    
+
     const totalInflows = transactions
       .filter((t) => t.type === "client_payment" || t.type === "founder_investment")
       .reduce((sum, t) => sum + t.amount, 0);
@@ -133,23 +156,45 @@ function ExpensesDashboardPage() {
 
   if (loading) return <OperationsLoading />;
 
+  const openMonthlyRetainers = () => {
+    document
+      .getElementById("monthly-retainers")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className="space-y-6">
       <OperationsPageHeader
-        title="Expenses Dashboard"
-        description="Comprehensive analysis of corporate cash burn, monthly outlays, vendor cost share, and tax tracking."
+        title="Expenses"
+        description="The single workspace for cash expenses, historical payouts, monthly commitments, vendor costs, and tax tracking."
         action={
-          <Button type="button" onClick={() => setDialogOpen(true)} className="inline-flex items-center gap-2">
+          <Button
+            type="button"
+            onClick={() => setDialogOpen(true)}
+            className="inline-flex items-center gap-2"
+          >
             <Plus className="h-4 w-4" /> Log Expense
           </Button>
         }
       />
 
+      <section className="space-y-4 rounded-lg border border-border bg-card p-5 shadow-sm">
+        <div>
+          <h2 className="text-lg font-bold text-foreground">Expense commitments and baseline</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Historical baseline, recorded payouts, and active monthly commitments in one workspace.
+          </p>
+        </div>
+        <ExpensesPipelineSummary ops={ops} onOpenMonthlyRetainers={openMonthlyRetainers} />
+        <ExpensesSection ops={ops} persist={persist} />
+        <FixedMonthlyExpensesSection ops={ops} persist={persist} />
+      </section>
+
       {/* Stats Summary Widgets */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase">Total Expenditures</span>
+            <span className="text-xs font-semibold uppercase">Logged Cash Expenses</span>
             <DollarSign className="h-5 w-5 text-rose-500" />
           </div>
           <p className="mt-2 text-2xl font-bold text-rose-600 dark:text-rose-400 tabular-nums">
@@ -173,7 +218,9 @@ function ExpensesDashboardPage() {
             <span className="text-xs font-semibold uppercase">Avg Net Cash Burn</span>
             <TrendingDown className="h-5 w-5 text-blue-500" />
           </div>
-          <p className={`mt-2 text-2xl font-bold tabular-nums ${stats.averageNetBurn > 0 ? "text-rose-600" : "text-emerald-500"}`}>
+          <p
+            className={`mt-2 text-2xl font-bold tabular-nums ${stats.averageNetBurn > 0 ? "text-rose-600" : "text-emerald-500"}`}
+          >
             {formatINRWhole(stats.averageNetBurn)}
             <span className="text-xs text-muted-foreground font-normal"> /mo</span>
           </p>
@@ -203,7 +250,9 @@ function ExpensesDashboardPage() {
                 <div className="flex items-center justify-between text-xs font-semibold">
                   <span className="text-foreground">{cat.name}</span>
                   <div className="text-right">
-                    <span className="text-muted-foreground">{cat.percentage.toFixed(1)}% &middot; </span>
+                    <span className="text-muted-foreground">
+                      {cat.percentage.toFixed(1)}% &middot;{" "}
+                    </span>
                     <span className="tabular-nums text-foreground">{formatINR(cat.amount)}</span>
                   </div>
                 </div>
@@ -237,18 +286,28 @@ function ExpensesDashboardPage() {
               <tbody className="divide-y divide-border/60">
                 {stats.monthlySummary.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-muted-foreground italic">No monthly logs found.</td>
+                    <td colSpan={5} className="py-8 text-center text-muted-foreground italic">
+                      No monthly logs found.
+                    </td>
                   </tr>
                 ) : (
                   stats.monthlySummary.map((m) => (
                     <tr key={m.month} className="hover:bg-muted/20">
                       <td className="py-2.5 font-bold text-foreground tabular-nums">{m.month}</td>
-                      <td className="py-2.5 text-right font-semibold tabular-nums text-foreground">{formatINRWhole(m.total)}</td>
-                      <td className="py-2.5 text-right tabular-nums text-muted-foreground">{formatINRWhole(m.inflow)}</td>
-                      <td className={`py-2.5 text-right font-bold tabular-nums ${m.netBurn > 0 ? "text-rose-600" : "text-emerald-500"}`}>
+                      <td className="py-2.5 text-right font-semibold tabular-nums text-foreground">
+                        {formatINRWhole(m.total)}
+                      </td>
+                      <td className="py-2.5 text-right tabular-nums text-muted-foreground">
+                        {formatINRWhole(m.inflow)}
+                      </td>
+                      <td
+                        className={`py-2.5 text-right font-bold tabular-nums ${m.netBurn > 0 ? "text-rose-600" : "text-emerald-500"}`}
+                      >
                         {formatINRWhole(m.netBurn)}
                       </td>
-                      <td className="py-2.5 text-right tabular-nums text-muted-foreground">{formatINRWhole(m.gst)}</td>
+                      <td className="py-2.5 text-right tabular-nums text-muted-foreground">
+                        {formatINRWhole(m.gst)}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -312,8 +371,12 @@ function ExpensesDashboardPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div>
-                        <p className="font-bold text-foreground">{exp.vendor || exp.description.replace("Expense: ", "")}</p>
-                        {exp.notes && <p className="text-xs text-muted-foreground mt-0.5">{exp.notes}</p>}
+                        <p className="font-bold text-foreground">
+                          {exp.vendor || exp.description.replace("Expense: ", "")}
+                        </p>
+                        {exp.notes && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{exp.notes}</p>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 font-medium text-foreground">
@@ -329,7 +392,9 @@ function ExpensesDashboardPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="space-y-1 text-xs">
-                        <p className="uppercase font-semibold text-muted-foreground">{exp.paymentMethod || "bank_transfer"}</p>
+                        <p className="uppercase font-semibold text-muted-foreground">
+                          {exp.paymentMethod || "bank_transfer"}
+                        </p>
                         {exp.attachmentDataUrl && (
                           <a
                             href={exp.attachmentDataUrl}
@@ -361,11 +426,7 @@ function ExpensesDashboardPage() {
         </div>
       </div>
 
-      <ExpenseFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onSave={handleSave}
-      />
+      <ExpenseFormDialog open={dialogOpen} onOpenChange={setDialogOpen} onSave={handleSave} />
     </div>
   );
 }
