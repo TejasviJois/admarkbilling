@@ -8,7 +8,11 @@ const ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "image/jpg",
   "image/webp",
+  "image/gif",
+  "image/avif",
   "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
@@ -26,7 +30,7 @@ export const uploadFileFn = createServerFn({ method: "POST" })
     const mimeType = match[1].toLowerCase();
     if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
       throw new Error(
-        `Unsupported file type: ${mimeType}. Only PNG, JPG, WEBP, and PDF files are allowed.`,
+        `Unsupported file type: ${mimeType}. Only images, PDF, and Word documents are allowed.`,
       );
     }
 

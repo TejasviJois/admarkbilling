@@ -79,6 +79,7 @@ ops = syncLeadLifecycle({ ...ops, leads: [meetingLead] }, meetingLead);
 assert(ops.projects.length === 1, "Meeting Scheduled creates one project");
 assert(ops.projects[0].status === "planning", "Discussion project is planning");
 assert(ops.projects[0].leadId === lead.id, "Project linked to lead");
+assert(ops.projects[0].id === `proj-lead-${lead.id}`, "Discussion project id is deterministic");
 assert(!ops.projects[0].clientId, "Discussion project has no client yet");
 const projectId = ops.projects[0].id;
 const preservedNotes = "Keep this note forever";

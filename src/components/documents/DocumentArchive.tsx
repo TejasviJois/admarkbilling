@@ -7,6 +7,7 @@ import { loadCompany } from "@/lib/storage";
 import { downloadInvoicePdf } from "@/lib/pdf";
 import { logClientError } from "@/lib/client-logger";
 import type { DocumentsPersistOptions } from "@/lib/documents-storage";
+import { safeHref } from "@/lib/utils";
 import type {
   Agreement,
   ArchiveDocument,
@@ -18,7 +19,7 @@ import type {
 
 const FILE_ACCEPT =
   ".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*";
-const MAX_FILE_BYTES = 6 * 1024 * 1024;
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 type ArchiveRow =
   | {
@@ -328,9 +329,13 @@ export function DocumentArchive({
                   </button>
                 )}
                 {row.kind !== "invoice" &&
-                  (row.kind === "agreement" ? row.agreement : row.document).externalUrl && (
+                  safeHref(
+                    (row.kind === "agreement" ? row.agreement : row.document).externalUrl,
+                  ) && (
                     <a
-                      href={(row.kind === "agreement" ? row.agreement : row.document).externalUrl}
+                      href={safeHref(
+                        (row.kind === "agreement" ? row.agreement : row.document).externalUrl,
+                      )}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"

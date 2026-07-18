@@ -17,6 +17,7 @@ import { OperationsLoading, OperationsPageHeader } from "@/components/operations
 import { ScheduleEventDialog } from "@/components/operations/ScheduleEventDialog";
 import { useOperations } from "@/hooks/use-operations";
 import { formatScheduleDateTime, sortScheduleEvents } from "@/lib/schedule";
+import { safeHref } from "@/lib/utils";
 import type { ScheduleEvent } from "@/lib/types";
 
 export const Route = createFileRoute("/calendar")({
@@ -216,9 +217,13 @@ function CalendarPage() {
                       )}
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-1.5">
-                      {event.meetingUrl && event.status === "scheduled" && (
+                      {safeHref(event.meetingUrl) && event.status === "scheduled" && (
                         <Button asChild size="sm" variant="outline">
-                          <a href={event.meetingUrl} target="_blank" rel="noreferrer">
+                          <a
+                            href={safeHref(event.meetingUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
                             Join <ExternalLink className="ml-1 h-3.5 w-3.5" />
                           </a>
                         </Button>

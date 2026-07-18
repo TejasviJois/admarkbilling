@@ -322,6 +322,41 @@ function SettingsPage() {
             "WARNING: Importing this backup will overwrite ALL current local and cloud database records. Proceed?",
           )
         ) {
+          // Safety net: download a pre-restore snapshot of the live system so an
+          // interrupted or bad import can still be undone manually.
+          try {
+            const preRestore = {
+              version: 2,
+              exportedAt: new Date().toISOString(),
+              purpose: "pre-restore-safety-snapshot",
+              data: {
+                companySettings: c,
+                invoices,
+                operations: ops,
+                documents: await loadDocuments(),
+                activityLogs: await loadActivityLogs(),
+              },
+            };
+            const blob = new Blob([JSON.stringify(preRestore, null, 2)], {
+              type: "application/json",
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `admark_pre_restore_${new Date().toISOString().slice(0, 10)}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+          } catch (backupError) {
+            logClientError("settings.preRestoreBackup", backupError);
+            if (
+              !confirm(
+                "Could not create a pre-restore safety backup. Continue with restore anyway?",
+              )
+            ) {
+              return;
+            }
+          }
+
           // 1. Restore Operations (Clients, Leads, Expenses, Projects, Partnerships)
           await persist(operations, { allowAllDeletes: true });
 

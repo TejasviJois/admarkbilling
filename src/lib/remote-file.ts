@@ -29,8 +29,9 @@ export async function persistDataUrl(
     return url;
   } catch (e) {
     logClientError("remote-file.upload", e);
-    // Supabase unreachable or bucket missing — keep embedded image so local save still works.
-    return dataUrl;
+    // When the backend is configured, never silently embed multi-MB data URLs into
+    // JSON payloads — that causes DB bloat and false "saved" UX.
+    throw e instanceof Error ? e : new Error("Could not upload file to storage.");
   }
 }
 

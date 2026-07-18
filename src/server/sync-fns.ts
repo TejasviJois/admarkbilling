@@ -90,21 +90,26 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
           sets[key] = payloadWithTenant[key] as never;
         }
       }
-      const { data: mutationRows, error } = await sb.rpc("mutate_operations_data", {
-        p_expected_updated_at: current.updated_at,
-        p_upserts: upserts,
-        p_deletes: {},
-        p_sets: sets,
-      });
-      if (error) throw error;
-      const mutationResult = mutationRows?.[0] as
-        | { success?: boolean; is_conflict?: boolean }
-        | undefined;
-      if (!mutationResult?.success || mutationResult.is_conflict) {
-        throw new Error("Cloud operations changed during sync. Reload and retry.");
+      // Skip RPC when there is nothing to sync — avoids needless version bumps.
+      if (Object.keys(upserts).length === 0 && Object.keys(sets).length === 0) {
+        synced.push("operations (already up to date)");
+      } else {
+        const { data: mutationRows, error } = await sb.rpc("mutate_operations_data", {
+          p_expected_updated_at: current.updated_at,
+          p_upserts: upserts,
+          p_deletes: {},
+          p_sets: sets,
+        });
+        if (error) throw error;
+        const mutationResult = mutationRows?.[0] as
+          | { success?: boolean; is_conflict?: boolean }
+          | undefined;
+        if (!mutationResult?.success || mutationResult.is_conflict) {
+          throw new Error("Cloud operations changed during sync. Reload and retry.");
+        }
+        cacheDel(CACHE_KEYS.operations);
+        synced.push("operations");
       }
-      cacheDel(CACHE_KEYS.operations);
-      synced.push("operations");
     }
 
     if (data.documents) {
@@ -125,7 +130,8 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
           ? ((current.payload as Record<string, unknown>)[key] as Array<{ id?: string }>)
           : [];
         const existingIds = new Set(existing.map((item) => item.id).filter(Boolean));
-        const missing = payloadWithTenant[key].filter((item) => !existingIds.has(item.id));
+        const incoming = Array.isArray(payloadWithTenant[key]) ? payloadWithTenant[key] : [];
+        const missing = incoming.filter((item) => item?.id && !existingIds.has(item.id));
         if (missing.length === 0) continue;
         const { data: mutationRows, error } = await sb.rpc("mutate_operations_aux_data", {
           p_row_id: "documents",

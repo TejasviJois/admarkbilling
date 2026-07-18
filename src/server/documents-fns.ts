@@ -20,6 +20,8 @@ export type SaveDocumentsInput = {
   expectedVersion: string;
   upserts: Partial<Record<DocumentEntityKey, DocumentEntity[]>>;
   deletes: Partial<Record<DocumentEntityKey, string[]>>;
+  allowedDeleteIds?: Partial<Record<DocumentEntityKey, string[]>>;
+  allowAllDeletes?: boolean;
 };
 export type SaveDocumentsResult =
   | { ok: true; data: DocumentsData; version: string }
@@ -136,6 +138,19 @@ export const saveDocumentsFn = createServerFn({ method: "POST" })
   .inputValidator((data: SaveDocumentsInput) => data)
   .handler(async ({ data }): Promise<SaveDocumentsResult> => {
     await assertAppSession();
+    if (!data.allowAllDeletes) {
+      for (const key of ["agreements", "archiveDocuments"] as const) {
+        const ids = data.deletes[key] ?? [];
+        if (ids.length === 0) continue;
+        const allowed = new Set(data.allowedDeleteIds?.[key] ?? []);
+        const unauthorized = ids.filter((id) => !allowed.has(id));
+        if (unauthorized.length > 0) {
+          throw new Error(
+            `Refused unauthorized ${key} delete(s). Explicit delete intent is required.`,
+          );
+        }
+      }
+    }
     const sb = requireServerSupabase();
     const payload = await externalizeDocumentsData(sb, {
       agreements: (data.upserts.agreements ?? []) as Agreement[],

@@ -98,15 +98,18 @@ export function findProjectForLead(
   const byLead = projects.find((project) => project.leadId === lead.id);
   if (byLead) return byLead;
 
+  // Legacy attach only: never steal a project already owned by another lead.
   if (clientId) {
-    const byClient = projects.find((project) => project.clientId === clientId);
+    const byClient = projects.find((project) => project.clientId === clientId && !project.leadId);
     if (byClient) return byClient;
   }
 
   const company = normalize(leadDisplayName(lead));
   if (!company) return undefined;
   return projects.find(
-    (project) => normalize(project.client) === company || normalize(project.name) === company,
+    (project) =>
+      !project.leadId &&
+      (normalize(project.client) === company || normalize(project.name) === company),
   );
 }
 
@@ -150,7 +153,9 @@ function buildDiscussionProject(lead: Lead, clientId?: string): Project {
   const companyName = leadDisplayName(lead);
   const today = new Date().toISOString().slice(0, 10);
   return {
-    id: `proj-${crypto.randomUUID().slice(0, 8)}`,
+    // Deterministic id: concurrent tabs creating the same discussion project
+    // upsert the same row instead of producing duplicates after a merge.
+    id: `proj-lead-${lead.id}`,
     leadId: lead.id,
     clientId,
     client: companyName,

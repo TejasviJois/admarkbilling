@@ -55,6 +55,19 @@ function objectPath(folder: string, fileName: string | undefined, mimeType: stri
   return `${safeFolder}/${id}-${base}.${ext}`;
 }
 
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+
 export async function uploadDataUrlToStorage(
   sb: SupabaseClient,
   dataUrl: string,
@@ -62,10 +75,17 @@ export async function uploadDataUrlToStorage(
   fileName?: string,
 ): Promise<string> {
   const { mimeType, buffer } = dataUrlToBuffer(dataUrl);
-  const path = objectPath(folder, fileName, mimeType);
+  const normalizedMime = mimeType.toLowerCase();
+  if (!ALLOWED_MIME_TYPES.has(normalizedMime)) {
+    throw new Error(`Unsupported file type: ${mimeType}`);
+  }
+  if (buffer.byteLength > MAX_FILE_SIZE_BYTES) {
+    throw new Error("File size exceeds the maximum limit of 5MB.");
+  }
+  const path = objectPath(folder, fileName, normalizedMime);
 
   const { error } = await sb.storage.from(ADMARK_FILES_BUCKET).upload(path, buffer, {
-    contentType: mimeType,
+    contentType: normalizedMime,
     upsert: true,
   });
   if (error) throw new Error(`Storage upload failed: ${error.message}`);

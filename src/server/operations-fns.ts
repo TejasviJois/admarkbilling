@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import type {
+  AppNotification,
   Client,
   Contact,
   FinancialBaseline,
@@ -43,6 +44,10 @@ export type VersionedOperations = {
 export type SaveOperationsMutationInput = {
   mutation: OperationsMutation;
   expectedVersion: string;
+  /** Every ID listed in mutation.deletes must appear here unless allowAllDeletes. */
+  allowedDeleteIds?: Partial<Record<OperationsEntityKey, string[]>>;
+  /** Restore-only escape hatch — never set from ordinary UI saves. */
+  allowAllDeletes?: boolean;
 };
 
 export type SaveOperationsMutationResult =
@@ -407,6 +412,45 @@ function injectTenantIntoOperations(data: OperationsData): OperationsData {
   };
 }
 
+function parseNotification(raw: unknown): AppNotification | null {
+  if (!raw || typeof raw !== "object") return null;
+  const n = raw as Partial<AppNotification>;
+  if (
+    typeof n.id !== "string" ||
+    typeof n.title !== "string" ||
+    typeof n.message !== "string" ||
+    typeof n.timestamp !== "string"
+  ) {
+    return null;
+  }
+  const priority =
+    n.priority === "low" || n.priority === "medium" || n.priority === "high"
+      ? n.priority
+      : "medium";
+  const relatedModule =
+    n.relatedModule === "invoices" ||
+    n.relatedModule === "payments" ||
+    n.relatedModule === "accounts" ||
+    n.relatedModule === "projects" ||
+    n.relatedModule === "leads" ||
+    n.relatedModule === "documents" ||
+    n.relatedModule === "calendar" ||
+    n.relatedModule === "system"
+      ? n.relatedModule
+      : "system";
+  return {
+    id: n.id,
+    title: n.title,
+    message: n.message,
+    priority,
+    read: n.read === true,
+    timestamp: n.timestamp,
+    relatedModule,
+    actionUrl: typeof n.actionUrl === "string" ? n.actionUrl : undefined,
+    actionLabel: typeof n.actionLabel === "string" ? n.actionLabel : undefined,
+  };
+}
+
 function parseMilestone(raw: unknown): Milestone | null {
   if (!raw || typeof raw !== "object") return null;
   const m = raw as Partial<Milestone>;
@@ -519,6 +563,9 @@ function parseOperationsPayload(payload: unknown): OperationsData {
         .map(parseValuationAudit)
         .filter((item): item is ValuationAuditEntry => item != null)
     : [];
+  const notifications = Array.isArray(raw.notifications)
+    ? raw.notifications.map(parseNotification).filter((n): n is AppNotification => n != null)
+    : undefined;
   const parsed = {
     projects: Array.isArray(raw.projects)
       ? raw.projects.map(parseProject).filter((p): p is Project => p != null)
@@ -534,6 +581,7 @@ function parseOperationsPayload(payload: unknown): OperationsData {
     payments,
     transactions,
     founders,
+    notifications,
     scheduleEvents,
     valuationSettings,
     valuationSnapshots,
@@ -596,6 +644,19 @@ export const getOperationsFn = createServerFn({ method: "GET" }).handler(
   },
 );
 
+function assertDeletesAuthorized(input: SaveOperationsMutationInput): void {
+  if (input.allowAllDeletes) return;
+  for (const [rawKey, ids] of Object.entries(input.mutation.deletes)) {
+    if (!ids?.length) continue;
+    const key = rawKey as OperationsEntityKey;
+    const allowed = new Set(input.allowedDeleteIds?.[key] ?? []);
+    const unauthorized = ids.filter((id) => !allowed.has(id));
+    if (unauthorized.length > 0) {
+      throw new Error(`Refused unauthorized ${key} delete(s). Explicit delete intent is required.`);
+    }
+  }
+}
+
 function preparedMutation(
   mutation: OperationsMutation,
   prepared: OperationsData,
@@ -621,6 +682,7 @@ export const saveOperationsFn = createServerFn({ method: "POST" })
   .inputValidator((data: SaveOperationsMutationInput) => data)
   .handler(async ({ data }): Promise<SaveOperationsMutationResult> => {
     await assertAppSession();
+    assertDeletesAuthorized(data);
     const sb = requireServerSupabase();
 
     const { data: currentRow, error: currentError } = await sb
@@ -636,6 +698,25 @@ export const saveOperationsFn = createServerFn({ method: "POST" })
     const externalized = await externalizeOperationsData(sb, merged);
     const encrypted = encryptOperationsData(externalized);
     const mutation = preparedMutation(data.mutation, encrypted);
+    if (
+      Object.keys(mutation.upserts).length === 0 &&
+      Object.keys(mutation.deletes).length === 0 &&
+      Object.keys(mutation.sets).length === 0
+    ) {
+      // No-op: return the current row so callers never cache an empty snapshot.
+      const { data: row, error: rowError } = await sb
+        .from("operations_data")
+        .select("payload, updated_at")
+        .eq("id", "default")
+        .maybeSingle();
+      if (rowError) throw rowError;
+      if (!row?.payload || !row.updated_at) throw new Error("operations_data/default is missing.");
+      return {
+        ok: true,
+        data: decryptOperationsData(parseOperationsPayload(row.payload)),
+        version: row.updated_at,
+      };
+    }
 
     const { data: rows, error } = await sb.rpc("mutate_operations_data", {
       p_expected_updated_at: data.expectedVersion,

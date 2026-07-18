@@ -30,6 +30,7 @@ function saveActivityLogsLocal(entries: ActivityLogEntry[]) {
 let serverConfiguredCache: boolean | null = null;
 let activityVersion: string | null = null;
 let activitySnapshot: ActivityLogEntry[] = [];
+let writeQueue: Promise<unknown> = Promise.resolve();
 
 class ActivityLogsConflictError extends Error {
   constructor(
@@ -73,36 +74,41 @@ export async function loadActivityLogs(): Promise<ActivityLogEntry[]> {
 
 async function persistActivityLogs(entries: ActivityLogEntry[], expectedVersion?: string) {
   const trimmed = trimActivityLogs(entries);
-  if (await serverApiEnabled()) {
-    try {
-      const previous = new Map(activitySnapshot.map((entry) => [entry.id, entry]));
-      const next = new Map(trimmed.map((entry) => [entry.id, entry]));
-      const upserts = [...next.values()].filter(
-        (entry) => JSON.stringify(previous.get(entry.id)) !== JSON.stringify(entry),
-      );
-      const deletes = [...previous.keys()].filter((id) => !next.has(id));
-      // Skip no-op saves so the version token is not bumped for nothing.
-      if (upserts.length === 0 && deletes.length === 0) {
-        saveActivityLogsLocal(trimmed);
-        return;
-      }
-      const version = expectedVersion ?? activityVersion;
-      if (!version) throw new Error("Activity log version is not loaded.");
-      const result = await saveActivityLogsFn({
-        data: { upserts, deletes, expectedVersion: version },
-      });
-      activityVersion = result.version;
-      activitySnapshot = result.entries;
-      const saved = trimActivityLogs(result.entries);
-      saveActivityLogsLocal(saved);
-      if (!result.ok) throw new ActivityLogsConflictError(saved, result.version);
-      return;
-    } catch (e) {
-      if (e instanceof ActivityLogsConflictError) throw e;
-      logClientError("activity-log-storage.saveRemote", e);
-    }
+  if (!(await serverApiEnabled())) {
+    saveActivityLogsLocal(trimmed);
+    return;
   }
-  saveActivityLogsLocal(trimmed);
+
+  const task = async () => {
+    const previous = new Map(activitySnapshot.map((entry) => [entry.id, entry]));
+    const next = new Map(trimmed.map((entry) => [entry.id, entry]));
+    const upserts = [...next.values()].filter(
+      (entry) => JSON.stringify(previous.get(entry.id)) !== JSON.stringify(entry),
+    );
+    const deletes = [...previous.keys()].filter((id) => !next.has(id));
+    if (upserts.length === 0 && deletes.length === 0) {
+      saveActivityLogsLocal(trimmed);
+      return;
+    }
+    const version = expectedVersion ?? activityVersion;
+    if (!version) throw new Error("Activity log version is not loaded.");
+    const result = await saveActivityLogsFn({
+      data: { upserts, deletes, expectedVersion: version },
+    });
+    activityVersion = result.version;
+    activitySnapshot = result.entries;
+    const saved = trimActivityLogs(result.entries);
+    saveActivityLogsLocal(saved);
+    if (!result.ok) throw new ActivityLogsConflictError(saved, result.version);
+  };
+
+  const queued = writeQueue.then(task, task);
+  writeQueue = queued.catch((error) => {
+    if (!(error instanceof ActivityLogsConflictError)) {
+      logClientError("activity-log-storage.saveRemote", error);
+    }
+  });
+  await queued;
 }
 
 /** Replace the complete activity-log history (used by full-system restore). */

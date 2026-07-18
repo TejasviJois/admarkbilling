@@ -18,6 +18,7 @@ import { computeTotals, formatINR, formatINRWhole } from "@/lib/invoice-calc";
 import { formatActivityTimestamp } from "@/lib/activity-log-labels";
 import { isRevenueProject } from "@/lib/project-status";
 import { estimatedPending, paymentSummary } from "@/lib/project-payments";
+import { safeHref } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { ActivityLogEntry } from "@/lib/types";
 
@@ -411,9 +412,9 @@ function ClientOverviewPage() {
                 <div>
                   <div className="font-medium text-foreground">Industry / Website</div>
                   <div className="text-muted-foreground">{client.industry || "N/A"}</div>
-                  {client.website && (
+                  {safeHref(client.website) && (
                     <a
-                      href={client.website}
+                      href={safeHref(client.website)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary hover:underline text-xs"

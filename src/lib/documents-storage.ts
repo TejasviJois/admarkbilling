@@ -50,16 +50,26 @@ export function applyDocumentsMutation(
 
 let documentsVersion: string | null = null;
 let documentsSnapshot: DocumentsData | null = null;
+let writeQueue: Promise<unknown> = Promise.resolve();
+let blockedConflict: DocumentsConflictError | null = null;
+let pendingWrites = 0;
 
 function isBrowser() {
   return typeof window !== "undefined" && typeof localStorage !== "undefined";
+}
+
+function normalizeDocuments(data: DocumentsData | null | undefined): DocumentsData {
+  return {
+    agreements: Array.isArray(data?.agreements) ? data.agreements : [],
+    archiveDocuments: Array.isArray(data?.archiveDocuments) ? data.archiveDocuments : [],
+  };
 }
 
 function loadDocumentsLocal(): DocumentsData {
   if (!isBrowser()) return EMPTY_DOCUMENTS;
   try {
     const raw = localStorage.getItem(DOCUMENTS_KEY);
-    return raw ? (JSON.parse(raw) as DocumentsData) : EMPTY_DOCUMENTS;
+    return raw ? normalizeDocuments(JSON.parse(raw) as DocumentsData) : EMPTY_DOCUMENTS;
   } catch {
     return EMPTY_DOCUMENTS;
   }
@@ -76,10 +86,15 @@ export async function loadDocuments(): Promise<DocumentsData> {
     const backend = await getDataBackendStatus();
     if (backend.configured) {
       const remote = await getDocumentsFn();
-      documentsVersion = remote.version;
-      documentsSnapshot = remote.data;
-      saveDocumentsLocal(remote.data);
-      return remote.data;
+      if (pendingWrites === 0) {
+        documentsVersion = remote.version;
+        documentsSnapshot = normalizeDocuments(remote.data);
+        blockedConflict = null;
+        saveDocumentsLocal(documentsSnapshot);
+        return documentsSnapshot;
+      }
+      if (!documentsVersion) documentsVersion = remote.version;
+      return normalizeDocuments(remote.data);
     }
   } catch (e) {
     logClientError("documents.load.remote", e);
@@ -92,16 +107,31 @@ export async function saveDocuments(
   options: DocumentsPersistOptions = {},
   conflictVersion?: string,
 ): Promise<DocumentsData> {
-  saveDocumentsLocal(data);
-  try {
-    const backend = await getDataBackendStatus();
-    if (backend.configured) {
-      const before = documentsSnapshot ?? (await loadDocuments());
+  const normalized = normalizeDocuments(data);
+  saveDocumentsLocal(normalized);
+
+  const backend = await getDataBackendStatus();
+  if (!backend.configured) {
+    documentsSnapshot = normalized;
+    return normalized;
+  }
+
+  pendingWrites += 1;
+  const task = async (): Promise<DocumentsData> => {
+    try {
+      if (conflictVersion) {
+        documentsVersion = conflictVersion;
+        blockedConflict = null;
+      } else if (blockedConflict) {
+        throw blockedConflict;
+      }
+
+      const before = normalizeDocuments(documentsSnapshot ?? (await loadDocuments()));
       const upserts: Partial<Record<DocumentKey, DocumentEntity[]>> = {};
       const deletes: Partial<Record<DocumentKey, string[]>> = {};
       for (const key of ["agreements", "archiveDocuments"] as const) {
         const previous = new Map(before[key].map((item) => [item.id, item]));
-        const next = new Map(data[key].map((item) => [item.id, item]));
+        const next = new Map(normalized[key].map((item) => [item.id, item]));
         const changed = [...next.values()].filter(
           (item) => JSON.stringify(previous.get(item.id)) !== JSON.stringify(item),
         );
@@ -116,32 +146,50 @@ export async function saveDocuments(
         }
         if (removed.length > 0) deletes[key] = removed;
       }
-      // Nothing actually changed — don't hit the server (a no-op save must
-      // never replace populated state with defaults).
       if (Object.keys(upserts).length === 0 && Object.keys(deletes).length === 0) {
-        documentsSnapshot = data;
-        return data;
+        documentsSnapshot = normalized;
+        return normalized;
       }
+
       const expectedVersion = conflictVersion ?? documentsVersion;
       if (!expectedVersion) throw new Error("Document version is not loaded.");
+
       const result = await saveDocumentsFn({
-        data: { expectedVersion, upserts, deletes },
-      });
-      documentsVersion = result.version;
-      documentsSnapshot = result.data;
-      saveDocumentsLocal(result.data);
-      if (!result.ok) {
-        throw new DocumentsConflictError(result.data, result.version, data, options, {
+        data: {
+          expectedVersion,
           upserts,
           deletes,
-        });
+          allowedDeleteIds: options.allowAllDeletes ? undefined : (options.deleteIds ?? deletes),
+          allowAllDeletes: options.allowAllDeletes === true,
+        },
+      });
+      const authoritative = normalizeDocuments(result.data);
+      documentsVersion = result.version;
+      documentsSnapshot = authoritative;
+      saveDocumentsLocal(authoritative);
+      if (!result.ok) {
+        const conflict = new DocumentsConflictError(
+          authoritative,
+          result.version,
+          normalized,
+          options,
+          { upserts, deletes },
+        );
+        blockedConflict = conflict;
+        throw conflict;
       }
-      return result.data;
+      blockedConflict = null;
+      return authoritative;
+    } finally {
+      pendingWrites = Math.max(0, pendingWrites - 1);
     }
-    documentsSnapshot = data;
-    return data;
-  } catch (e) {
-    logClientError("documents.save.remote", e);
-    throw e instanceof Error ? e : new Error("Could not save documents to server.");
-  }
+  };
+
+  const queued = writeQueue.then(task, task);
+  writeQueue = queued.catch((error) => {
+    if (!(error instanceof DocumentsConflictError)) {
+      logClientError("documents.save.remote", error);
+    }
+  });
+  return queued;
 }

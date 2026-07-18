@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Agreement, DocumentsData } from "@/lib/types";
@@ -18,6 +18,7 @@ const EMPTY: DocumentsData = { agreements: [], archiveDocuments: [] };
 
 export function useDocuments() {
   const queryClient = useQueryClient();
+  const persistChain = useRef<Promise<void>>(Promise.resolve());
 
   const query = useQuery({
     queryKey: queryKeys.documents,
@@ -35,64 +36,71 @@ export function useDocuments() {
   const saveMutation = useMutation({
     mutationFn: ({ next, options }: { next: DocumentsData; options: DocumentsPersistOptions }) =>
       saveDocuments(next, options),
-    onMutate: async ({ next }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.documents });
-      queryClient.setQueryData(queryKeys.documents, next);
-      writeClientCache(CACHE_KEY, next);
-    },
   });
 
   const persist = useCallback(
-    async (next: DocumentsData, options: DocumentsPersistOptions = {}) => {
-      try {
-        const saved = await saveMutation.mutateAsync({ next, options });
-        queryClient.setQueryData(queryKeys.documents, saved);
-        writeClientCache(CACHE_KEY, saved);
-      } catch (e) {
-        if (e instanceof DocumentsConflictError) {
-          queryClient.setQueryData(queryKeys.documents, e.latest);
-          writeClientCache(CACHE_KEY, e.latest);
-          toast.error("Newer documents exist on the server", {
-            description: "Your stale save was rejected. Reload or merge your document change.",
-            action: {
-              label: "Merge change",
-              onClick: () => {
-                // Replay only the attempted mutation on the latest server
-                // state so rows created elsewhere are never treated as deletes.
-                const merged = applyDocumentsMutation(e.latest, e.mutation);
-                void saveDocuments(merged, { deleteIds: e.mutation.deletes }, e.version)
-                  .then((saved) => {
-                    queryClient.setQueryData(queryKeys.documents, saved);
-                    writeClientCache(CACHE_KEY, saved);
-                    toast.success("Documents merged safely");
-                  })
-                  .catch((error) => {
-                    logClientError("useDocuments.merge", error);
-                    toast.error("Document merge needs review");
-                  });
+    (next: DocumentsData, options: DocumentsPersistOptions = {}): Promise<void> => {
+      const run = async () => {
+        queryClient.setQueryData(queryKeys.documents, next);
+        writeClientCache(CACHE_KEY, next);
+        try {
+          const saved = await saveMutation.mutateAsync({ next, options });
+          queryClient.setQueryData(queryKeys.documents, saved);
+          writeClientCache(CACHE_KEY, saved);
+        } catch (e) {
+          if (e instanceof DocumentsConflictError) {
+            queryClient.setQueryData(queryKeys.documents, e.latest);
+            writeClientCache(CACHE_KEY, e.latest);
+            toast.error("Newer documents exist on the server", {
+              description: "Your stale save was rejected. Reload or merge your document change.",
+              action: {
+                label: "Merge change",
+                onClick: () => {
+                  const merged = applyDocumentsMutation(e.latest, e.mutation);
+                  void saveDocuments(merged, { deleteIds: e.mutation.deletes }, e.version)
+                    .then((saved) => {
+                      queryClient.setQueryData(queryKeys.documents, saved);
+                      writeClientCache(CACHE_KEY, saved);
+                      toast.success("Documents merged safely");
+                    })
+                    .catch((error) => {
+                      logClientError("useDocuments.merge", error);
+                      toast.error("Document merge needs review");
+                      void queryClient.invalidateQueries({ queryKey: queryKeys.documents });
+                    });
+                },
               },
-            },
-            cancel: {
-              label: "Reload",
-              onClick: () => {
-                void queryClient.invalidateQueries({ queryKey: queryKeys.documents });
+              cancel: {
+                label: "Reload",
+                onClick: () => {
+                  void queryClient.invalidateQueries({ queryKey: queryKeys.documents });
+                },
               },
-            },
+              duration: 15_000,
+            });
+            return;
+          }
+          logClientError("useDocuments.save", e);
+          toast.error("Could not save documents", {
+            description: e instanceof Error ? e.message : "Please try again.",
           });
-          return;
+          await queryClient.invalidateQueries({ queryKey: queryKeys.documents });
+          throw e;
         }
-        logClientError("useDocuments.save", e);
-        throw e;
-      }
+      };
+      const queued = persistChain.current.then(run, run);
+      persistChain.current = queued.catch(() => undefined);
+      return queued;
     },
     [queryClient, saveMutation],
   );
 
   const saveAgreements = useCallback(
     async (agreements: Agreement[], options: DocumentsPersistOptions = {}) => {
-      await persist({ ...docs, agreements }, options);
+      const current = queryClient.getQueryData<DocumentsData>(queryKeys.documents) ?? docs;
+      await persist({ ...current, agreements }, options);
     },
-    [docs, persist],
+    [docs, persist, queryClient],
   );
 
   return {

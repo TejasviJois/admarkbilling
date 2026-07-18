@@ -41,6 +41,7 @@ import { useOperations } from "@/hooks/use-operations";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useDocuments } from "@/hooks/use-documents";
 import { syncSystemNotifications } from "@/lib/notification-engine";
+import { operationsWritesInFlight } from "@/lib/operations-storage";
 import { getDataBackendStatus } from "@/server/invoice-fns";
 import { logoutFn } from "@/server/auth-fns";
 
@@ -439,17 +440,19 @@ function AppShell() {
     window.localStorage.setItem(NAV_EXPANSION_STORAGE_KEY, JSON.stringify(expandedNavGroups));
   }, [expandedNavGroups]);
 
-  // Central Notification Sync
+  // Central Notification Sync — debounced so it never races user entity saves.
   useEffect(() => {
     if (!ops || !invoices || !docs || serverDb === null) return;
-
-    const synced = syncSystemNotifications(ops, invoices, docs.agreements ?? [], serverDb);
-    const originalIds = (ops.notifications ?? []).map((n) => `${n.id}-${n.read}`).join(",");
-    const syncedIds = synced.map((n) => `${n.id}-${n.read}`).join(",");
-
-    if (originalIds !== syncedIds) {
-      persist({ ...ops, notifications: synced });
-    }
+    const timer = window.setTimeout(() => {
+      if (operationsWritesInFlight()) return;
+      const synced = syncSystemNotifications(ops, invoices, docs.agreements ?? [], serverDb);
+      const originalIds = (ops.notifications ?? []).map((n) => `${n.id}-${n.read}`).join(",");
+      const syncedIds = synced.map((n) => `${n.id}-${n.read}`).join(",");
+      if (originalIds !== syncedIds) {
+        void persist({ ...ops, notifications: synced });
+      }
+    }, 750);
+    return () => window.clearTimeout(timer);
   }, [ops, invoices, docs, serverDb, persist, reminderClock]);
 
   useEffect(() => {

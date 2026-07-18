@@ -16,7 +16,7 @@ import { mergeAllProjectBilling } from "./project-billing";
 import { logClientError } from "./client-logger";
 import { getOperationsFn, saveOperationsFn, EMPTY_OPERATIONS } from "@/server/operations-fns";
 import { getDataBackendStatus } from "@/server/invoice-fns";
-import type { OperationsMutation } from "./operations-mutations";
+import type { OperationsMutation, OperationsPersistOptions } from "./operations-mutations";
 
 const OPERATIONS_KEY = "admark.operations";
 
@@ -24,15 +24,13 @@ function isBrowser() {
   return typeof window !== "undefined" && typeof localStorage !== "undefined";
 }
 
+/** Seed defaults only on a brand-new empty install. Never replace live data. */
 function needsProjectSeed(projects: OperationsData["projects"]): boolean {
-  if (projects.length === 0) return true;
-  // Re-seed if saved data predates the Admark pipeline import.
-  return !projects.some((p) => p.id === "proj-kapila-faq");
+  return projects.length === 0;
 }
 
 function needsPartnershipSeed(partnerships: OperationsData["partnerships"]): boolean {
-  if (partnerships.length === 0) return true;
-  return !partnerships.some((p) => p.id === "part-epixable");
+  return partnerships.length === 0;
 }
 
 function seedClientsFromProjects(projects: Project[]): Client[] {
@@ -183,15 +181,13 @@ function runHistoricalMigration(data: OperationsData): OperationsData {
 
 function mergeWithDefaults(data: OperationsData): OperationsData {
   const migrated = runHistoricalMigration(data);
-  let base = !needsProjectSeed(migrated.projects)
-    ? withDefaultProjects(migrated)
-    : { ...migrated, projects: DEFAULT_PROJECTS };
+  let base = needsProjectSeed(migrated.projects)
+    ? { ...migrated, projects: DEFAULT_PROJECTS }
+    : withDefaultProjects(migrated);
 
-  if (needsPartnershipSeed(base.partnerships)) {
-    base = { ...base, partnerships: DEFAULT_PARTNERSHIPS };
-  } else {
-    base = withDefaultPartnerships(base);
-  }
+  base = needsPartnershipSeed(base.partnerships)
+    ? { ...base, partnerships: DEFAULT_PARTNERSHIPS }
+    : withDefaultPartnerships(base);
 
   const seededClients =
     data.clients && data.clients.length > 0 ? data.clients : seedClientsFromProjects(base.projects);
@@ -274,6 +270,12 @@ async function serverApiEnabled(): Promise<boolean> {
   }
 }
 
+let pendingWrites = 0;
+
+export function operationsWritesInFlight(): boolean {
+  return pendingWrites > 0;
+}
+
 export async function loadOperations(): Promise<OperationsData> {
   if (!(await serverApiEnabled())) {
     const local = loadOperationsLocal();
@@ -282,11 +284,17 @@ export async function loadOperations(): Promise<OperationsData> {
 
   try {
     const remote = await getOperationsFn();
-    operationsVersion = remote.version;
-    blockedConflict = null;
-    const merged = mergeWithDefaults(remote.data);
-    saveOperationsLocal(merged);
-    return merged;
+    // Never clear a conflict lock or advance the CAS token while saves are
+    // still draining — that would let a stale queued write ride a newer version.
+    if (pendingWrites === 0) {
+      operationsVersion = remote.version;
+      blockedConflict = null;
+      const merged = mergeWithDefaults(remote.data);
+      saveOperationsLocal(merged);
+      return merged;
+    }
+    if (!operationsVersion) operationsVersion = remote.version;
+    return mergeWithDefaults(remote.data);
   } catch (e) {
     logClientError("operations-storage.loadRemote", e);
     return loadOperationsLocal();
@@ -297,35 +305,54 @@ export async function saveOperations(
   data: OperationsData,
   mutation: OperationsMutation,
   conflictVersion?: string,
+  persistOptions: OperationsPersistOptions = {},
 ): Promise<OperationsData> {
   saveOperationsLocal(data);
   if (!(await serverApiEnabled())) return data;
 
+  pendingWrites += 1;
   const task = async (): Promise<OperationsData> => {
+    // Pin the version for this task so a concurrent load cannot advance the
+    // token underneath an already-queued mutation.
+    const expectedVersion = conflictVersion ?? operationsVersion;
     if (conflictVersion) {
       operationsVersion = conflictVersion;
       blockedConflict = null;
     } else if (blockedConflict) {
       throw blockedConflict;
     }
-    if (!operationsVersion) {
+    if (!expectedVersion) {
       throw new Error("Cannot safely save before the current server version is loaded.");
     }
 
-    const result = await saveOperationsFn({
-      data: { mutation, expectedVersion: operationsVersion },
-    });
-    operationsVersion = result.version;
-    if (!result.ok) {
-      const conflict = new OperationsConflictError(result.data, result.version, mutation);
-      blockedConflict = conflict;
-      throw conflict;
-    }
+    try {
+      const result = await saveOperationsFn({
+        data: {
+          mutation,
+          expectedVersion,
+          allowedDeleteIds: persistOptions.allowAllDeletes
+            ? undefined
+            : (persistOptions.deleteIds ?? mutation.deletes),
+          allowAllDeletes: persistOptions.allowAllDeletes === true,
+        },
+      });
+      operationsVersion = result.version;
+      // Always mirror the authoritative server payload locally — including on
+      // conflict — so a rejected write can never linger in localStorage and be
+      // revived if a later remote load fails.
+      const authoritative = mergeWithDefaults(result.data);
+      saveOperationsLocal(authoritative);
+      if (!result.ok) {
+        const conflict = new OperationsConflictError(authoritative, result.version, mutation);
+        blockedConflict = conflict;
+        throw conflict;
+      }
 
-    blockedConflict = null;
-    const saved = mergeWithDefaults(result.data);
-    saveOperationsLocal(saved);
-    return saved;
+      blockedConflict = null;
+      return authoritative;
+    } finally {
+      pendingWrites = Math.max(0, pendingWrites - 1);
+    }
   };
 
   const queued = writeQueue.then(task, task);

@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { fileFromUpload } from "@/components/documents/proof-ui";
 import { logClientError } from "@/lib/client-logger";
 import type { DocumentsPersistOptions } from "@/lib/documents-storage";
+import { safeHref } from "@/lib/utils";
 import type { Agreement, AgreementCounterpartyType } from "@/lib/types";
 
-const MAX_FILE_BYTES = 6 * 1024 * 1024;
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_ITEMS = 50;
 
 const FILE_ACCEPT =
@@ -351,9 +352,9 @@ export function AgreementsPanel({
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                {a.externalUrl && (
+                {safeHref(a.externalUrl) && (
                   <a
-                    href={a.externalUrl}
+                    href={safeHref(a.externalUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={btnRow}
