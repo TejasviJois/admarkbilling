@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import type {
   Client,
+  Contact,
   FinancialBaseline,
   FixedMonthlyExpense,
   Lead,
@@ -68,11 +69,32 @@ function parseFixedMonthlyExpense(raw: unknown): FixedMonthlyExpense | null {
   return {
     id: e.id,
     label: e.label,
+    payee: typeof e.payee === "string" ? e.payee : undefined,
+    teamMemberId: typeof e.teamMemberId === "string" ? e.teamMemberId : undefined,
     amountPerMonth: e.amountPerMonth,
     kind: typeof e.kind === "string" ? e.kind : undefined,
     startDate: typeof e.startDate === "string" ? e.startDate : "2026-01-01",
+    totalMonths:
+      typeof e.totalMonths === "number" && e.totalMonths > 0
+        ? Math.floor(e.totalMonths)
+        : undefined,
+    reminderDay:
+      typeof e.reminderDay === "number" && e.reminderDay >= 1 && e.reminderDay <= 31
+        ? Math.floor(e.reminderDay)
+        : undefined,
+    paidMonths: Array.isArray(e.paidMonths)
+      ? e.paidMonths.filter(
+          (month): month is string => typeof month === "string" && /^\d{4}-\d{2}$/.test(month),
+        )
+      : undefined,
+    status:
+      e.status === "paused" || e.status === "completed" || e.status === "active"
+        ? e.status
+        : e.active === false
+          ? "paused"
+          : "active",
     notes: e.notes,
-    active: e.active !== false,
+    active: e.status === "completed" || e.status === "paused" ? false : e.active !== false,
   };
 }
 
@@ -228,6 +250,21 @@ function parseClient(raw: unknown): Client | null {
   };
 }
 
+function parseContact(raw: unknown): Contact | null {
+  if (!raw || typeof raw !== "object") return null;
+  const c = raw as Partial<Contact>;
+  if (typeof c.id !== "string" || typeof c.personName !== "string") return null;
+  return {
+    id: c.id,
+    organizationId: c.organizationId ?? DEFAULT_ORG_ID,
+    personName: c.personName,
+    companyName: typeof c.companyName === "string" ? c.companyName : undefined,
+    phone: typeof c.phone === "string" ? c.phone : undefined,
+    contactVia: typeof c.contactVia === "string" ? c.contactVia : undefined,
+    createdAt: typeof c.createdAt === "string" ? c.createdAt : undefined,
+  };
+}
+
 function parsePayment(raw: unknown): Payment | null {
   if (!raw || typeof raw !== "object") return null;
   const p = raw as Partial<Payment>;
@@ -298,6 +335,16 @@ function parseTransaction(raw: unknown): Transaction | null {
     relatedProjectId: t.relatedProjectId,
     relatedInvoiceId: t.relatedInvoiceId,
     relatedFounderId: t.relatedFounderId,
+    relatedTeamMemberId:
+      typeof t.relatedTeamMemberId === "string" ? t.relatedTeamMemberId : undefined,
+    payrollMonth:
+      typeof t.payrollMonth === "string" && /^\d{4}-\d{2}$/.test(t.payrollMonth)
+        ? t.payrollMonth
+        : undefined,
+    salaryBaseAmount: typeof t.salaryBaseAmount === "number" ? t.salaryBaseAmount : undefined,
+    salaryBonusAmount: typeof t.salaryBonusAmount === "number" ? t.salaryBonusAmount : undefined,
+    fixedMonthlyExpenseId:
+      typeof t.fixedMonthlyExpenseId === "string" ? t.fixedMonthlyExpenseId : undefined,
     relatedVendorId: t.relatedVendorId,
     notes: t.notes,
     attachmentDataUrl: t.attachmentDataUrl,
@@ -326,6 +373,7 @@ function injectTenantIntoOperations(data: OperationsData): OperationsData {
     leads: data.leads?.map((l) => ({ ...l, organizationId: DEFAULT_ORG_ID })),
     assets: data.assets?.map((a) => ({ ...a, organizationId: DEFAULT_ORG_ID })),
     clients: data.clients?.map((c) => ({ ...c, organizationId: DEFAULT_ORG_ID })),
+    contacts: data.contacts?.map((c) => ({ ...c, organizationId: DEFAULT_ORG_ID })),
     payments: data.payments?.map((pay) => ({ ...pay, organizationId: DEFAULT_ORG_ID })),
     transactions: data.transactions?.map((t) => ({ ...t, organizationId: DEFAULT_ORG_ID })),
   };
@@ -371,8 +419,7 @@ function parseProject(raw: unknown): Project | null {
     billing: p.billing,
     paymentStatus: p.paymentStatus,
     paymentProofs: p.paymentProofs,
-    historicalReceived:
-      typeof p.historicalReceived === "number" ? p.historicalReceived : undefined,
+    historicalReceived: typeof p.historicalReceived === "number" ? p.historicalReceived : undefined,
     historicalOutstanding:
       typeof p.historicalOutstanding === "number" || p.historicalOutstanding === null
         ? p.historicalOutstanding
@@ -388,6 +435,9 @@ function parseProject(raw: unknown): Project | null {
         ? p.priority
         : undefined,
     assignedPartner: typeof p.assignedPartner === "string" ? p.assignedPartner : undefined,
+    assignedMembers: Array.isArray(p.assignedMembers)
+      ? p.assignedMembers.filter((id): id is string => typeof id === "string")
+      : undefined,
     notes: p.notes,
     milestones,
     phone: p.phone,
@@ -409,6 +459,9 @@ function parseOperationsPayload(payload: unknown): OperationsData {
     : undefined;
   const clients = Array.isArray(raw.clients)
     ? raw.clients.map(parseClient).filter((c): c is Client => c != null)
+    : undefined;
+  const contacts = Array.isArray(raw.contacts)
+    ? raw.contacts.map(parseContact).filter((c): c is Contact => c != null)
     : undefined;
   const payments = Array.isArray(raw.payments)
     ? raw.payments.map(parsePayment).filter((pay): pay is Payment => pay != null)
@@ -448,6 +501,7 @@ function parseOperationsPayload(payload: unknown): OperationsData {
     financialBaseline: parseFinancialBaseline(raw.financialBaseline) ?? DEFAULT_FINANCIAL_BASELINE,
     fixedMonthlyExpenses,
     clients,
+    contacts,
     payments,
     transactions,
     founders,

@@ -8,7 +8,7 @@ import { loadActivityLogs } from "@/lib/activity-log-storage";
 import { computeTotals, formatINR, formatINRWhole } from "@/lib/invoice-calc";
 import { formatActivityTimestamp } from "@/lib/activity-log-labels";
 import { isRevenueProject } from "@/lib/project-status";
-import { paymentSummary } from "@/lib/project-payments";
+import { estimatedPending, paymentSummary } from "@/lib/project-payments";
 import { Button } from "@/components/ui/button";
 import type { ActivityLogEntry } from "@/lib/types";
 
@@ -107,7 +107,7 @@ function ClientOverviewPage() {
       (totals, project) => {
         const summary = paymentSummary(project);
         totals.totalRevenue += summary.received;
-        totals.outstandingAmount += summary.pending ?? 0;
+        totals.outstandingAmount += estimatedPending(project);
         return totals;
       },
       { totalRevenue: 0, outstandingAmount: 0 },

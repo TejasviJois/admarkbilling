@@ -51,8 +51,8 @@ export const DEFAULT_LEADS: Lead[] = [
 ];
 
 export function needsLeadSeed(leads: Lead[] | undefined): boolean {
-  if (!leads || leads.length === 0) return true;
-  return !leads.some((l) => l.id === "lead-shudhindra");
+  // Seed only a brand-new install — deliberate deletions must never resurrect defaults.
+  return leads === undefined;
 }
 
 export function withDefaultLeads<T extends { leads?: Lead[] }>(data: T): T {

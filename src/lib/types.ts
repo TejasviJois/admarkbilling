@@ -1,11 +1,23 @@
-/** Internal team / company contacts (shown in settings; optional on invoices later). */
+export type TeamMemberType = "founder" | "employee" | "intern" | "contractor";
+
+/** A person who works for the company and can own projects or receive payroll. */
 export interface CompanyMember {
   id: string;
   name: string;
   email: string;
   phone: string;
-  /** e.g. Partner, Director, Operations */
+  /** e.g. Partner, Director, Developer, Operations */
   role?: string;
+  memberType?: TeamMemberType;
+  joinDate?: string;
+  status?: "active" | "inactive";
+  /** Guaranteed monthly salary. Variable bonuses are recorded month by month. */
+  baseMonthlySalary?: number;
+  /** Maximum suggested bonus for a month; the actual bonus defaults to zero. */
+  monthlyBonusCap?: number;
+  /** Salary schedule start and due day. */
+  salaryStartDate?: string;
+  salaryDueDay?: number;
 }
 
 export interface CompanySettings {
@@ -33,6 +45,8 @@ export interface CompanySettings {
   authorizedName?: string;
   /** Team members — name, email, phone for reference and settings UI. */
   companyMembers?: CompanyMember[];
+  /** One-time upgrade from the old partners-only list to the Team directory. */
+  teamDirectoryMigrationApplied?: boolean;
   paymentTerms?: string;
   remarks?: string;
   paymentMode?: string;
@@ -138,8 +152,10 @@ export interface Project {
   budget?: number;
   estimatedCost?: number;
   priority?: "low" | "medium" | "high";
-  /** Company member id responsible for delivering this project. */
+  /** @deprecated Single owner — superseded by `assignedMembers`; kept for older rows. */
   assignedPartner?: string;
+  /** Team member ids working on this project (several people can share one project). */
+  assignedMembers?: string[];
   notes?: string;
   milestones?: Milestone[];
   phone?: string;
@@ -214,6 +230,18 @@ export interface Lead {
   createdAt?: string;
 }
 
+/** Directory contact — a saved person, not yet a lead. Moving to Leads removes it from the directory. */
+export interface Contact {
+  id: string;
+  organizationId?: string;
+  personName: string;
+  companyName?: string;
+  phone?: string;
+  /** Who to reach them through when there's no direct phone. */
+  contactVia?: string;
+  createdAt?: string;
+}
+
 export type AssetCategory = "equipment" | "digital" | "cash" | "investment" | "other";
 
 /** Company asset — equipment, cash, investments, etc. */
@@ -275,6 +303,7 @@ export interface AppNotification {
   relatedModule:
     | "invoices"
     | "payments"
+    | "accounts"
     | "projects"
     | "leads"
     | "documents"
@@ -427,6 +456,8 @@ export interface OperationsData {
   /** Recurring monthly obligations — loan repayments, rent, subscriptions, etc. */
   fixedMonthlyExpenses?: FixedMonthlyExpense[];
   clients?: Client[];
+  /** Directory contact book — people saved before they become leads. */
+  contacts?: Contact[];
   payments?: Payment[];
   transactions?: Transaction[];
   founders?: Founder[];
@@ -469,6 +500,13 @@ export interface Transaction {
   relatedProjectId?: string;
   relatedInvoiceId?: string;
   relatedFounderId?: string;
+  /** Team member paid by this transaction (salary, bonus, reimbursement, etc.). */
+  relatedTeamMemberId?: string;
+  /** Payroll period and immutable component snapshot for salary transactions. */
+  payrollMonth?: string;
+  salaryBaseAmount?: number;
+  salaryBonusAmount?: number;
+  fixedMonthlyExpenseId?: string;
   relatedVendorId?: string;
   notes?: string;
   attachmentDataUrl?: string;
@@ -531,11 +569,23 @@ export type FixedMonthlyExpenseKind =
 export interface FixedMonthlyExpense {
   id: string;
   label: string;
+  /** Who receives this payment — person or company. */
+  payee?: string;
+  /** Set for salary schedules so names are selected from Team, not free typed. */
+  teamMemberId?: string;
   amountPerMonth: number;
   /** Salary, EMI, rent, subscription, etc. */
   kind?: FixedMonthlyExpenseKind;
   /** First month this obligation applies (YYYY-MM-DD). */
   startDate: string;
+  /** Fixed number of installments; blank means ongoing until manually completed. */
+  totalMonths?: number;
+  /** Calendar day (1–31) to remind the user each month. */
+  reminderDay?: number;
+  /** Checked-off installment months, stored as YYYY-MM. */
+  paidMonths?: string[];
+  /** Explicit workflow state; `active` remains for backwards compatibility. */
+  status?: "active" | "paused" | "completed";
   notes?: string;
   active: boolean;
 }

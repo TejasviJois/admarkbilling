@@ -16,10 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Field, OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
+import { useCompany } from "@/hooks/use-company";
 import { formatINRWhole } from "@/lib/invoice-calc";
 import { projectContractValue } from "@/lib/project-billing";
 import { projectStatusBadgeClass, projectStatusLabel } from "@/lib/project-status";
-import { DEFAULT_COMPANY } from "@/lib/constants";
 import type { Project, Milestone } from "@/lib/types";
 
 export const Route = createFileRoute("/projects/$id")({ component: ProjectDetailsPage });
@@ -27,6 +27,7 @@ export const Route = createFileRoute("/projects/$id")({ component: ProjectDetail
 function ProjectDetailsPage() {
   const { id } = Route.useParams();
   const { ops, persist, loading } = useOperations();
+  const { company } = useCompany();
   const navigate = useNavigate();
 
   // Milestone sub-form state
@@ -41,7 +42,7 @@ function ProjectDetailsPage() {
     return ops.projects.find((p) => p.id === id) || null;
   }, [ops.projects, id]);
 
-  const members = DEFAULT_COMPANY.companyMembers ?? [];
+  const members = (company.companyMembers ?? []).filter((member) => member.status !== "inactive");
 
   // Operational project progress only. Financial movement belongs in Accounts.
   const calculations = useMemo(() => {
@@ -343,10 +344,10 @@ function ProjectDetailsPage() {
                   </Select>
                 </Field>
 
-                <Field label="Assigned Partner" id="ms-user">
+                <Field label="Assigned Team Member" id="ms-user">
                   <Select value={msUser} onValueChange={(v) => setMsUser(v)}>
                     <SelectTrigger id="ms-user">
-                      <SelectValue placeholder="Assign partner" />
+                      <SelectValue placeholder="Assign team member" />
                     </SelectTrigger>
                     <SelectContent>
                       {members.map((m) => (

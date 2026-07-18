@@ -12,6 +12,9 @@ export const FOUNDER_SHARE_WITHDRAWAL_CATEGORY = "Founder Payout";
  * description so older records are classified correctly too.
  */
 export function isFounderSalary(tx: Transaction): boolean {
-  if (tx.type !== "founder_withdrawal") return false;
-  return /salary/i.test(`${tx.category ?? ""} ${tx.description ?? ""}`);
+  if (tx.type !== "founder_withdrawal" && tx.type !== "expense") return false;
+  return (
+    Boolean(tx.relatedFounderId) &&
+    /salary|payroll/i.test(`${tx.category ?? ""} ${tx.description ?? ""}`)
+  );
 }

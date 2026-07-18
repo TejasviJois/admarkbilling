@@ -1,4 +1,4 @@
-import type { ProjectStatus } from "./types";
+import type { Project, ProjectStatus } from "./types";
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   completed: "Done",
@@ -36,6 +36,14 @@ export const REVENUE_PROJECT_STATUSES: ProjectStatus[] = ["active", "completed"]
 
 export function isRevenueProject(status: ProjectStatus): boolean {
   return REVENUE_PROJECT_STATUSES.includes(status);
+}
+
+/** All team members on a project — reads the new list with the legacy single owner as fallback. */
+export function projectAssignedMemberIds(
+  project: Pick<Project, "assignedMembers" | "assignedPartner">,
+): string[] {
+  if (project.assignedMembers?.length) return project.assignedMembers;
+  return project.assignedPartner ? [project.assignedPartner] : [];
 }
 
 export function projectStatusCounts(projects: { status: ProjectStatus }[]) {

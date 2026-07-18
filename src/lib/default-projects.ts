@@ -111,8 +111,9 @@ export function withDefaultProjects<T extends { projects: Project[] }>(data: T):
   }
 
   const defaultsById = new Map(DEFAULT_PROJECTS.map((project) => [project.id, project]));
-  const savedIds = new Set(data.projects.map((project) => project.id));
 
+  // Fill gaps on existing default projects only. Never re-add missing defaults —
+  // a deliberately deleted project must stay deleted.
   const merged = data.projects.map((project) => {
     const defaults = defaultsById.get(project.id);
     if (!defaults) return project;
@@ -129,7 +130,5 @@ export function withDefaultProjects<T extends { projects: Project[] }>(data: T):
     };
   });
 
-  const missing = DEFAULT_PROJECTS.filter((project) => !savedIds.has(project.id));
-
-  return { ...data, projects: [...merged, ...missing] };
+  return { ...data, projects: merged };
 }

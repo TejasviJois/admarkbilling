@@ -16,13 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/operations/operations-ui";
 import { buildRevenueValueFromBilling, resolveProjectBilling } from "@/lib/project-billing";
 import { projectStatusLabel } from "@/lib/project-status";
 import { useOperations } from "@/hooks/use-operations";
-import { DEFAULT_COMPANY } from "@/lib/constants";
-import type { Project, ProjectBilling, ProjectStatus } from "@/lib/types";
+import { useCompany } from "@/hooks/use-company";
+import type { Client, Project, ProjectBilling, ProjectStatus } from "@/lib/types";
 
 const PROJECT_STATUSES: ProjectStatus[] = [
   "completed",
@@ -56,12 +57,13 @@ const EMPTY_BILLING: BillingForm = {
 const EMPTY_FORM = {
   clientId: "",
   client: "",
+  name: "",
   projectType: "",
   phone: "",
   email: "",
   status: "active" as ProjectStatus,
   estimatedCost: "",
-  assignedPartner: "",
+  assignedMembers: [] as string[],
   startDate: "",
   deadline: "",
   budget: "",
@@ -110,47 +112,75 @@ export function ProjectFormDialog({
   onSave: (project: Project) => void;
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
+  const [recurringEnabled, setRecurringEnabled] = useState(false);
 
   const isEdit = Boolean(project);
 
   const { ops } = useOperations();
+  const { company } = useCompany();
   const clients = ops.clients ?? [];
-  // Relationship parents organize multiple companies but are not billing entities.
-  const billableClients = clients.filter(
-    (client) => !clients.some((candidate) => candidate.parentClientId === client.id),
+  const clientLabel = (client: Client) => {
+    const parent = client.parentClientId
+      ? clients.find((candidate) => candidate.id === client.parentClientId)
+      : undefined;
+    return parent ? `${client.companyName} — ${parent.companyName}` : client.companyName;
+  };
+  const selectableClients = [...clients].sort((a, b) =>
+    clientLabel(a).localeCompare(clientLabel(b)),
   );
-  const members = DEFAULT_COMPANY.companyMembers ?? [];
+  const members = (company.companyMembers ?? []).filter((member) => member.status !== "inactive");
 
   useEffect(() => {
     if (!open) return;
     if (project) {
+      const billingForm = billingFromProject(project);
       setForm({
         clientId: project.clientId ?? "",
         client: project.client || project.name || "",
+        name: project.name || "",
         projectType: project.projectType || "",
         phone: project.phone ?? "",
         email: project.email ?? "",
         status: project.status,
         estimatedCost: project.estimatedCost != null ? String(project.estimatedCost) : "",
-        assignedPartner: project.assignedPartner ?? "",
+        assignedMembers: project.assignedMembers?.length
+          ? project.assignedMembers
+          : project.assignedPartner
+            ? [project.assignedPartner]
+            : [],
         startDate: project.startDate ?? "",
         deadline: project.deadline ?? "",
         budget: project.budget != null ? String(project.budget) : "",
         notes: project.notes ?? "",
-        ...billingFromProject(project),
+        ...billingForm,
       });
+      setRecurringEnabled(
+        Boolean(billingForm.monthlyAmount.trim() || billingForm.maintenanceAmount.trim()),
+      );
     } else {
       setForm({
         ...EMPTY_FORM,
         startDate: new Date().toISOString().slice(0, 10),
       });
+      setRecurringEnabled(false);
     }
   }, [open, project, clients]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.client.trim()) return;
-    const built = buildBilling(form);
+    // Toggle off = no recurring income: whatever is typed in those fields is discarded.
+    const effectiveForm = recurringEnabled
+      ? form
+      : {
+          ...form,
+          monthlyAmount: "",
+          monthlyMonths: "",
+          monthlyStartDate: "",
+          maintenanceAmount: "",
+          maintenanceMonths: "",
+        };
+    const built = buildBilling(effectiveForm);
     // Fields not editable in this form must survive a save: the authoritative
     // Ground Zero contract value and a permanently-closed retainer marker.
     const preserved = project?.billing;
@@ -164,7 +194,7 @@ export function ProjectFormDialog({
               : {}),
           }
         : undefined;
-    
+
     // Automatically calculate default budget if not explicitly set
     let budgetNum = form.budget ? Number(form.budget) : undefined;
     if (budgetNum === undefined && billing) {
@@ -176,7 +206,7 @@ export function ProjectFormDialog({
       id: project?.id ?? crypto.randomUUID(),
       clientId: form.clientId.trim() || undefined,
       client: form.client.trim(),
-      name: form.client.trim(),
+      name: form.name.trim() || form.client.trim(),
       projectType: form.projectType.trim() || undefined,
       phone: form.phone.trim() || undefined,
       email: form.email.trim() || undefined,
@@ -185,7 +215,8 @@ export function ProjectFormDialog({
       revenueValue: billing ? buildRevenueValueFromBilling(billing) : project?.revenueValue,
       budget: budgetNum,
       estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : undefined,
-      assignedPartner: form.assignedPartner || undefined,
+      assignedMembers: form.assignedMembers.length ? form.assignedMembers : undefined,
+      assignedPartner: form.assignedMembers[0],
       startDate: form.startDate || undefined,
       deadline: form.deadline || undefined,
       notes: form.notes.trim() || undefined,
@@ -204,10 +235,11 @@ export function ProjectFormDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
-          
           {/* Section: Client & Profile */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground border-b border-border pb-1">1. Client Profile</h3>
+            <h3 className="text-sm font-semibold text-foreground border-b border-border pb-1">
+              1. Client Profile
+            </h3>
             <Field label="Client" id="dialog-client">
               <Select
                 value={form.clientId || NEW_CLIENT_VALUE}
@@ -233,33 +265,33 @@ export function ProjectFormDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NEW_CLIENT_VALUE}>+ New client (type name below)</SelectItem>
-                  {billableClients.map((c) => (
+                  {selectableClients.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.companyName}
+                      {clientLabel(c)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Client Name *" id="dialog-client-name">
+            {!form.clientId && (
+              <Field label="New Client Name *" id="dialog-client-name">
                 <Input
                   id="dialog-client-name"
                   value={form.client}
-                  onChange={(e) =>
-                    // Typing a different name detaches the selected client — a
-                    // new client record is created on save and reused everywhere.
-                    setForm((f) => {
-                      const selected = clients.find((c) => c.id === f.clientId);
-                      const detach =
-                        selected &&
-                        selected.companyName.trim().toLowerCase() !==
-                          e.target.value.trim().toLowerCase();
-                      return { ...f, client: e.target.value, clientId: detach ? "" : f.clientId };
-                    })
-                  }
-                  placeholder="Existing or brand-new client name"
+                  onChange={(e) => setForm((f) => ({ ...f, client: e.target.value }))}
+                  placeholder="A client record is created on save and reused everywhere"
+                />
+              </Field>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Project Display Name" id="dialog-project-name">
+                <Input
+                  id="dialog-project-name"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Defaults to the client name"
                 />
               </Field>
               <Field label="Project Type" id="dialog-type">
@@ -296,8 +328,10 @@ export function ProjectFormDialog({
 
           {/* Section: Project Setup (Timeline, Priority & Budget) */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground border-b border-border pb-1">2. Project Metadata</h3>
-            
+            <h3 className="text-sm font-semibold text-foreground border-b border-border pb-1">
+              2. Project Metadata
+            </h3>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Project Status" id="dialog-status">
                 <Select
@@ -317,22 +351,34 @@ export function ProjectFormDialog({
                 </Select>
               </Field>
 
-              <Field label="Assigned Partner" id="dialog-partner">
-                <Select
-                  value={form.assignedPartner}
-                  onValueChange={(v) => setForm((f) => ({ ...f, assignedPartner: v }))}
-                >
-                  <SelectTrigger id="dialog-partner">
-                    <SelectValue placeholder="Select partner..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {members.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <Field label="Team Members" id="dialog-partner">
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {members.map((m) => {
+                    const isOn = form.assignedMembers.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        aria-pressed={isOn}
+                        onClick={() =>
+                          setForm((f) => ({
+                            ...f,
+                            assignedMembers: isOn
+                              ? f.assignedMembers.filter((id) => id !== m.id)
+                              : [...f.assignedMembers, m.id],
+                          }))
+                        }
+                        className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                          isOn
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        }`}
+                      >
+                        {m.name.trim().split(/\s+/)[0]}
+                      </button>
+                    );
+                  })}
+                </div>
               </Field>
             </div>
 
@@ -391,61 +437,89 @@ export function ProjectFormDialog({
 
           {/* Section: Recurring billing — drives the Revenue label in the projects table */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground border-b border-border pb-1">3. Recurring Billing</h3>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Monthly amount (₹)" id="dialog-monthly-amount">
-                <Input
-                  id="dialog-monthly-amount"
-                  type="number"
-                  min={0}
-                  value={form.monthlyAmount}
-                  onChange={(e) => setForm((f) => ({ ...f, monthlyAmount: e.target.value }))}
-                  placeholder="e.g. 10000"
+            <div className="flex items-center justify-between border-b border-border pb-1">
+              <h3 className="text-sm font-semibold text-foreground">3. Recurring Billing</h3>
+              <label
+                htmlFor="dialog-recurring-toggle"
+                className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground"
+              >
+                Recurring income
+                <Switch
+                  id="dialog-recurring-toggle"
+                  checked={recurringEnabled}
+                  onCheckedChange={setRecurringEnabled}
                 />
-              </Field>
-              <Field label="Number of months" id="dialog-monthly-months">
-                <Input
-                  id="dialog-monthly-months"
-                  type="number"
-                  min={0}
-                  value={form.monthlyMonths}
-                  onChange={(e) => setForm((f) => ({ ...f, monthlyMonths: e.target.value }))}
-                  placeholder="Blank = ongoing"
-                />
-              </Field>
-              <Field label="Billing starts" id="dialog-monthly-start">
-                <Input
-                  id="dialog-monthly-start"
-                  type="date"
-                  value={form.monthlyStartDate}
-                  onChange={(e) => setForm((f) => ({ ...f, monthlyStartDate: e.target.value }))}
-                />
-              </Field>
+              </label>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Maintenance (₹/month)" id="dialog-maintenance-amount">
-                <Input
-                  id="dialog-maintenance-amount"
-                  type="number"
-                  min={0}
-                  value={form.maintenanceAmount}
-                  onChange={(e) => setForm((f) => ({ ...f, maintenanceAmount: e.target.value }))}
-                  placeholder="Optional"
-                />
-              </Field>
-              <Field label="Maintenance months" id="dialog-maintenance-months">
-                <Input
-                  id="dialog-maintenance-months"
-                  type="number"
-                  min={0}
-                  value={form.maintenanceMonths}
-                  onChange={(e) => setForm((f) => ({ ...f, maintenanceMonths: e.target.value }))}
-                  placeholder="Optional"
-                />
-              </Field>
-            </div>
+            {!recurringEnabled && (
+              <p className="text-xs text-muted-foreground">
+                Turn the switch on if this project has recurring income — a monthly retainer or
+                maintenance billing.
+              </p>
+            )}
+
+            {recurringEnabled && (
+              <>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label="Monthly amount (₹)" id="dialog-monthly-amount">
+                    <Input
+                      id="dialog-monthly-amount"
+                      type="number"
+                      min={0}
+                      value={form.monthlyAmount}
+                      onChange={(e) => setForm((f) => ({ ...f, monthlyAmount: e.target.value }))}
+                      placeholder="e.g. 10000"
+                    />
+                  </Field>
+                  <Field label="Number of months" id="dialog-monthly-months">
+                    <Input
+                      id="dialog-monthly-months"
+                      type="number"
+                      min={0}
+                      value={form.monthlyMonths}
+                      onChange={(e) => setForm((f) => ({ ...f, monthlyMonths: e.target.value }))}
+                      placeholder="Blank = ongoing"
+                    />
+                  </Field>
+                  <Field label="Billing starts" id="dialog-monthly-start">
+                    <Input
+                      id="dialog-monthly-start"
+                      type="date"
+                      value={form.monthlyStartDate}
+                      onChange={(e) => setForm((f) => ({ ...f, monthlyStartDate: e.target.value }))}
+                    />
+                  </Field>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Maintenance (₹/month)" id="dialog-maintenance-amount">
+                    <Input
+                      id="dialog-maintenance-amount"
+                      type="number"
+                      min={0}
+                      value={form.maintenanceAmount}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, maintenanceAmount: e.target.value }))
+                      }
+                      placeholder="Optional"
+                    />
+                  </Field>
+                  <Field label="Maintenance months" id="dialog-maintenance-months">
+                    <Input
+                      id="dialog-maintenance-months"
+                      type="number"
+                      min={0}
+                      value={form.maintenanceMonths}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, maintenanceMonths: e.target.value }))
+                      }
+                      placeholder="Optional"
+                    />
+                  </Field>
+                </div>
+              </>
+            )}
           </div>
 
           <Field label="Internal Remarks / Notes" id="dialog-project-notes">

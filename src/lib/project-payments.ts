@@ -142,13 +142,7 @@ export function syncPaymentStatusFromPayments(project: Project): Project {
   }
 
   const total = historical + sumReceivedAfterMigration(project);
-  const fromBilling = contractTargetFromProject(project);
-  const target =
-    project.billing?.contractValue != null
-      ? project.billing.contractValue
-      : fromBilling > 0
-        ? fromBilling
-        : parseRevenueTarget(project.revenueValue);
+  const target = contractTargetFromProject(project);
   const parts = [`${formatINRWhole(total)} received`];
   const pending =
     project.historicalOutstanding !== undefined
@@ -226,13 +220,7 @@ export function paymentSummary(project: Project): {
   const receivedAfterMigration = sumReceivedAfterMigration(project);
   const historical = historicalReceived(project);
   const received = historical + receivedAfterMigration;
-  const fromBilling = contractTargetFromProject(project);
-  const target =
-    project.billing?.contractValue != null
-      ? project.billing.contractValue
-      : fromBilling > 0
-        ? fromBilling
-        : parseRevenueTarget(project.revenueValue);
+  const target = contractTargetFromProject(project);
   const pending =
     project.historicalOutstanding !== undefined
       ? project.historicalOutstanding == null
@@ -253,19 +241,35 @@ export function paymentSummary(project: Project): {
   };
 }
 
-/** Contract total without importing project-billing (avoids circular deps). */
-function contractTargetFromProject(project: Project): number {
+/**
+ * Outstanding as a number for KPI totals. When pending is explicitly unknown
+ * (null), estimate from contract value minus received instead of silently
+ * counting ₹0 and understating receivables.
+ */
+export function estimatedPending(project: Project): number {
+  const summary = paymentSummary(project);
+  if (summary.pending != null) return summary.pending;
+  if (summary.target != null) return Math.max(0, summary.target - summary.received);
+  return 0;
+}
+
+/**
+ * Contract total without importing project-billing (avoids circular deps).
+ * Monthly retainers are recurring income (MRR / future monthly) — their
+ * months are NEVER accumulated into a contract value or outstanding.
+ * An explicit contractValue of 0 means "no contract — recurring only".
+ */
+function contractTargetFromProject(project: Project): number | null {
   const b = project.billing ?? {};
-  if (b.contractValue != null) return b.contractValue;
-  let total = b.upfrontAmount ?? 0;
-  total += b.maintenanceAmount ?? 0;
-  if (b.monthlyAmount && b.monthlyMonths != null) {
-    total += b.monthlyAmount * b.monthlyMonths;
+  if (b.contractValue != null) return b.contractValue > 0 ? b.contractValue : null;
+  // Explicit form entries win over legacy revenueValue text — a typed 0 sticks.
+  if (b.upfrontAmount != null || b.maintenanceAmount != null) {
+    const total = (b.upfrontAmount ?? 0) + (b.maintenanceAmount ?? 0);
+    return total > 0 ? total : null;
   }
-  if (total > 0) return total;
   const parsed = project.revenueValue?.trim() ?? "";
-  if (!parsed || /partner|discount|tbd|—|\/\s*month/i.test(parsed)) return 0;
-  return parseInrAmount(parsed) ?? 0;
+  if (!parsed || /partner|discount|tbd|—|\/\s*month/i.test(parsed)) return null;
+  return parseInrAmount(parsed);
 }
 
 export function paymentProofSummary(project: Project): {

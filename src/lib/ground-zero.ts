@@ -36,7 +36,10 @@ export const GROUND_ZERO_BASELINE: FinancialBaseline = {
   asOfDate: GROUND_ZERO_DATE,
   totalRevenueBooked: 462_425,
   totalHandoutsTaken: 123_745,
-  totalRevenueReceived: 148_425,
+  // Reconciled against the actual imported payments (24,000 + 36,000 + 30,000
+  // + 10,000 + 12,425 + 20,000 + 5,000 + 10,000) — the Excel summary said
+  // 148,425 but was ₹1,000 higher than the payments it summarized.
+  totalRevenueReceived: 147_425,
   totalExternalPayouts: 10_000,
   totalCompanyExpenses: 34_564.48,
   founderPayoutPool: 56_894.1,

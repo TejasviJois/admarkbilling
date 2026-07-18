@@ -50,6 +50,7 @@ export function ProjectsSection({
       if (!q) return true;
       const haystack = [
         projectClientLabel(p),
+        p.name,
         p.projectType,
         p.revenueValue,
         p.paymentStatus,

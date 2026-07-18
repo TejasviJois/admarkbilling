@@ -22,6 +22,9 @@ dist-ssr
 .cursor/
 .agents/
 
+# Local data backups from one-time cleanup scripts
+backups/
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

@@ -81,7 +81,11 @@ export function encryptOperationsData(ops: OperationsData): OperationsData {
     billingAddress: encrypt(cl.billingAddress),
     shippingAddress: cl.shippingAddress ? encrypt(cl.shippingAddress) : undefined,
   }));
-  return { ...ops, clients };
+  const contacts = ops.contacts?.map((contact) => ({
+    ...contact,
+    phone: contact.phone ? encrypt(contact.phone) : undefined,
+  }));
+  return { ...ops, clients, contacts };
 }
 
 export function decryptOperationsData(ops: OperationsData): OperationsData {
@@ -94,7 +98,11 @@ export function decryptOperationsData(ops: OperationsData): OperationsData {
     billingAddress: decrypt(cl.billingAddress),
     shippingAddress: cl.shippingAddress ? decrypt(cl.shippingAddress) : undefined,
   }));
-  return { ...ops, clients };
+  const contacts = ops.contacts?.map((contact) => ({
+    ...contact,
+    phone: contact.phone ? decrypt(contact.phone) : undefined,
+  }));
+  return { ...ops, clients, contacts };
 }
 
 // Invoice transforms

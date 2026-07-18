@@ -7,7 +7,6 @@ import {
   Save,
   Users,
   Settings,
-  Image,
   FileText,
   Percent,
   CreditCard,
@@ -20,8 +19,8 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { ComplianceDocumentsPanel } from "@/components/settings/ComplianceDocumentsPanel";
+import { CompanyPartnersPanel } from "@/components/settings/CompanyPartnersPanel";
 import {
-  PartnerCard,
   SettingsField,
   SettingsImageField,
   SettingsProfileHero,
@@ -51,14 +50,12 @@ export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
 type SettingsTab =
   | "company"
-  | "branding"
   | "invoice"
   | "finance"
   | "tax"
   | "bank"
   | "security"
   | "storage"
-  | "backups"
   | "notifications"
   | "users"
   | "permissions"
@@ -75,7 +72,7 @@ function SettingsPage() {
   const [syncing, setSyncing] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  
+
   // Storage and Sync states
   const [backendLabel, setBackendLabel] = useState<string>("Checking storage…");
   const [backendReady, setBackendReady] = useState<boolean | null>(null);
@@ -88,7 +85,9 @@ function SettingsPage() {
 
   const complianceSig =
     c != null
-      ? `${c.udyamCertificateDataUrl?.length ?? 0}:${(c.complianceDocuments ?? []).length}:${(c.complianceDocuments ?? [])
+      ? `${c.udyamCertificateDataUrl?.length ?? 0}:${(c.complianceDocuments ?? []).length}:${(
+          c.complianceDocuments ?? []
+        )
           .map((d) => `${d.id}|${d.title}|${d.externalUrl ?? ""}|${d.fileName ?? ""}`)
           .join("¬")}`
       : "";
@@ -144,11 +143,7 @@ function SettingsPage() {
         })
         .catch((err) => {
           logClientError("settings.autoSave", err);
-          alert(
-            err instanceof Error
-              ? err.message
-              : "Could not save compliance document.",
-          );
+          alert(err instanceof Error ? err.message : "Could not save compliance document.");
         });
     }, 450);
     return () => window.clearTimeout(id);
@@ -225,7 +220,11 @@ function SettingsPage() {
       alert("No local browser data found to upload.");
       return;
     }
-    if (!confirm("Upload all browser data to Supabase? This overwrites cloud copies with your local data.")) {
+    if (
+      !confirm(
+        "Upload all browser data to Supabase? This overwrites cloud copies with your local data.",
+      )
+    ) {
       return;
     }
     setSyncingCloud(true);
@@ -248,10 +247,7 @@ function SettingsPage() {
   // BACKUP & RESTORE UTILITIES
   const handleExportBackup = async () => {
     try {
-      const [documents, activityLogs] = await Promise.all([
-        loadDocuments(),
-        loadActivityLogs(),
-      ]);
+      const [documents, activityLogs] = await Promise.all([loadDocuments(), loadActivityLogs()]);
       const exportedAt = new Date().toISOString();
       const backupData = {
         format: "admark-os-full-system-backup",
@@ -321,7 +317,11 @@ function SettingsPage() {
           return;
         }
 
-        if (confirm("WARNING: Importing this backup will overwrite ALL current local and cloud database records. Proceed?")) {
+        if (
+          confirm(
+            "WARNING: Importing this backup will overwrite ALL current local and cloud database records. Proceed?",
+          )
+        ) {
           // 1. Restore Operations (Clients, Leads, Expenses, Projects, Partnerships)
           await persist(operations);
 
@@ -382,7 +382,15 @@ function SettingsPage() {
       ...prev,
       companyMembers: [
         ...(prev.companyMembers ?? []),
-        { id, name: "", email: "", phone: "", role: "Partner" },
+        {
+          id,
+          name: "",
+          email: "",
+          phone: "",
+          role: "Partner",
+          memberType: "founder",
+          status: "active",
+        },
       ],
     }));
     setSaved(false);
@@ -394,20 +402,18 @@ function SettingsPage() {
       .catch((e) => logClientError("settings.signOut", e));
   };
 
-  const partners = c.companyMembers ?? [];
+  const partners = (c.companyMembers ?? []).filter((member) => member.memberType === "founder");
   const logoPreview = companyLogoSrc(c) || DEFAULT_PUBLIC_LOGO_URL;
 
   // Sidebar Tabs Config
   const tabsList: { value: SettingsTab; label: string; icon: React.ReactNode }[] = [
     { value: "company", label: "Company Profile", icon: <Settings className="h-4 w-4" /> },
-    { value: "branding", label: "Branding", icon: <Image className="h-4 w-4" /> },
     { value: "invoice", label: "Invoice Settings", icon: <FileText className="h-4 w-4" /> },
     { value: "finance", label: "Finance Rules", icon: <CreditCard className="h-4 w-4" /> },
     { value: "tax", label: "Tax Configuration", icon: <Percent className="h-4 w-4" /> },
     { value: "bank", label: "Bank Details", icon: <CreditCard className="h-4 w-4" /> },
     { value: "security", label: "Security & Access", icon: <Shield className="h-4 w-4" /> },
-    { value: "storage", label: "Storage Engine", icon: <Database className="h-4 w-4" /> },
-    { value: "backups", label: "Backup & Restore", icon: <Download className="h-4 w-4" /> },
+    { value: "storage", label: "Storage & Backups", icon: <Database className="h-4 w-4" /> },
     { value: "notifications", label: "Notifications", icon: <Bell className="h-4 w-4" /> },
     { value: "users", label: "Users & Members", icon: <Users className="h-4 w-4" /> },
     { value: "permissions", label: "Permissions Matrix", icon: <Key className="h-4 w-4" /> },
@@ -416,7 +422,6 @@ function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      
       {/* Header Panel */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-5">
         <div>
@@ -437,16 +442,19 @@ function SettingsPage() {
       </div>
 
       {(syncing || loadError) && (
-        <div className={`rounded-lg border px-4 py-2.5 text-xs font-semibold ${
-          loadError ? "border-amber-500/30 bg-amber-500/10 text-amber-200" : "border-border bg-muted/40 text-muted-foreground"
-        }`}>
+        <div
+          className={`rounded-lg border px-4 py-2.5 text-xs font-semibold ${
+            loadError
+              ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+              : "border-border bg-muted/40 text-muted-foreground"
+          }`}
+        >
           {loadError ?? "Verifying local state configurations…"}
         </div>
       )}
 
       {/* Main split grid */}
       <div className="grid gap-6 md:grid-cols-4 items-start">
-        
         {/* Left Sidebar Tab Navigation */}
         <aside className="md:col-span-1 space-y-1 bg-card/65 p-2 rounded-xl border border-border">
           {tabsList.map((t) => (
@@ -467,8 +475,7 @@ function SettingsPage() {
 
         {/* Right Active Panel */}
         <div className="md:col-span-3 bg-card border border-border rounded-xl p-6 shadow-sm min-h-[500px]">
-          
-          {/* Tab: Company Profile */}
+          {/* Tab: Company Profile (includes branding assets) */}
           {activeTab === "company" && (
             <div className="space-y-6">
               <h2 className="text-base font-bold text-foreground flex items-center gap-2 border-b border-border pb-3">
@@ -481,14 +488,11 @@ function SettingsPage() {
                 onLogoClear={() => set("logoDataUrl", undefined)}
                 onFieldChange={set}
               />
-            </div>
-          )}
-
-          {/* Tab: Branding */}
-          {activeTab === "branding" && (
-            <div className="space-y-6">
-              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Branding Assets</h2>
-              <SettingsSection id="brand-panel" title="Invoice Visuals" description="Upload elements stamped on generated PDFs.">
+              <SettingsSection
+                id="brand-panel"
+                title="Invoice Visuals"
+                description="Upload elements stamped on generated PDFs."
+              >
                 <div className="grid gap-4 mt-4">
                   <SettingsImageField
                     label="Official Logo Image"
@@ -511,7 +515,9 @@ function SettingsPage() {
           {/* Tab: Invoice Settings */}
           {activeTab === "invoice" && (
             <div className="space-y-6">
-              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Invoice Defaults</h2>
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">
+                Invoice Defaults
+              </h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <SettingsField
                   label="Default Payment Terms"
@@ -555,9 +561,7 @@ function SettingsPage() {
               </div>
               <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-muted/10 p-4">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    Company Valuation module
-                  </p>
+                  <p className="text-sm font-semibold text-foreground">Company Valuation module</p>
                   <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
                     Show Company Valuation under Insights and allow access to the module. Keep this
                     disabled until the feature is ready for use.
@@ -587,10 +591,20 @@ function SettingsPage() {
           {/* Tab: Tax Configuration */}
           {activeTab === "tax" && (
             <div className="space-y-6">
-              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Tax & Legal Registrations</h2>
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">
+                Tax & Legal Registrations
+              </h2>
               <div className="grid gap-4 sm:grid-cols-2">
-                <SettingsField label="PAN Number" value={c.pan || ""} onChange={(v) => set("pan", v)} />
-                <SettingsField label="GSTIN Number" value={c.gstin || ""} onChange={(v) => set("gstin", v)} />
+                <SettingsField
+                  label="PAN Number"
+                  value={c.pan || ""}
+                  onChange={(v) => set("pan", v)}
+                />
+                <SettingsField
+                  label="GSTIN Number"
+                  value={c.gstin || ""}
+                  onChange={(v) => set("gstin", v)}
+                />
                 <SettingsField
                   label="Registered Office Address"
                   value={c.address}
@@ -599,7 +613,9 @@ function SettingsPage() {
                 />
               </div>
               <div className="mt-6 border-t border-border pt-4">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase mb-3">Compliance PDFs</h3>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase mb-3">
+                  Compliance PDFs
+                </h3>
                 <ComplianceDocumentsPanel
                   company={c}
                   onUdyamUpload={handleUdyamPdf}
@@ -619,14 +635,40 @@ function SettingsPage() {
           {/* Tab: Bank Details */}
           {activeTab === "bank" && (
             <div className="space-y-6">
-              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Bank Account Settlements</h2>
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">
+                Bank Account Settlements
+              </h2>
               <div className="grid gap-4 sm:grid-cols-2">
-                <SettingsField label="Bank Name" value={c.bankName || ""} onChange={(v) => set("bankName", v)} />
-                <SettingsField label="Account Holder Name" value={c.accountName || ""} onChange={(v) => set("accountName", v)} />
-                <SettingsField label="Account Number" value={c.accountNumber || ""} onChange={(v) => set("accountNumber", v)} />
-                <SettingsField label="IFSC Code" value={c.ifsc || ""} onChange={(v) => set("ifsc", v)} />
-                <SettingsField label="Branch Location" value={c.branch || ""} onChange={(v) => set("branch", v)} />
-                <SettingsField label="UPI ID / VPA" value={c.upi || ""} onChange={(v) => set("upi", v)} />
+                <SettingsField
+                  label="Bank Name"
+                  value={c.bankName || ""}
+                  onChange={(v) => set("bankName", v)}
+                />
+                <SettingsField
+                  label="Account Holder Name"
+                  value={c.accountName || ""}
+                  onChange={(v) => set("accountName", v)}
+                />
+                <SettingsField
+                  label="Account Number"
+                  value={c.accountNumber || ""}
+                  onChange={(v) => set("accountNumber", v)}
+                />
+                <SettingsField
+                  label="IFSC Code"
+                  value={c.ifsc || ""}
+                  onChange={(v) => set("ifsc", v)}
+                />
+                <SettingsField
+                  label="Branch Location"
+                  value={c.branch || ""}
+                  onChange={(v) => set("branch", v)}
+                />
+                <SettingsField
+                  label="UPI ID / VPA"
+                  value={c.upi || ""}
+                  onChange={(v) => set("upi", v)}
+                />
               </div>
             </div>
           )}
@@ -634,15 +676,25 @@ function SettingsPage() {
           {/* Tab: Security */}
           {activeTab === "security" && (
             <div className="space-y-6">
-              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Security & Session</h2>
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">
+                Security & Session
+              </h2>
               <div className="rounded-lg border border-border/80 bg-muted/10 p-4 space-y-3">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground font-semibold">Active User Access Role:</span>
-                  <span className="bg-primary/10 text-primary font-bold px-2 py-0.5 rounded">Owner / Admin</span>
+                  <span className="text-muted-foreground font-semibold">
+                    Active User Access Role:
+                  </span>
+                  <span className="bg-primary/10 text-primary font-bold px-2 py-0.5 rounded">
+                    Owner / Admin
+                  </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground font-semibold">Encryption Key Status:</span>
-                  <span className="text-emerald-500 font-bold flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5" /> RSA-2048 Activated</span>
+                  <span className="text-muted-foreground font-semibold">
+                    Encryption Key Status:
+                  </span>
+                  <span className="text-emerald-500 font-bold flex items-center gap-1">
+                    <CheckCircle className="h-3.5 w-3.5" /> RSA-2048 Activated
+                  </span>
                 </div>
               </div>
               <div className="border-t border-border pt-4">
@@ -658,10 +710,12 @@ function SettingsPage() {
             </div>
           )}
 
-          {/* Tab: Storage */}
+          {/* Tab: Storage & Backups */}
           {activeTab === "storage" && (
             <div className="space-y-6">
-              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Data Storage Backend</h2>
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">
+                Storage & Backups
+              </h2>
               <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/15 p-4">
                 {backendLabel.includes("Supabase") ? (
                   <Cloud className="mt-0.5 h-5 w-5 shrink-0 text-sky-400" />
@@ -670,9 +724,13 @@ function SettingsPage() {
                 )}
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">Active Database Engine</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">{backendLabel}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                    {backendLabel}
+                  </p>
                   {backendLabel.includes("Supabase") && backendReady != null && (
-                    <p className={`mt-2 text-xs font-semibold ${backendReady ? "text-emerald-500" : "text-amber-500"}`}>
+                    <p
+                      className={`mt-2 text-xs font-semibold ${backendReady ? "text-emerald-500" : "text-amber-500"}`}
+                    >
                       {backendReady
                         ? "Cloud Synced — connected to cloud tables."
                         : "Tables configuration incomplete. Run SQL setup in Supabase dashboard."}
@@ -680,25 +738,27 @@ function SettingsPage() {
                   )}
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* Tab: Backups */}
-          {activeTab === "backups" && (
-            <div className="space-y-6">
-              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Backups & Disaster Recovery</h2>
-              
+              <h3 className="text-xs font-bold text-muted-foreground uppercase border-t border-border pt-5">
+                Backups & Disaster Recovery
+              </h3>
+
               <div className="grid gap-4 sm:grid-cols-2">
-                
                 {/* Export Card */}
                 <div className="rounded-xl border border-border bg-muted/10 p-4 space-y-3">
                   <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
                     <Download className="h-4 w-4 text-primary" /> Export System Backup
                   </h3>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Download your entire application state (invoices, operations, and settings) as a structured JSON file.
+                    Download your entire application state (invoices, operations, and settings) as a
+                    structured JSON file.
                   </p>
-                  <Button size="sm" variant="outline" onClick={handleExportBackup} className="w-full text-xs font-bold">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleExportBackup}
+                    className="w-full text-xs font-bold"
+                  >
                     Export Backup File
                   </Button>
                 </div>
@@ -709,7 +769,8 @@ function SettingsPage() {
                     <Upload className="h-4 w-4 text-indigo-500" /> Import / Restore Backup
                   </h3>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Restore data from a JSON file. WARNING: This completely replaces all current records.
+                    Restore data from a JSON file. WARNING: This completely replaces all current
+                    records.
                   </p>
                   <div className="relative">
                     <input
@@ -719,19 +780,25 @@ function SettingsPage() {
                       disabled={restoring}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:opacity-50"
                     />
-                    <Button size="sm" variant="outline" className="w-full text-xs font-bold text-indigo-500 hover:bg-indigo-500/10">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full text-xs font-bold text-indigo-500 hover:bg-indigo-500/10"
+                    >
                       {restoring ? "Restoring..." : "Upload Backup File"}
                     </Button>
                   </div>
                 </div>
-
               </div>
 
               {/* LocalStorage Migrations */}
               <div className="border-t border-border pt-5 space-y-3">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase">localstorage Cloud Sync</h3>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase">
+                  localstorage Cloud Sync
+                </h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Migrate settings and client billing records previously entered in your browser session to Supabase database.
+                  Migrate settings and client billing records previously entered in your browser
+                  session to Supabase database.
                 </p>
                 <button
                   type="button"
@@ -749,14 +816,18 @@ function SettingsPage() {
           {/* Tab: Notifications */}
           {activeTab === "notifications" && (
             <div className="space-y-6">
-              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Notification Rules</h2>
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">
+                Notification Rules
+              </h2>
               <div className="space-y-3">
                 <div className="flex justify-between items-center text-xs border-b border-border/40 pb-2">
                   <span className="text-foreground font-semibold">Enable Invoice Due alerts</span>
                   <span className="text-emerald-500 font-bold">Active</span>
                 </div>
                 <div className="flex justify-between items-center text-xs border-b border-border/40 pb-2">
-                  <span className="text-foreground font-semibold">Enable Milestone deadlines alerts</span>
+                  <span className="text-foreground font-semibold">
+                    Enable Milestone deadlines alerts
+                  </span>
                   <span className="text-emerald-500 font-bold">Active</span>
                 </div>
                 <div className="flex justify-between items-center text-xs border-b border-border/40 pb-2">
@@ -767,36 +838,22 @@ function SettingsPage() {
             </div>
           )}
 
-          {/* Tab: Users */}
+          {/* Tab: Users — contact + equity ledger merged per partner */}
           {activeTab === "users" && (
-            <div className="space-y-6">
-              <h2 className="text-base font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
-                <span>Company Partners</span>
-                <button
-                  type="button"
-                  onClick={addMember}
-                  className="rounded-lg border border-dashed border-border px-3 py-1 text-xs font-bold text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                >
-                  Add Partner
-                </button>
-              </h2>
-              <div className="grid gap-4 sm:grid-cols-2 mt-4">
-                {partners.map((member) => (
-                  <PartnerCard
-                    key={member.id}
-                    member={member}
-                    onChange={(patch) => updateMember(member.id, patch)}
-                    onRemove={() => removeMember(member.id)}
-                  />
-                ))}
-              </div>
-            </div>
+            <CompanyPartnersPanel
+              partners={partners}
+              onAdd={addMember}
+              onUpdate={updateMember}
+              onRemove={removeMember}
+            />
           )}
 
           {/* Tab: Permissions */}
           {activeTab === "permissions" && (
             <div className="space-y-6">
-              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">Permissions Matrix</h2>
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">
+                Permissions Matrix
+              </h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
@@ -835,12 +892,16 @@ function SettingsPage() {
           {/* Tab: Integrations */}
           {activeTab === "integrations" && (
             <div className="space-y-6">
-              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">API & Integrations</h2>
+              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">
+                API & Integrations
+              </h2>
               <div className="space-y-4">
                 <div className="rounded-lg border border-border p-4 bg-muted/10 space-y-2">
                   <div className="flex justify-between items-center text-xs font-bold text-foreground">
                     <span>Vercel Deployments</span>
-                    <span className="bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded text-[10px]">Configured</span>
+                    <span className="bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded text-[10px]">
+                      Configured
+                    </span>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-normal">
                     Automatically syncs letterhead logos and PDF assets with edge build paths.
@@ -849,20 +910,20 @@ function SettingsPage() {
                 <div className="rounded-lg border border-border p-4 bg-muted/10 space-y-2 opacity-65">
                   <div className="flex justify-between items-center text-xs font-bold text-foreground">
                     <span>Slack Webhooks</span>
-                    <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded text-[10px]">Inactive</span>
+                    <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded text-[10px]">
+                      Inactive
+                    </span>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-normal">
-                    Sends automated warning updates directly to operational channels when invoices go overdue.
+                    Sends automated warning updates directly to operational channels when invoices
+                    go overdue.
                   </p>
                 </div>
               </div>
             </div>
           )}
-
         </div>
-
       </div>
-
     </div>
   );
 }

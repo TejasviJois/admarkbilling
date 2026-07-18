@@ -5,7 +5,12 @@ import { ArrowLeft, Plus, Save, Trash2, Eye } from "lucide-react";
 import { logClientError } from "@/lib/client-logger";
 import { upsertInvoice } from "@/lib/storage";
 import { nextInvoiceNumberFromList } from "@/lib/invoice-number";
-import { computeTotals, formatINR, lineAmount } from "@/lib/invoice-calc";
+import { computeTotals, deriveInvoiceStatus, formatINR, lineAmount } from "@/lib/invoice-calc";
+import {
+  buildInvoiceAdvanceTransaction,
+  resolveRelatedProject,
+} from "@/lib/invoice-project-link";
+import { syncAccountTransactionToProjects } from "@/lib/project-payment-sync";
 import { rupeesInWords } from "@/lib/number-to-words";
 import type { Invoice, LineItem } from "@/lib/types";
 import { KNOWN_CLIENT_NAMES } from "@/lib/client-directory";
@@ -46,7 +51,7 @@ export default function InvoiceForm({ onSaved }: Props) {
   const { invoices } = useInvoices();
   const [number, setNumber] = useState("");
   const [date, setDate] = useState(todayIso());
-  const { ops } = useOperations();
+  const { ops, persist: persistOps } = useOperations();
   const [clientId, setClientId] = useState("");
   const [clientName, setClientName] = useState("");
   const [clientBusinessType, setClientBusinessType] = useState("");
@@ -62,7 +67,7 @@ export default function InvoiceForm({ onSaved }: Props) {
   const [paymentTerms, setPaymentTerms] = useState(() => company.paymentTerms ?? "");
   const [paymentMode, setPaymentMode] = useState(() => company.paymentMode ?? "");
   const [paymentDate, setPaymentDate] = useState("");
-  const [status, setStatus] = useState<Invoice["status"]>("paid");
+  const [status, setStatus] = useState<Invoice["status"]>("generated");
   const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
@@ -150,6 +155,21 @@ export default function InvoiceForm({ onSaved }: Props) {
       const nextList = [inv, ...invoices.filter((i) => i.id !== inv.id)];
       queryClient.setQueryData(queryKeys.invoices, nextList);
       writeClientCache("invoices", nextList);
+      // The advance is money actually received — post it to the Accounts
+      // ledger and sync the linked project's received/outstanding, exactly
+      // like a payment logged from Accounts.
+      if ((Number(inv.advance) || 0) > 0) {
+        const relatedProject = resolveRelatedProject(ops.projects, inv);
+        const transaction = buildInvoiceAdvanceTransaction(inv, relatedProject?.id, inv.clientId);
+        persistOps({
+          ...ops,
+          transactions: [
+            transaction,
+            ...(ops.transactions ?? []).filter((t) => t.id !== transaction.id),
+          ],
+          projects: syncAccountTransactionToProjects(ops.projects, transaction),
+        });
+      }
       then?.(inv);
       onSaved?.(inv);
       setNumber(nextInvoiceNumberFromList(nextList, date));
@@ -162,7 +182,10 @@ export default function InvoiceForm({ onSaved }: Props) {
   const handleGenerate = () => {
     void persistInvoice(async (inv) => {
       const { downloadInvoicePdf } = await import("@/lib/pdf");
-      await downloadInvoicePdf(inv, company);
+      // Print the money-derived status (e.g. partially_paid when an advance
+      // was recorded) so the PDF matches the invoice page.
+      const printable = { ...inv, status: deriveInvoiceStatus(inv, ops.payments ?? []) };
+      await downloadInvoicePdf(printable, company);
     });
   };
 
@@ -239,10 +262,10 @@ export default function InvoiceForm({ onSaved }: Props) {
                 onChange={(e) => setStatus(e.target.value as Invoice["status"])}
                 className={inputCls}
               >
+                <option value="generated">Generated (unpaid)</option>
+                <option value="sent">Sent to client</option>
                 <option value="paid">Paid</option>
-                <option value="pending">Pending</option>
-                <option value="partial">Partial</option>
-                <option value="overdue">Overdue</option>
+                <option value="cancelled">Cancelled</option>
               </select>
             </Field>
           </div>

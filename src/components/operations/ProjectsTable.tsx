@@ -4,11 +4,13 @@ import { formatINRWhole } from "@/lib/invoice-calc";
 import { paymentSummary } from "@/lib/project-payments";
 import {
   isRevenueProject,
+  projectAssignedMemberIds,
   projectClientLabel,
   projectStatusBadgeClass,
   projectStatusLabel,
 } from "@/lib/project-status";
 import { DataTable, RowDelete, RowEdit, ContactLinks } from "./operations-ui";
+import { useCompany } from "@/hooks/use-company";
 
 export function ProjectsTable({
   projects,
@@ -24,9 +26,24 @@ export function ProjectsTable({
   /** Outstanding only applies to revenue projects (done/ongoing) — hide it for pipeline views. */
   showOutstanding?: boolean;
 }) {
+  const { company } = useCompany();
+  const memberNames = (project: Project) => {
+    const names = projectAssignedMemberIds(project)
+      .map(
+        (id) =>
+          company.companyMembers
+            ?.find((member) => member.id === id)
+            ?.name.trim()
+            .split(/\s+/)[0],
+      )
+      .filter(Boolean);
+    return names.length ? names.join(", ") : "Unassigned";
+  };
   const headers = [
     "Client",
+    "Project",
     "Project type",
+    "Team",
     "Status",
     "Contract value",
     ...(showOutstanding ? ["Outstanding"] : []),
@@ -39,27 +56,27 @@ export function ProjectsTable({
       headers={headers}
       rows={projects.map((p) => {
         const { target, pending } = paymentSummary(p);
-        const clientCell = (
+        const projectCell = (
           <Link
-            key={`client-${p.id}`}
+            key={`project-${p.id}`}
             to="/projects/$id"
             params={{ id: p.id }}
             className="font-bold text-primary hover:underline"
           >
-            {projectClientLabel(p)}
+            {p.name?.trim() || projectClientLabel(p)}
           </Link>
         );
 
         const cells: React.ReactNode[] = [
-          clientCell,
+          p.client?.trim() || "—",
+          projectCell,
           p.projectType || "—",
+          memberNames(p),
           <ProjectStatusBadge key={`st-${p.id}`} status={p.status} />,
           target != null ? formatINRWhole(target) : "—",
         ];
         if (showOutstanding) {
-          cells.push(
-            isRevenueProject(p.status) && pending != null ? formatINRWhole(pending) : "—",
-          );
+          cells.push(isRevenueProject(p.status) && pending != null ? formatINRWhole(pending) : "—");
         }
         cells.push(<ContactLinks key={`contact-${p.id}`} phone={p.phone} email={p.email} />);
         if (showActions) {
@@ -107,9 +124,19 @@ export function ProjectsPipelineSummary({
   const items: { label: string; count: number; className: string; status: Project["status"] }[] = [
     { label: "Done", count: counts.completed, className: "text-emerald-400", status: "completed" },
     { label: "Ongoing", count: counts.active, className: "text-emerald-300", status: "active" },
-    { label: "In discussions", count: counts.planning, className: "text-sky-400", status: "planning" },
+    {
+      label: "In discussions",
+      count: counts.planning,
+      className: "text-sky-400",
+      status: "planning",
+    },
     { label: "On hold", count: counts.on_hold, className: "text-rose-400", status: "on_hold" },
-    { label: "Not interested", count: counts.cancelled, className: "text-rose-300", status: "cancelled" },
+    {
+      label: "Not interested",
+      count: counts.cancelled,
+      className: "text-rose-300",
+      status: "cancelled",
+    },
   ];
 
   return (
@@ -123,7 +150,9 @@ export function ProjectsPipelineSummary({
         if (!onSelect) {
           return (
             <div key={item.label} className={`${baseClass} ${toneClass}`}>
-              <p className={`text-2xl font-semibold tabular-nums ${item.className}`}>{item.count}</p>
+              <p className={`text-2xl font-semibold tabular-nums ${item.className}`}>
+                {item.count}
+              </p>
               <p className="mt-1 text-xs font-medium text-muted-foreground">{item.label}</p>
             </div>
           );

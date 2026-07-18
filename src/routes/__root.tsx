@@ -180,6 +180,7 @@ const NAV_GROUPS: NavGroup[] = [
     icon: BriefcaseBusiness,
     section: "Daily Work",
     items: [
+      { to: "/team", label: "Team" },
       { to: "/projects", label: "Projects" },
       { to: "/partnerships", label: "Partnerships" },
       { to: "/calendar", label: "Calendar" },
@@ -194,7 +195,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/accounts", label: "Accounts" },
       { to: "/invoices", label: "Invoices" },
-      { to: "/founders", label: "Founders" },
     ],
   },
   {

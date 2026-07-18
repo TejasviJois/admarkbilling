@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowDownRight,
   ArrowLeftRight,
   ArrowUpRight,
+  CalendarClock,
   Pencil,
   Search,
   SlidersHorizontal,
@@ -11,7 +12,6 @@ import {
   X,
 } from "lucide-react";
 import { TransactionFormDialog } from "@/components/operations/TransactionFormDialog";
-import { FixedMonthlyExpensesSection } from "@/components/operations/FixedMonthlyExpensesSection";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -161,9 +161,12 @@ function AccountsPage() {
         <Button variant="outline" onClick={() => openCreate("internal_transfer")} className="gap-2">
           <ArrowLeftRight className="h-4 w-4" /> Transfer Funds
         </Button>
+        <Button asChild variant="outline" className="gap-2">
+          <Link to="/accounts/monthly-payments">
+            <CalendarClock className="h-4 w-4" /> Fixed Costs
+          </Link>
+        </Button>
       </div>
-
-      <FixedMonthlyExpensesSection ops={ops} persist={persist} />
 
       <section className="space-y-4">
         <div>
@@ -172,112 +175,112 @@ function AccountsPage() {
             Every income, expense, transfer, and adjustment in one ledger.
           </p>
         </div>
-          <div className="flex flex-wrap gap-2">
-            {(["all", "income", "expenses", "transfers"] as MovementFilter[]).map((filter) => (
-              <Button
-                key={filter}
-                size="sm"
-                variant={movementFilter === filter ? "default" : "outline"}
-                onClick={() => setMovementFilter(filter)}
-                className="capitalize"
-              >
-                {filter}
-              </Button>
-            ))}
-          </div>
+        <div className="flex flex-wrap gap-2">
+          {(["all", "income", "expenses", "transfers"] as MovementFilter[]).map((filter) => (
+            <Button
+              key={filter}
+              size="sm"
+              variant={movementFilter === filter ? "default" : "outline"}
+              onClick={() => setMovementFilter(filter)}
+              className="capitalize"
+            >
+              {filter}
+            </Button>
+          ))}
+        </div>
 
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-[16rem] flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search description, category, notes…"
-                  className="pl-9"
-                />
-              </div>
-              <Button
-                variant={filtersOpen || activeFilterCount > 0 ? "default" : "outline"}
-                onClick={() => setFiltersOpen((open) => !open)}
-                className="gap-2"
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-                Filters
-                {activeFilterCount > 0 && (
-                  <span className="rounded-full bg-background/20 px-1.5 text-xs font-bold tabular-nums">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </Button>
-              {(activeFilterCount > 0 || search) && (
-                <Button variant="ghost" onClick={clearFilters} className="gap-1.5">
-                  <X className="h-4 w-4" /> Clear
-                </Button>
-              )}
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[16rem] flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search description, category, notes…"
+                className="pl-9"
+              />
             </div>
-
-            {filtersOpen && (
-              <div className="mt-4 grid gap-4 border-t border-border pt-4 sm:grid-cols-2 lg:grid-cols-3">
-                <FilterField label="Client">
-                  <FilterSelect value={clientFilter} onChange={setClientFilter}>
-                    <option value="all">All clients</option>
-                    {clients.map((client) => (
-                      <option key={client.id} value={client.id}>
-                        {client.companyName}
-                      </option>
-                    ))}
-                  </FilterSelect>
-                </FilterField>
-                <FilterField label="Project">
-                  <FilterSelect value={projectFilter} onChange={setProjectFilter}>
-                    <option value="all">All projects</option>
-                    {projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name}
-                      </option>
-                    ))}
-                  </FilterSelect>
-                </FilterField>
-                <FilterField label="Payment method">
-                  <FilterSelect value={methodFilter} onChange={setMethodFilter}>
-                    <option value="all">All methods</option>
-                    <option value="upi">UPI</option>
-                    <option value="bank_transfer">Bank Transfer</option>
-                    <option value="cash">Cash</option>
-                    <option value="cheque">Cheque</option>
-                    <option value="other">Other</option>
-                  </FilterSelect>
-                </FilterField>
-                <FilterField label="From date">
-                  <Input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(event) => setDateFrom(event.target.value)}
-                  />
-                </FilterField>
-                <FilterField label="To date">
-                  <Input
-                    type="date"
-                    value={dateTo}
-                    onChange={(event) => setDateTo(event.target.value)}
-                  />
-                </FilterField>
-              </div>
+            <Button
+              variant={filtersOpen || activeFilterCount > 0 ? "default" : "outline"}
+              onClick={() => setFiltersOpen((open) => !open)}
+              className="gap-2"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="rounded-full bg-background/20 px-1.5 text-xs font-bold tabular-nums">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+            {(activeFilterCount > 0 || search) && (
+              <Button variant="ghost" onClick={clearFilters} className="gap-1.5">
+                <X className="h-4 w-4" /> Clear
+              </Button>
             )}
           </div>
 
-          <TransactionsTable
-            transactions={filteredTransactions}
-            clients={clients}
-            projects={projects}
-            onEdit={(transaction) => {
-              setEditing(transaction);
-              setInitialType(transaction.type);
-              setDialogOpen(true);
-            }}
-            onDelete={deleteTransaction}
-          />
+          {filtersOpen && (
+            <div className="mt-4 grid gap-4 border-t border-border pt-4 sm:grid-cols-2 lg:grid-cols-3">
+              <FilterField label="Client">
+                <FilterSelect value={clientFilter} onChange={setClientFilter}>
+                  <option value="all">All clients</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.companyName}
+                    </option>
+                  ))}
+                </FilterSelect>
+              </FilterField>
+              <FilterField label="Project">
+                <FilterSelect value={projectFilter} onChange={setProjectFilter}>
+                  <option value="all">All projects</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </FilterSelect>
+              </FilterField>
+              <FilterField label="Payment method">
+                <FilterSelect value={methodFilter} onChange={setMethodFilter}>
+                  <option value="all">All methods</option>
+                  <option value="upi">UPI</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="cash">Cash</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="other">Other</option>
+                </FilterSelect>
+              </FilterField>
+              <FilterField label="From date">
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(event) => setDateFrom(event.target.value)}
+                />
+              </FilterField>
+              <FilterField label="To date">
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(event) => setDateTo(event.target.value)}
+                />
+              </FilterField>
+            </div>
+          )}
+        </div>
+
+        <TransactionsTable
+          transactions={filteredTransactions}
+          clients={clients}
+          projects={projects}
+          onEdit={(transaction) => {
+            setEditing(transaction);
+            setInitialType(transaction.type);
+            setDialogOpen(true);
+          }}
+          onDelete={deleteTransaction}
+        />
       </section>
 
       <TransactionFormDialog
@@ -406,9 +409,9 @@ function TransactionsTable({
                     {formatINR(Math.abs(transaction.amount))}
                   </td>
                   <td className="px-4 py-3">
-                    {transaction.historical ? (
+                    {transaction.historical || transaction.payrollMonth ? (
                       <div className="text-right text-[10px] font-medium uppercase text-muted-foreground">
-                        Locked
+                        {transaction.payrollMonth ? "Payroll" : "Locked"}
                       </div>
                     ) : (
                       <div className="flex justify-end gap-1">

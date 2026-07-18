@@ -57,22 +57,21 @@ export function calculateInvoicePayments(inv: Invoice, payments: Payment[]) {
 
 export function deriveInvoiceStatus(inv: Invoice, payments: Payment[]): Invoice["status"] {
   if (inv.status === "cancelled") return "cancelled";
-  
+
   const { paidAmount } = calculateInvoicePayments(inv, payments);
   const { total } = computeTotals(inv);
-  
-  if (paidAmount >= total) return "paid";
+
+  if (total > 0 && paidAmount >= total) return "paid";
   if (paidAmount > 0) return "partially_paid";
-  
-  // If no payments, check if overdue
+
+  // Nothing received yet — overdue only when the invoice date is actually in the past.
   const today = new Date().toISOString().slice(0, 10);
-  const invDate = new Date(inv.date);
-  const diffTime = Math.abs(new Date(today).getTime() - invDate.getTime());
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  if (diffDays > 30) {
-    return "overdue";
-  }
-  
+  const diffDays = Math.floor(
+    (new Date(today).getTime() - new Date(inv.date).getTime()) / (1000 * 60 * 60 * 24),
+  );
+  if (diffDays > 30) return "overdue";
+
+  // Never trust a stored money status when no money has been recorded.
+  if (inv.status === "paid" || inv.status === "partially_paid") return "generated";
   return inv.status || "generated";
 }

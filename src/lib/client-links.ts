@@ -47,9 +47,11 @@ export function ensureClientsForLinkedProjects(data: OperationsData): Operations
 }
 
 /**
- * Re-pin `project.clientId` for projects whose link is missing or dangling
- * (e.g. the client was renamed or deleted and re-created). Matches by exact
- * normalized name first, then by squashed-name prefix for longer names.
+ * Re-pin `project.clientId` for projects whose link is dangling (the client
+ * was renamed or deleted and re-created). Matches by exact normalized name
+ * first, then by squashed-name prefix for longer names. Projects with no
+ * clientId at all are left alone — a deliberately unlinked project must not
+ * get fuzzy-matched onto a similarly named client.
  */
 export function repairProjectClientLinks(data: OperationsData): OperationsData {
   const clients = data.clients ?? [];
@@ -58,7 +60,7 @@ export function repairProjectClientLinks(data: OperationsData): OperationsData {
 
   let changed = false;
   const projects = data.projects.map((project) => {
-    if (project.clientId && clientIds.has(project.clientId)) return project;
+    if (!project.clientId || clientIds.has(project.clientId)) return project;
     const projectName = squash(project.client);
     if (!projectName) return project;
 

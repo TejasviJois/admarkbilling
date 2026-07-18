@@ -258,6 +258,7 @@ function maintenanceCountsInBooked(billing: ProjectBilling): boolean {
 }
 
 export function computeBookedRevenue(project: Project, asOfDate: string): number {
+  void asOfDate;
   if (!isRevenueProject(project.status)) return 0;
   const billing = resolveProjectBilling(project);
   if (billing.contractValue) return billing.contractValue;
@@ -268,18 +269,22 @@ export function computeBookedRevenue(project: Project, asOfDate: string): number
   }
 
   if (billing.monthlyAmount) {
-    if (billing.monthlyMonths != null) {
-      total += billing.monthlyAmount * billing.monthlyMonths;
-    } else {
-      const status = recurringStatus(billing, asOfDate);
-      if (status === "active" || status === "ended") {
-        // Ongoing retainer already started — upfront only in booked; MRR tracked separately
-      }
-      // Ongoing not started → future monthly pipeline only
-    }
+    // Recognize recurring revenue only as it is actually received. This keeps
+    // future months out of Booked while making every received installment part
+    // of Booked. For hybrid projects, only receipts above the already-booked
+    // one-time amount add recurring revenue, preventing double counting.
+    return Math.max(total, totalReceived(project));
   }
 
   if (total > 0) return total;
+  // Explicit form entries win over legacy revenueValue text — a typed 0 sticks.
+  if (
+    billing.contractValue === 0 ||
+    billing.upfrontAmount != null ||
+    billing.maintenanceAmount != null
+  ) {
+    return 0;
+  }
 
   const text = project.revenueValue?.trim() ?? "";
   if (!text || /partner|discount|tbd|—/i.test(text)) return 0;
@@ -293,19 +298,16 @@ export function computeBookedRevenue(project: Project, asOfDate: string): number
 export function computeTotalContractValue(project: Project, asOfDate: string): number {
   const billing = resolveProjectBilling(project);
   if (billing.contractValue) return billing.contractValue;
-  let total = billing.upfrontAmount ?? 0;
-  total += billing.maintenanceAmount ?? 0;
-
-  if (billing.monthlyAmount && billing.monthlyMonths != null) {
-    total += billing.monthlyAmount * billing.monthlyMonths;
-  } else if (billing.monthlyAmount) {
-    const status = recurringStatus(billing, asOfDate);
-    if (status === "active" || status === "ended") {
-      // Ongoing — contract total unknown; upfront + maintenance only
-    }
-  }
+  if (billing.contractValue === 0) return 0;
+  // Monthly retainers are recurring income only — never part of the
+  // contract total (no months × rate accumulation).
+  const total = (billing.upfrontAmount ?? 0) + (billing.maintenanceAmount ?? 0);
 
   if (total > 0) return total;
+  // A monthly-only project has no contract receivable. Its collected
+  // installments count in Revenue Booked, but never become contract value or
+  // outstanding.
+  if (billing.monthlyAmount) return 0;
   return computeBookedRevenue(project, asOfDate);
 }
 
@@ -346,7 +348,6 @@ export function projectBillingRows(projects: Project[], asOfDate?: string): Proj
       const bookedRevenue = computeBookedRevenue(project, asOf);
       const mrr = activeMrr(project, asOf);
       const hasUpfront = (billing.upfrontAmount ?? 0) > 0;
-      const hasMonthly = (billing.monthlyAmount ?? 0) > 0;
       const status = recurringStatus(billing, asOf);
 
       return {
@@ -362,10 +363,9 @@ export function projectBillingRows(projects: Project[], asOfDate?: string): Proj
         bookedRevenue,
         activeMrr: mrr,
         received: totalReceived(project),
-        countsInBooked:
-          bookedRevenue > 0 ||
-          (hasUpfront && isRevenueProject(project.status)) ||
-          (hasMonthly && billing.monthlyMonths != null && isRevenueProject(project.status)),
+        // Received recurring installments are booked; future months remain in
+        // MRR / future monthly only.
+        countsInBooked: bookedRevenue > 0 || (hasUpfront && isRevenueProject(project.status)),
       };
     })
     .sort((a, b) => a.client.localeCompare(b.client));
@@ -413,7 +413,12 @@ export function bookedRevenueBreakdown(projects: Project[], asOfDate?: string): 
       client: r.client,
       projectType: r.project.projectType,
       amount: r.bookedRevenue,
-      billingLabel: formatBookedRevenueLabel(r.billing),
+      billingLabel:
+        r.billing.monthlyAmount &&
+        !r.billing.contractValue &&
+        !(r.billing.upfrontAmount || r.billing.maintenanceAmount)
+          ? `${formatINRWhole(r.received)} recurring revenue received to date`
+          : formatBookedRevenueLabel(r.billing),
     }));
 }
 

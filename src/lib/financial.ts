@@ -5,6 +5,7 @@ import {
 } from "./default-financial-baseline";
 import { sumPipelineBookedRevenue } from "./project-billing";
 import { sumActiveFixedMonthlyExpenses } from "./fixed-monthly-expenses";
+import { isFounderSalary } from "./founder-ledger";
 import type {
   ExpenseCategory,
   ExpenseEntry,
@@ -111,12 +112,17 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
   const newExternalPayouts = expenses
     .filter((transaction) => normalizeCategory(transaction.category) === "external_payout")
     .reduce((sum, transaction) => sum + transaction.amount, 0);
-  const newCompanyExpenses = expenses
-    .filter((transaction) => normalizeCategory(transaction.category) !== "external_payout")
+  const legacyFounderSalaries = txs
+    .filter(isFounderSalary)
+    .filter((transaction) => transaction.type === "founder_withdrawal")
     .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const newCompanyExpenses =
+    expenses
+      .filter((transaction) => normalizeCategory(transaction.category) !== "external_payout")
+      .reduce((sum, transaction) => sum + transaction.amount, 0) + legacyFounderSalaries;
 
   const founderWithdrawals = txs
-    .filter((t) => t.type === "founder_withdrawal")
+    .filter((t) => t.type === "founder_withdrawal" && !isFounderSalary(t))
     .reduce((sum, t) => sum + t.amount, 0);
   const founderInvestments = txs
     .filter((t) => t.type === "founder_investment")
@@ -142,8 +148,10 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
     cashAdjustments + newRevenueAfterBaseline + founderInvestments - newExpenseTotal;
 
   const activePipelineBooked = sumPipelineBookedRevenue(ops.projects);
-  const totalRevenueBooked =
-    baseline.totalRevenueBooked != null ? baseline.totalRevenueBooked : activePipelineBooked;
+  // Revenue booked is live: contract values plus recurring installments
+  // received to date. Future recurring months remain in MRR/FMRR and are not
+  // booked early. The frozen Ground Zero figure goes stale after project edits.
+  const totalRevenueBooked = activePipelineBooked;
   const totalMonthlyFixedExpenses = sumActiveFixedMonthlyExpenses(ops.fixedMonthlyExpenses);
 
   return {

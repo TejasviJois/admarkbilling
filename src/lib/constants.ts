@@ -29,8 +29,7 @@ export const PUBLIC_HOME_URL: string =
 export const DEFAULT_COMPANY: CompanySettings = {
   name: "Admark Digitals",
   tagline: "",
-  address:
-    "CH-16 4TH MAIN, 5TH CROSS GROUND FLOOR, PRASHANTH PLAZA, SARASWATHIPURAM MYSORE",
+  address: "CH-16 4TH MAIN, 5TH CROSS GROUND FLOOR, PRASHANTH PLAZA, SARASWATHIPURAM MYSORE",
   email: "info@admarkdigitals.com",
   phone: "+91 9686658055",
   website: COMPANY_WEBSITE_URL,
@@ -55,6 +54,8 @@ export const DEFAULT_COMPANY: CompanySettings = {
       email: "malipatilharshith@gmail.com",
       phone: "+91 9632092273",
       role: "Partner",
+      memberType: "founder",
+      status: "active",
     },
     {
       id: "member-prajwal",
@@ -62,6 +63,8 @@ export const DEFAULT_COMPANY: CompanySettings = {
       email: "prajwalbp500@gmail.com",
       phone: "+91 7259588826",
       role: "Partner",
+      memberType: "founder",
+      status: "active",
     },
     {
       id: "member-tejasvi",
@@ -69,6 +72,10 @@ export const DEFAULT_COMPANY: CompanySettings = {
       email: "tejasvijois@gmail.com",
       phone: "+91 9686658055",
       role: "Partner",
+      memberType: "founder",
+      status: "active",
+      baseMonthlySalary: 20_000,
+      monthlyBonusCap: 0,
     },
     {
       id: "member-revanth",
@@ -76,6 +83,21 @@ export const DEFAULT_COMPANY: CompanySettings = {
       email: "revanthkumars64@gmail.com",
       phone: "+91 8431005243",
       role: "Partner",
+      memberType: "founder",
+      status: "active",
+      baseMonthlySalary: 20_000,
+      monthlyBonusCap: 0,
+    },
+    {
+      id: "member-chetan",
+      name: "Chetan",
+      email: "",
+      phone: "",
+      role: "Intern",
+      memberType: "intern",
+      status: "active",
+      baseMonthlySalary: 5_000,
+      monthlyBonusCap: 5_000,
     },
   ],
 };

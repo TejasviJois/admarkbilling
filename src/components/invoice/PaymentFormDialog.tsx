@@ -18,7 +18,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/operations/operations-ui";
+import { formatINR } from "@/lib/invoice-calc";
 import type { Payment } from "@/lib/types";
+
+export type PaymentProjectOption = {
+  id: string;
+  label: string;
+  outstanding: number | null;
+};
 
 const EMPTY_FORM = {
   amount: "",
@@ -28,6 +35,7 @@ const EMPTY_FORM = {
   transactionId: "",
   screenshotDataUrl: "",
   notes: "",
+  projectId: "",
 };
 
 export function PaymentFormDialog({
@@ -35,11 +43,19 @@ export function PaymentFormDialog({
   onOpenChange,
   invoiceId,
   onSave,
+  outstandingBalance,
+  projectOptions = [],
+  defaultProjectId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   invoiceId: string;
   onSave: (payment: Payment) => void;
+  /** Remaining balance on this invoice — positive payments cannot exceed it. */
+  outstandingBalance?: number;
+  /** The client's revenue projects this payment can be applied to. */
+  projectOptions?: PaymentProjectOption[];
+  defaultProjectId?: string;
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
 
@@ -48,9 +64,11 @@ export function PaymentFormDialog({
       setForm({
         ...EMPTY_FORM,
         date: new Date().toISOString().slice(0, 10),
+        projectId: defaultProjectId ?? projectOptions[0]?.id ?? "",
       });
     }
-  }, [open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, defaultProjectId]);
 
   const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -70,9 +88,20 @@ export function PaymentFormDialog({
       alert("Please enter a valid amount.");
       return;
     }
+    if (
+      amountNum > 0 &&
+      outstandingBalance != null &&
+      amountNum > outstandingBalance + 0.005
+    ) {
+      alert(
+        `This payment (${formatINR(amountNum)}) is more than the invoice's outstanding balance of ${formatINR(outstandingBalance)}. Reduce the amount, or create a new invoice for the extra work.`,
+      );
+      return;
+    }
     const saved: Payment = {
       id: "pay-" + crypto.randomUUID().slice(0, 8),
       invoiceId,
+      projectId: form.projectId || undefined,
       amount: amountNum,
       date: form.date,
       method: form.method,
@@ -104,6 +133,33 @@ export function PaymentFormDialog({
               required
             />
           </Field>
+          {projectOptions.length > 0 && (
+            <Field label="Apply to project *" id="pay-project">
+              <Select
+                value={form.projectId}
+                onValueChange={(v) => setForm((f) => ({ ...f, projectId: v }))}
+              >
+                <SelectTrigger id="pay-project">
+                  <SelectValue placeholder="Choose the project this payment belongs to" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projectOptions.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      {option.label}
+                      {option.outstanding != null
+                        ? ` · ${formatINR(option.outstanding)} outstanding`
+                        : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {projectOptions.length > 1 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  This client has multiple projects — pick the one this money is for.
+                </p>
+              )}
+            </Field>
+          )}
           <Field label="Payment Date *" id="pay-date">
             <Input
               id="pay-date"

@@ -3,7 +3,7 @@ import { entitySlug } from "./document-slug";
 import { matchesAnyDateInPeriod, type PeriodKey } from "./date-range-filter";
 import { normalizeCategory } from "./financial";
 import { projectContractValue } from "./project-billing";
-import { resolvePaymentProof } from "./project-payments";
+import { paymentSummary, resolvePaymentProof } from "./project-payments";
 import { projectClientLabel } from "./project-status";
 import type { ExpenseEntry, OperationsData, Partnership, Project } from "./types";
 
@@ -73,9 +73,11 @@ export function summarizeClients(ops: OperationsData): ClientPaymentSummary[] {
       dates: [],
     };
     entry.projects.add(project.id);
+    // Total received must match the rest of the app: Historical Received
+    // (Ground Zero import) + payments recorded after migration.
+    entry.total += paymentSummary(project).received;
     for (const p of project.payments ?? []) {
       entry.payments += 1;
-      entry.total += p.amount || 0;
       if (p.date) entry.dates.push(p.date);
       if (resolvePaymentProof(project, p)?.imageDataUrl) entry.proofs += 1;
     }

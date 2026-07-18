@@ -17,7 +17,11 @@ import InvoicePreview from "@/components/invoice/InvoicePreview";
 import { PaymentFormDialog } from "@/components/invoice/PaymentFormDialog";
 import { useOperations } from "@/hooks/use-operations";
 import { deriveInvoiceStatus, calculateInvoicePayments, formatINR } from "@/lib/invoice-calc";
-import { isRevenueProject } from "@/lib/project-status";
+import {
+  invoiceAdvanceTransactionId,
+  invoiceProjectCandidates,
+  resolveRelatedProject,
+} from "@/lib/invoice-project-link";
 import { paymentSummary } from "@/lib/project-payments";
 import {
   removeAccountTransactionFromProjects,
@@ -134,30 +138,35 @@ function InvoicePage() {
 
   const handleDelete = () => {
     if (!confirm("Delete this invoice?")) return;
-    void deleteInvoice(invoice!.id)
-      .then(() => navigate({ to: "/invoices" }))
+    const inv = invoice!;
+    void deleteInvoice(inv.id)
+      .then(() => {
+        // Remove every ledger row this invoice created (advance + logged
+        // payments) and roll them back off the linked projects.
+        const removedIds = new Set(
+          (ops.transactions ?? [])
+            .filter((t) => t.relatedInvoiceId === inv.id || t.id === invoiceAdvanceTransactionId(inv.id))
+            .map((t) => t.id),
+        );
+        if (removedIds.size > 0 || (ops.payments ?? []).some((p) => p.invoiceId === inv.id)) {
+          let nextProjects = ops.projects;
+          for (const txId of removedIds) {
+            nextProjects = removeAccountTransactionFromProjects(nextProjects, txId);
+          }
+          persistOps({
+            ...ops,
+            payments: (ops.payments ?? []).filter((p) => p.invoiceId !== inv.id),
+            transactions: (ops.transactions ?? []).filter((t) => !removedIds.has(t.id)),
+            projects: nextProjects,
+          });
+        }
+        navigate({ to: "/invoices" });
+      })
       .catch((e) => logClientError("invoicePage.delete", e));
   };
 
-  /**
-   * The client's project this invoice collects against. With several revenue
-   * projects for the same client, the one with the largest outstanding wins.
-   */
-  const resolveRelatedProject = (inv: Invoice): Project | undefined => {
-    const name = inv.clientName.trim().toLowerCase();
-    const candidates = ops.projects.filter(
-      (project) =>
-        isRevenueProject(project.status) &&
-        ((inv.clientId != null && project.clientId === inv.clientId) ||
-          project.client.trim().toLowerCase() === name),
-    );
-    if (candidates.length <= 1) return candidates[0];
-    return candidates.reduce((best, current) =>
-      (paymentSummary(current).pending ?? 0) > (paymentSummary(best).pending ?? 0)
-        ? current
-        : best,
-    );
-  };
+  /** Projects this invoice could collect against (shown in the Log Payment dialog). */
+  const projectCandidates = invoice ? invoiceProjectCandidates(ops.projects, invoice) : [];
 
   const handleSavePayment = (payment: Payment) => {
     if (!invoice) return;
@@ -169,7 +178,11 @@ function InvoicePage() {
         (client) =>
           client.companyName.trim().toLowerCase() === invoice.clientName.trim().toLowerCase(),
       )?.id;
-    const relatedProject = resolveRelatedProject(invoice);
+    // Honor the project explicitly chosen in the dialog; otherwise fall back
+    // to the safest automatic match.
+    const relatedProject = payment.projectId
+      ? ops.projects.find((project) => project.id === payment.projectId)
+      : resolveRelatedProject(ops.projects, invoice);
     const transaction: Transaction = {
       id: `invoice-payment-${payment.id}`,
       type: payment.amount >= 0 ? "client_payment" : "refund",
@@ -466,6 +479,13 @@ function InvoicePage() {
         onOpenChange={setPaymentDialogOpen}
         invoiceId={invoice.id}
         onSave={handleSavePayment}
+        outstandingBalance={outstandingBalance}
+        projectOptions={projectCandidates.map((project) => ({
+          id: project.id,
+          label: project.name?.trim() ? `${project.name} — ${project.client}` : project.client,
+          outstanding: paymentSummary(project).pending,
+        }))}
+        defaultProjectId={resolveRelatedProject(ops.projects, invoice)?.id}
       />
     </div>
   );

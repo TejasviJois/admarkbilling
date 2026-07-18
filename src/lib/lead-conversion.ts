@@ -1,4 +1,4 @@
-import type { Client, Lead, OperationsData } from "./types";
+import type { Client, Contact, Lead, OperationsData } from "./types";
 
 function normalize(value: string | undefined): string {
   return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -42,6 +42,21 @@ export function leadFromClient(client: Client): Lead {
     email: client.email || undefined,
     phone: client.phone || undefined,
     notes: client.notes || undefined,
+    status: "new_lead",
+    source: "Directory",
+    createdAt: new Date().toISOString().slice(0, 10),
+  };
+}
+
+/** Build a new pipeline lead from a directory contact (contacted → Leads). */
+export function leadFromContact(contact: Contact): Lead {
+  return {
+    id: `lead-${crypto.randomUUID().slice(0, 8)}`,
+    name: contact.personName,
+    company: contact.companyName || contact.personName,
+    contactPerson: contact.personName,
+    phone: contact.phone || undefined,
+    notes: contact.contactVia ? `Contact via ${contact.contactVia}` : undefined,
     status: "new_lead",
     source: "Directory",
     createdAt: new Date().toISOString().slice(0, 10),

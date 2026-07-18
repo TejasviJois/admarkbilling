@@ -1,4 +1,10 @@
 import type { OperationsData, Invoice, AppNotification, Agreement } from "./types";
+import {
+  fixedMonthlyDueDate,
+  fixedMonthlyScheduleMonths,
+  fixedMonthlyStatus,
+  monthKeyFromDate,
+} from "./fixed-monthly-expenses";
 import { formatScheduleDateTime, scheduleEventDate } from "./schedule";
 
 export function syncSystemNotifications(
@@ -136,6 +142,37 @@ export function syncSystemNotifications(
         relatedModule: "leads",
         actionUrl: "/leads",
         actionLabel: "CRM Board",
+      });
+    }
+  }
+
+  // 5b. Fixed cost payment reminders — alert the day before each due date
+  // (and on the day itself) until the month is checked off as paid.
+  const currentMonthKey = monthKeyFromDate(todayStr);
+  for (const cost of ops.fixedMonthlyExpenses ?? []) {
+    if (fixedMonthlyStatus(cost) !== "active") continue;
+    const paidMonths = new Set(cost.paidMonths ?? []);
+    // The next month's installment matters too: its "day before" can fall
+    // inside the current month (e.g. due on the 1st).
+    const schedule = fixedMonthlyScheduleMonths(cost, todayStr, 1).filter(
+      (month) => month >= currentMonthKey,
+    );
+    for (const month of schedule) {
+      if (paidMonths.has(month)) continue;
+      const dueDate = fixedMonthlyDueDate(cost, month);
+      const daysUntilDue = Math.ceil(
+        (new Date(dueDate).getTime() - todayTime) / (1000 * 60 * 60 * 24),
+      );
+      if (daysUntilDue < 0 || daysUntilDue > 1) continue;
+      const payTo = cost.payee ? ` to ${cost.payee}` : "";
+      addOrPreserve({
+        id: `fixed-cost-due-${cost.id}-${month}`,
+        title: daysUntilDue === 0 ? "Fixed Cost Due Today" : "Fixed Cost Due Tomorrow",
+        message: `${cost.label} — ₹${cost.amountPerMonth.toLocaleString("en-IN")}${payTo} is due on ${dueDate}. Check it off once paid.`,
+        priority: daysUntilDue === 0 ? "high" : "medium",
+        relatedModule: "accounts",
+        actionUrl: "/accounts/monthly-payments",
+        actionLabel: "Open Fixed Costs",
       });
     }
   }

@@ -54,9 +54,6 @@ function AnalyticsPage() {
 
   if (loading) return <OperationsLoading />;
 
-  const topClient = incomeByClient[0];
-  const topExpense = moneyOutByCategory[0];
-
   return (
     <div className="space-y-8">
       <AnalyticsPageHeader
@@ -98,33 +95,6 @@ function AnalyticsPage() {
           },
         ]}
       />
-
-      {(topClient || topExpense) && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {topClient && topClient.amount > 0 && (
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-emerald-400/80">
-                Top client · {periodHint}
-              </p>
-              <p className="mt-1 font-semibold text-foreground">{topClient.label}</p>
-              <p className="text-sm tabular-nums text-emerald-400">
-                {formatINRWhole(topClient.amount)}
-              </p>
-            </div>
-          )}
-          {topExpense && topExpense.amount > 0 && (
-            <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-rose-400/80">
-                Largest outflow · {periodHint}
-              </p>
-              <p className="mt-1 font-semibold text-foreground">{topExpense.label}</p>
-              <p className="text-sm tabular-nums text-rose-400">
-                {formatINRWhole(topExpense.amount)}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
 
       <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4">

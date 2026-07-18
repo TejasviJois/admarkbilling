@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { Mail, Phone, Upload } from "lucide-react";
-import type { CompanyMember, CompanySettings } from "@/lib/types";
+import { Upload } from "lucide-react";
+import type { CompanySettings } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function SettingsSection({
@@ -141,88 +141,6 @@ export function SettingsProfileHero({
           />
         </div>
       </div>
-    </div>
-  );
-}
-
-function memberInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
-export function PartnerCard({
-  member,
-  onChange,
-  onRemove,
-}: {
-  member: CompanyMember;
-  onChange: (patch: Partial<Pick<CompanyMember, "name" | "email" | "phone" | "role">>) => void;
-  onRemove: () => void;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-muted/10 p-4 transition-colors hover:border-primary/20">
-      <div className="mb-4 flex items-start gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
-          {memberInitials(member.name || "?")}
-        </span>
-        <div className="min-w-0 flex-1">
-          <SettingsField
-            label="Name"
-            value={member.name}
-            onChange={(v) => onChange({ name: v })}
-          />
-        </div>
-      </div>
-      <div className="grid gap-3">
-        <SettingsField
-          label="Role"
-          value={member.role || "Partner"}
-          onChange={(v) => onChange({ role: v })}
-          placeholder="Partner"
-        />
-        <SettingsField
-          label="Email"
-          type="email"
-          value={member.email}
-          onChange={(v) => onChange({ email: v })}
-        />
-        <SettingsField
-          label="Phone"
-          value={member.phone}
-          onChange={(v) => onChange({ phone: v })}
-        />
-      </div>
-      {(member.email || member.phone) && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {member.email && (
-            <a
-              href={`mailto:${member.email}`}
-              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-            >
-              <Mail className="h-3 w-3" />
-              Email
-            </a>
-          )}
-          {member.phone && (
-            <a
-              href={`tel:${member.phone.replace(/\s/g, "")}`}
-              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-            >
-              <Phone className="h-3 w-3" />
-              Call
-            </a>
-          )}
-        </div>
-      )}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="mt-3 text-xs text-muted-foreground hover:text-destructive"
-      >
-        Remove partner
-      </button>
     </div>
   );
 }

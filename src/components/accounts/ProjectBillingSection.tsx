@@ -54,7 +54,7 @@ export function ProjectBillingSection({
             label="Revenue booked"
             value={formatFinancialINR(financial.totalRevenueBooked)}
             tone="positive"
-            hint="Ongoing & done only"
+            hint="Contracts + recurring received"
             selected={breakdownDialog === "booked"}
             onClick={() => setBreakdownDialog("booked")}
           />
@@ -102,8 +102,8 @@ export function ProjectBillingSection({
           <DialogHeader>
             <DialogTitle>Revenue booked — breakdown</DialogTitle>
             <DialogDescription>
-              Contract value counted from ongoing and done projects (upfront + fixed monthly that has
-              started). Separate from payments logged.
+              Contract values plus recurring installments received to date. Future recurring months
+              remain in MRR/FMRR until payment is received.
             </DialogDescription>
           </DialogHeader>
           <BookedRevenueBreakdownList rows={bookedRows} />

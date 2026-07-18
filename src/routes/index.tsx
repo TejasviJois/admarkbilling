@@ -16,7 +16,7 @@ import {
 import { useOperations } from "@/hooks/use-operations";
 import { computeFinancialSummary } from "@/lib/financial";
 import { formatINRWhole } from "@/lib/invoice-calc";
-import { paymentSummary } from "@/lib/project-payments";
+import { estimatedPending, paymentSummary } from "@/lib/project-payments";
 import { isRevenueProject } from "@/lib/project-status";
 import {
   formatScheduleDateTime,
@@ -69,7 +69,7 @@ function ExecutiveDashboard() {
 
     const outstandingReceivables = projects
       .filter((project) => isRevenueProject(project.status))
-      .reduce((sum, project) => sum + (paymentSummary(project).pending ?? 0), 0);
+      .reduce((sum, project) => sum + estimatedPending(project), 0);
 
     // 2. Active Projects
     const activeProjectsCount = projects.filter((p) => p.status === "active").length;
@@ -320,7 +320,7 @@ function ExecutiveDashboard() {
             {formatINRWhole(dashboardData.revenueBooked)}
           </p>
           <div className="mt-2 text-[10px] text-primary flex items-center gap-1 font-semibold">
-            {dashboardData.activeProjectsCount} active projects
+            Contracts + recurring revenue received
           </div>
         </div>
 
