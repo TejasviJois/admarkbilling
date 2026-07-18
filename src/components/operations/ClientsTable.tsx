@@ -48,19 +48,16 @@ export function ClientsTable({
                     </Link>
                     {allClients.some((child) => child.parentClientId === c.id) && (
                       <p className="mt-0.5 text-[11px] font-normal text-muted-foreground">
-                        {allClients.filter((child) => child.parentClientId === c.id).length} projects
+                        {allClients.filter((child) => child.parentClientId === c.id).length}{" "}
+                        projects
                       </p>
                     )}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                     {c.contactPerson}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                    {c.email}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                    {c.phone}
-                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{c.email}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{c.phone}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                     {c.clientSince}
                   </td>

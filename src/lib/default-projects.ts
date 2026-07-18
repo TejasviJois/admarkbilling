@@ -26,10 +26,18 @@ export const DEFAULT_PROJECTS: Project[] = [
   p("proj-kapila-faq", "Kapila FAQ", "Watsapp Bot", "completed", "Partner - Discount"),
   p("proj-mtm-faq", "MTM FAQ", "Watsapp Bot", "completed", "Partner - Discount"),
   p("proj-rls-p", "RLS P", "Website", "completed", "₹24,000", "Done"),
-  p("proj-tah", "TAH", "Website + Billing System", "active", "₹70,000 + ₹1K/month", "₹21,000 Received", {
-    upfrontAmount: 70_000,
-    monthlyAmount: 1_000,
-  }),
+  p(
+    "proj-tah",
+    "TAH",
+    "Website + Billing System",
+    "active",
+    "₹70,000 + ₹1K/month",
+    "₹21,000 Received",
+    {
+      upfrontAmount: 70_000,
+      monthlyAmount: 1_000,
+    },
+  ),
   p(
     "proj-kannan",
     "Kannan Sirangapalli",
@@ -39,9 +47,17 @@ export const DEFAULT_PROJECTS: Project[] = [
     "₹30,000 Received",
     { upfrontAmount: 140_000, monthlyAmount: 8_000 },
   ),
-  p("proj-kapila-mgmt", "Kapila Management Software", "Dashboard", "active", "₹10,000/month", undefined, {
-    monthlyAmount: 10_000,
-  }),
+  p(
+    "proj-kapila-mgmt",
+    "Kapila Management Software",
+    "Dashboard",
+    "active",
+    "₹10,000/month",
+    undefined,
+    {
+      monthlyAmount: 10_000,
+    },
+  ),
   p("proj-a7-gtech", "A7 Gtech - 2 Hostings", "Per Project", "active", "₹12,425 - Total", "Done"),
   p("proj-royal-passage", "Royal Passage", "Website", "active", "Partner - Discount"),
   p("proj-safe-wheels", "Safe Wheels", "Dashboard", "active", "₹20,000/month", undefined, {
@@ -51,15 +67,31 @@ export const DEFAULT_PROJECTS: Project[] = [
     monthlyAmount: 10_000,
   }),
   p("proj-heatwave", "HeatWave", "Website", "active", "TBD"),
-  p("proj-dev", "Dev", "CRM", "active", "₹60,000 project + ₹7,000/month maintenance for 2 months", "5,000 token", {
-    upfrontAmount: 60_000,
-    maintenanceAmount: 14_000,
-    maintenanceMonths: 2,
-  }),
-  p("proj-kh-kiran", "k h kiran", "Real estate", "active", "₹20,000 for 3 months", "10,000 advance", {
-    maintenanceAmount: 20_000,
-    maintenanceMonths: 3,
-  }),
+  p(
+    "proj-dev",
+    "Dev",
+    "CRM",
+    "active",
+    "₹60,000 project + ₹7,000/month maintenance for 2 months",
+    "5,000 token",
+    {
+      upfrontAmount: 60_000,
+      maintenanceAmount: 14_000,
+      maintenanceMonths: 2,
+    },
+  ),
+  p(
+    "proj-kh-kiran",
+    "k h kiran",
+    "Real estate",
+    "active",
+    "₹20,000 for 3 months",
+    "10,000 advance",
+    {
+      maintenanceAmount: 20_000,
+      maintenanceMonths: 3,
+    },
+  ),
   p("proj-towell", "Towell", "ALL AI", "planning", "TBD"),
   p("proj-texa", "Texa", "Tech & Marketing", "planning", "TBD"),
   p("proj-powergate", "Powergate energy", "WhatsApp Automation", "planning", "TBD", "Send Doc"),
@@ -84,7 +116,13 @@ export const DEFAULT_PROJECTS: Project[] = [
     "₹5,50,000 + ₹30K - ₹1L/month",
   ),
   p("proj-health-wealth", "health wealth", "Marketing", "on_hold", "TBD"),
-  p("proj-cafe-chintu", "Cafe - Chintu Friend", "Basic Billing", "on_hold", "₹30,000 + ₹1.5K/month"),
+  p(
+    "proj-cafe-chintu",
+    "Cafe - Chintu Friend",
+    "Basic Billing",
+    "on_hold",
+    "₹30,000 + ₹1.5K/month",
+  ),
   p("proj-epixable", "Epixable (Hospital)", "Booking System (SaaS/Web App)", "on_hold", "TBD"),
   p("proj-panche-kattu", "Panche Kattu", "Inventory System (Meeting)", "on_hold", "TBD"),
   p(

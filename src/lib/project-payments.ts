@@ -115,9 +115,7 @@ export function sumVerifiedProjectPayments(projects: Project[]): number {
   }, 0);
 }
 
-export function verifiedProjectPaymentsByMonth(
-  projects: Project[],
-): Map<string, number> {
+export function verifiedProjectPaymentsByMonth(projects: Project[]): Map<string, number> {
   const months = new Map<string, number>();
   for (const project of projects) {
     for (const payment of project.payments ?? []) {

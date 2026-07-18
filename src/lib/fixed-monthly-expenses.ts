@@ -44,10 +44,7 @@ export type FixedMonthlyPaymentStatus = "active" | "paused" | "completed";
 export function fixedMonthlyStatus(item: FixedMonthlyExpense): FixedMonthlyPaymentStatus {
   if (item.status === "completed") return "completed";
   if (item.status === "paused" || !item.active) return "paused";
-  if (
-    item.totalMonths != null &&
-    new Set(item.paidMonths ?? []).size >= item.totalMonths
-  ) {
+  if (item.totalMonths != null && new Set(item.paidMonths ?? []).size >= item.totalMonths) {
     return "completed";
   }
   return "active";
@@ -112,9 +109,7 @@ export function fixedMonthlyPaidCount(item: FixedMonthlyExpense): number {
   const start = monthKeyFromDate(item.startDate);
   if (item.totalMonths == null) {
     return new Set(
-      (item.paidMonths ?? []).filter(
-        (month) => /^\d{4}-\d{2}$/.test(month) && month >= start,
-      ),
+      (item.paidMonths ?? []).filter((month) => /^\d{4}-\d{2}$/.test(month) && month >= start),
     ).size;
   }
   const valid = new Set(fixedMonthlyScheduleMonths(item, undefined, 0));

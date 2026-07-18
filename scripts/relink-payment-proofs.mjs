@@ -112,13 +112,18 @@ async function main() {
   const byProject = groupProofFiles(proofFiles);
   console.log(`Found ${proofFiles.length} proof file(s) across ${byProject.size} project(s).`);
 
-  const opsRes = await fetch(`${url}/rest/v1/operations_data?id=eq.default&select=payload`, { headers });
+  const opsRes = await fetch(`${url}/rest/v1/operations_data?id=eq.default&select=payload`, {
+    headers,
+  });
   const opsRows = await opsRes.json();
   if (!opsRes.ok) throw new Error(JSON.stringify(opsRows));
 
-  const activityRes = await fetch(`${url}/rest/v1/operations_data?id=eq.activity_logs&select=payload`, {
-    headers,
-  });
+  const activityRes = await fetch(
+    `${url}/rest/v1/operations_data?id=eq.activity_logs&select=payload`,
+    {
+      headers,
+    },
+  );
   const activityRows = await activityRes.json();
   const activityEntries = activityRows[0]?.payload?.entries ?? [];
 
@@ -162,7 +167,8 @@ async function main() {
     const needsRelink =
       existing.length === 0 ||
       paymentIds.some(
-        (paymentId) => !existing.some((payment) => payment.id === paymentId && payment.proof?.imageDataUrl),
+        (paymentId) =>
+          !existing.some((payment) => payment.id === paymentId && payment.proof?.imageDataUrl),
       );
     if (!needsRelink) return project;
 
@@ -204,12 +210,15 @@ async function main() {
   if (!save.ok) throw new Error(JSON.stringify(saved));
 
   const withProof = projects.reduce(
-    (count, project) => count + (project.payments ?? []).filter((payment) => payment.proof?.imageDataUrl).length,
+    (count, project) =>
+      count + (project.payments ?? []).filter((payment) => payment.proof?.imageDataUrl).length,
     0,
   );
 
   console.log(`Relinked ${relinkedCount} payment row(s).`);
-  console.log(`Projects with visible proofs: ${withProof} payment(s) now linked in operations_data.`);
+  console.log(
+    `Projects with visible proofs: ${withProof} payment(s) now linked in operations_data.`,
+  );
   console.log("Hard refresh the live site — Documents → Payments → Clients should show proofs.");
 }
 

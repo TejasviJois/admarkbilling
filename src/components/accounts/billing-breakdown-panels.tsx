@@ -1,13 +1,11 @@
 import { formatINRWhole } from "@/lib/invoice-calc";
-import type {
-  ActiveMrrRow,
-  BookedRevenueRow,
-  FutureMonthlyRow,
-} from "@/lib/project-billing";
+import type { ActiveMrrRow, BookedRevenueRow, FutureMonthlyRow } from "@/lib/project-billing";
 
 export function BookedRevenueBreakdownList({ rows }: { rows: BookedRevenueRow[] }) {
   if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">No booked revenue on active projects yet.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">No booked revenue on active projects yet.</p>
+    );
   }
   return (
     <ul className="max-h-80 space-y-3 overflow-y-auto pr-1">
@@ -64,7 +62,9 @@ export function FutureMonthlyBreakdownList({ rows }: { rows: FutureMonthlyRow[] 
             <span className="text-sm font-semibold tabular-nums text-foreground">
               {formatINRWhole(r.amount)}
             </span>
-            <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">{r.amountSubtext}</p>
+            <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">
+              {r.amountSubtext}
+            </p>
           </div>
         </li>
       ))}

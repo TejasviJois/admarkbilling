@@ -13,8 +13,18 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Field, OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Field,
+  OperationsLoading,
+  OperationsPageHeader,
+} from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
 import { useCompany } from "@/hooks/use-company";
 import { formatINRWhole } from "@/lib/invoice-calc";
@@ -76,7 +86,9 @@ function ProjectDetailsPage() {
       <div className="space-y-4 p-8 text-center">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
         <h2 className="text-xl font-bold text-foreground">Project Not Found</h2>
-        <p className="text-muted-foreground">The project record you are looking for does not exist.</p>
+        <p className="text-muted-foreground">
+          The project record you are looking for does not exist.
+        </p>
         <Link to="/projects">
           <Button variant="outline" className="mt-4">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Projects
@@ -93,7 +105,8 @@ function ProjectDetailsPage() {
         return {
           ...m,
           status: nextStatus as Milestone["status"],
-          completedDate: nextStatus === "completed" ? new Date().toISOString().slice(0, 10) : undefined,
+          completedDate:
+            nextStatus === "completed" ? new Date().toISOString().slice(0, 10) : undefined,
         };
       }
       return m;
@@ -168,21 +181,26 @@ function ProjectDetailsPage() {
             {project.client}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {project.projectType || "General Work"} &middot; {project.startDate ? `Started ${project.startDate}` : "No start date"}
+            {project.projectType || "General Work"} &middot;{" "}
+            {project.startDate ? `Started ${project.startDate}` : "No start date"}
           </p>
         </div>
         <div className="flex gap-2">
-          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${projectStatusBadgeClass(project.status)}`}>
+          <span
+            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${projectStatusBadgeClass(project.status)}`}
+          >
             {projectStatusLabel(project.status)}
           </span>
           {project.priority && (
-            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
-              project.priority === "high"
-                ? "bg-rose-500/20 text-rose-700 dark:text-rose-300"
-                : project.priority === "medium"
-                ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
-                : "bg-blue-500/20 text-blue-700 dark:text-blue-300"
-            }`}>
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+                project.priority === "high"
+                  ? "bg-rose-500/20 text-rose-700 dark:text-rose-300"
+                  : project.priority === "medium"
+                    ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+                    : "bg-blue-500/20 text-blue-700 dark:text-blue-300"
+              }`}
+            >
               {project.priority} Priority
             </span>
           )}
@@ -195,7 +213,9 @@ function ProjectDetailsPage() {
           <div className="flex-1 space-y-2">
             <div className="flex items-center justify-between text-sm font-semibold">
               <span className="text-muted-foreground">Completion Progress</span>
-              <span className="text-primary tabular-nums">{calculations.completionPercentage}%</span>
+              <span className="text-primary tabular-nums">
+                {calculations.completionPercentage}%
+              </span>
             </div>
             <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
               <div
@@ -208,7 +228,9 @@ function ProjectDetailsPage() {
             <div className="flex items-center gap-3 border-t border-border pt-4 sm:border-t-0 sm:pt-0 sm:pl-6 sm:border-l">
               <Calendar className="h-8 w-8 text-primary" />
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase">Project Deadline</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase">
+                  Project Deadline
+                </p>
                 <p className="text-base font-bold text-foreground">{project.deadline}</p>
               </div>
             </div>
@@ -218,13 +240,13 @@ function ProjectDetailsPage() {
 
       {/* Revenue context only — payment movement is managed in Accounts. */}
       <div className="max-w-sm rounded-lg border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase">Contract revenue</span>
-            <DollarSign className="h-5 w-5 text-primary" />
-          </div>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-foreground">
-            {formatINRWhole(calculations.budget)}
-          </p>
+        <div className="flex items-center justify-between text-muted-foreground">
+          <span className="text-xs font-semibold uppercase">Contract revenue</span>
+          <DollarSign className="h-5 w-5 text-primary" />
+        </div>
+        <p className="mt-2 text-2xl font-bold tabular-nums text-foreground">
+          {formatINRWhole(calculations.budget)}
+        </p>
       </div>
 
       {/* Main Content Layout */}
@@ -249,7 +271,9 @@ function ProjectDetailsPage() {
                     <div
                       key={ms.id}
                       className={`flex items-start justify-between rounded-lg border p-4 transition-all ${
-                        isCompleted ? "border-emerald-500/20 bg-emerald-500/5" : "border-border bg-card"
+                        isCompleted
+                          ? "border-emerald-500/20 bg-emerald-500/5"
+                          : "border-border bg-card"
                       }`}
                     >
                       <div className="flex gap-3">
@@ -260,7 +284,9 @@ function ProjectDetailsPage() {
                           className="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-primary cursor-pointer"
                         />
                         <div>
-                          <p className={`font-semibold text-sm ${isCompleted ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                          <p
+                            className={`font-semibold text-sm ${isCompleted ? "text-muted-foreground line-through" : "text-foreground"}`}
+                          >
                             {ms.name}
                           </p>
                           {ms.description && (
@@ -306,9 +332,12 @@ function ProjectDetailsPage() {
             </div>
 
             {/* Quick Add Milestone Form */}
-            <form onSubmit={handleAddMilestone} className="mt-6 border-t border-dashed border-border pt-5 space-y-4">
+            <form
+              onSubmit={handleAddMilestone}
+              className="mt-6 border-t border-dashed border-border pt-5 space-y-4"
+            >
               <h3 className="text-sm font-bold text-foreground">Add Milestone</h3>
-              
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Milestone Name *" id="ms-name">
                   <Input
@@ -331,7 +360,10 @@ function ProjectDetailsPage() {
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <Field label="Status" id="ms-status">
-                  <Select value={msStatus} onValueChange={(v) => setMsStatus(v as Milestone["status"])}>
+                  <Select
+                    value={msStatus}
+                    onValueChange={(v) => setMsStatus(v as Milestone["status"])}
+                  >
                     <SelectTrigger id="ms-status">
                       <SelectValue />
                     </SelectTrigger>
@@ -381,7 +413,11 @@ function ProjectDetailsPage() {
                 />
               </Field>
 
-              <Button type="submit" size="sm" className="w-full inline-flex items-center justify-center gap-1">
+              <Button
+                type="submit"
+                size="sm"
+                className="w-full inline-flex items-center justify-center gap-1"
+              >
                 <PlusCircle className="h-4 w-4" /> Add Milestone
               </Button>
             </form>

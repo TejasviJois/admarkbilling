@@ -1,9 +1,5 @@
 import { logClientError } from "./client-logger";
-import {
-  createActivityLogEntry,
-  trimActivityLogs,
-  type LogDraft,
-} from "./activity-log";
+import { createActivityLogEntry, trimActivityLogs, type LogDraft } from "./activity-log";
 import type { ActivityLogEntry } from "./types";
 import { getActivityLogsFn, saveActivityLogsFn } from "@/server/activity-log-fns";
 import { getDataBackendStatus } from "@/server/invoice-fns";

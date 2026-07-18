@@ -70,7 +70,9 @@ export function LeadFormDialog({
     } else {
       setForm({
         ...EMPTY_FORM,
-        expectedClosingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), // default +30 days
+        expectedClosingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10), // default +30 days
       });
     }
   }, [open, lead]);
@@ -90,7 +92,10 @@ export function LeadFormDialog({
       return;
     }
 
-    if (probabilityNum !== undefined && (isNaN(probabilityNum) || probabilityNum < 0 || probabilityNum > 100)) {
+    if (
+      probabilityNum !== undefined &&
+      (isNaN(probabilityNum) || probabilityNum < 0 || probabilityNum > 100)
+    ) {
       alert("Probability must be a percentage between 0 and 100.");
       return;
     }
@@ -111,7 +116,7 @@ export function LeadFormDialog({
       notes: form.notes.trim() || undefined,
       createdAt: lead?.createdAt ?? new Date().toISOString().slice(0, 10),
     };
-    
+
     onSave(saved);
     onOpenChange(false);
   };
@@ -126,7 +131,6 @@ export function LeadFormDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Company / Client Name *" id="crm-company">
               <Input

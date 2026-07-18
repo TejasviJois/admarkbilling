@@ -380,7 +380,7 @@ export function repairBlxRealtyData(data: OperationsData): OperationsData {
   let clients = data.clients ?? [];
   const blxClient = clients.find((c) => c.companyName.trim().toLowerCase().includes("blx"));
   const devClient = clients.find((c) => c.companyName.trim().toLowerCase() === "dev");
-  let mainClientId = blxClient?.id ?? devClient?.id ?? mainProject?.clientId;
+  const mainClientId = blxClient?.id ?? devClient?.id ?? mainProject?.clientId;
   if (!blxClient && devClient) {
     clients = clients.map((c) =>
       c.id === devClient.id ? { ...c, companyName: blxContract.clientName } : c,
@@ -429,7 +429,10 @@ export function repairBlxRealtyData(data: OperationsData): OperationsData {
   // Drop every BLX historical ledger row (they get regenerated correctly);
   // repoint any real transaction that referenced a removed ghost project.
   const isBlxHistoricalRow = (transaction: Transaction): boolean => {
-    if (!transaction.id.startsWith("tx-gz-project-payment-") && !transaction.id.startsWith("tx-gz-blx-attributed-")) {
+    if (
+      !transaction.id.startsWith("tx-gz-project-payment-") &&
+      !transaction.id.startsWith("tx-gz-blx-attributed-")
+    ) {
       return false;
     }
     if (transaction.relatedProjectId && candidateIds.has(transaction.relatedProjectId)) return true;
@@ -469,9 +472,7 @@ export function repairNidhiEstatesData(data: OperationsData): OperationsData {
 
   const isKiran = (p: Project) =>
     p.id === "proj-kh-kiran" || (p.client ?? "").trim().toLowerCase() === "k h kiran";
-  const candidates = data.projects.filter(
-    (p) => isKiran(p) || normalizeLabel(p).includes("nidhi"),
-  );
+  const candidates = data.projects.filter((p) => isKiran(p) || normalizeLabel(p).includes("nidhi"));
   if (candidates.length === 0) return { ...data, neRepairApplied: true };
 
   // The legacy "k h kiran" record is the real project — keep its id.
@@ -626,8 +627,7 @@ export function ensureHistoricalProjectPaymentLogs(data: OperationsData): Operat
   const blxPayment = blxProject
     ? payments.find(
         (payment) =>
-          payment.amount === 5_000 &&
-          (!payment.projectId || payment.projectId === blxProject.id),
+          payment.amount === 5_000 && (!payment.projectId || payment.projectId === blxProject.id),
       )
     : undefined;
   let attributionChanged = false;

@@ -4,7 +4,12 @@ import { preloadNewInvoiceRoute } from "@/lib/prefetch-invoice-editor";
 type NewInvoiceLinkProps = React.ComponentProps<typeof Link>;
 
 /** Prefetches the invoice form chunk on hover / touch so /new opens fast. */
-export function NewInvoiceLink({ to = "/new", onMouseEnter, onTouchStart, ...props }: NewInvoiceLinkProps) {
+export function NewInvoiceLink({
+  to = "/new",
+  onMouseEnter,
+  onTouchStart,
+  ...props
+}: NewInvoiceLinkProps) {
   const warm = () => preloadNewInvoiceRoute();
 
   return (

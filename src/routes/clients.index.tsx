@@ -64,10 +64,17 @@ function ClientsPage() {
 
   const handleRemove = (id: string) => {
     if (clients.some((client) => client.parentClientId === id)) {
-      alert("This relationship has company clients under it. Move or remove those companies first.");
+      alert(
+        "This relationship has company clients under it. Move or remove those companies first.",
+      );
       return;
     }
-    if (!confirm("Remove this client profile? All linked projects and invoices will remain but lose their client profile reference.")) return;
+    if (
+      !confirm(
+        "Remove this client profile? All linked projects and invoices will remain but lose their client profile reference.",
+      )
+    )
+      return;
     persist({
       ...ops,
       clients: clients.filter((c) => c.id !== id),

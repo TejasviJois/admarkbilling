@@ -30,14 +30,17 @@ function formatDate(iso: string): string {
 }
 
 function receiptNumber(invoice: Invoice, payment: Payment, isAdvance: boolean): string {
-  const suffix = isAdvance ? "ADV" : payment.id.replace(/[^a-z0-9]/gi, "").slice(-6).toUpperCase();
+  const suffix = isAdvance
+    ? "ADV"
+    : payment.id
+        .replace(/[^a-z0-9]/gi, "")
+        .slice(-6)
+        .toUpperCase();
   return `RCPT/${invoice.number}/${suffix}`;
 }
 
 function paymentMethodLabel(method: string): string {
-  return method
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return method.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function receiptTotals({

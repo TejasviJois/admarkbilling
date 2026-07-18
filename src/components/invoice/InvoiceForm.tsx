@@ -6,10 +6,7 @@ import { logClientError } from "@/lib/client-logger";
 import { upsertInvoice } from "@/lib/storage";
 import { nextInvoiceNumberFromList } from "@/lib/invoice-number";
 import { computeTotals, deriveInvoiceStatus, formatINR, lineAmount } from "@/lib/invoice-calc";
-import {
-  buildInvoiceAdvanceTransaction,
-  resolveRelatedProject,
-} from "@/lib/invoice-project-link";
+import { buildInvoiceAdvanceTransaction, resolveRelatedProject } from "@/lib/invoice-project-link";
 import { syncAccountTransactionToProjects } from "@/lib/project-payment-sync";
 import { rupeesInWords } from "@/lib/number-to-words";
 import type { Invoice, LineItem } from "@/lib/types";
@@ -149,7 +146,9 @@ export default function InvoiceForm({ onSaved }: Props) {
       return;
     }
     const assignedNumber = nextInvoiceNumberFromList(invoices, date);
-    const inv: Invoice = { ...draft, id: uid(), number: assignedNumber };
+    const baseInvoice: Invoice = { ...draft, id: uid(), number: assignedNumber };
+    const relatedProject = resolveRelatedProject(ops.projects, baseInvoice);
+    const inv: Invoice = { ...baseInvoice, projectId: relatedProject?.id };
     try {
       await upsertInvoice(inv);
       const nextList = [inv, ...invoices.filter((i) => i.id !== inv.id)];
@@ -159,7 +158,6 @@ export default function InvoiceForm({ onSaved }: Props) {
       // ledger and sync the linked project's received/outstanding, exactly
       // like a payment logged from Accounts.
       if ((Number(inv.advance) || 0) > 0) {
-        const relatedProject = resolveRelatedProject(ops.projects, inv);
         const transaction = buildInvoiceAdvanceTransaction(inv, relatedProject?.id, inv.clientId);
         persistOps({
           ...ops,
@@ -202,7 +200,9 @@ export default function InvoiceForm({ onSaved }: Props) {
           <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
             Step 1 — Details
           </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Create new invoice</h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+            Create new invoice
+          </h1>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             Invoice number is assigned automatically in sequence for the financial year
             (AM/YY-YY/0001).
@@ -234,279 +234,279 @@ export default function InvoiceForm({ onSaved }: Props) {
       </div>
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,360px)]">
-      <div className="min-w-0 space-y-6">
-        <Section title="Invoice info">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Invoice number">
-              <input
-                value={number}
-                readOnly
-                aria-readonly="true"
-                className={`${inputCls} cursor-default bg-muted/40 text-foreground`}
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Auto-generated sequentially for the financial year (e.g. AM/26-27/0001).
-              </p>
-            </Field>
-            <Field label="Date">
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Status">
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as Invoice["status"])}
-                className={inputCls}
-              >
-                <option value="generated">Generated (unpaid)</option>
-                <option value="sent">Sent to client</option>
-                <option value="paid">Paid</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </Field>
-          </div>
-        </Section>
-
-        <Section title="Bill to">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Select Client *" className="sm:col-span-2">
-              <select
-                className={inputCls}
-                value={clientId}
-                onChange={(e) => {
-                  const cid = e.target.value;
-                  setClientId(cid);
-                  const found = (ops.clients ?? []).find((c) => c.id === cid);
-                  if (found) {
-                    setClientName(found.companyName);
-                    setClientContact(found.contactPerson);
-                    setClientPhone(found.phone);
-                    setClientEmail(found.email);
-                    setClientAddress(found.billingAddress);
-                    setClientGstin(found.gstNumber ?? "");
-                    setClientBusinessType(found.industry ?? "");
-                  } else {
-                    setClientName("");
-                    setClientContact("");
-                    setClientPhone("");
-                    setClientEmail("");
-                    setClientAddress("");
-                    setClientGstin("");
-                    setClientBusinessType("");
-                  }
-                }}
-                required
-              >
-                <option value="">Select a saved client…</option>
-                {(ops.clients ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.companyName}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Client / company name">
-              <input
-                value={clientName}
-                readOnly
-                className={`${inputCls} bg-muted/40 cursor-default`}
-              />
-            </Field>
-            <Field label="Type of business">
-              <input
-                value={clientBusinessType}
-                readOnly
-                className={`${inputCls} bg-muted/40 cursor-default`}
-              />
-            </Field>
-            <Field label="Contact person">
-              <input
-                value={clientContact}
-                readOnly
-                className={`${inputCls} bg-muted/40 cursor-default`}
-              />
-            </Field>
-            <Field label="Phone">
-              <input
-                value={clientPhone}
-                readOnly
-                className={`${inputCls} bg-muted/40 cursor-default`}
-              />
-            </Field>
-            <Field label="Email">
-              <input
-                value={clientEmail}
-                readOnly
-                className={`${inputCls} bg-muted/40 cursor-default`}
-              />
-            </Field>
-            <Field label="Address" className="sm:col-span-2">
-              <textarea
-                value={clientAddress}
-                readOnly
-                rows={2}
-                className={`${inputCls} bg-muted/40 cursor-default`}
-              />
-            </Field>
-            <Field label="GSTIN / Company No.">
-              <input
-                value={clientGstin}
-                readOnly
-                className={`${inputCls} bg-muted/40 cursor-default`}
-              />
-            </Field>
-          </div>
-        </Section>
-
-        <Section title="Services">
-          <div className="space-y-3">
-            <div className="hidden grid-cols-[1fr_80px_120px_120px_40px] gap-3 px-2 text-xs uppercase tracking-wider text-muted-foreground sm:grid">
-              <div>Description</div>
-              <div className="text-right">Qty</div>
-              <div className="text-right">Rate (₹)</div>
-              <div className="text-right">Amount</div>
-              <div />
-            </div>
-            {items.map((it) => (
-              <div
-                key={it.id}
-                className="grid grid-cols-1 gap-3 rounded-md border border-border bg-background p-3 sm:grid-cols-[1fr_80px_120px_120px_40px] sm:items-center sm:border-0 sm:bg-transparent sm:p-0"
-              >
+        <div className="min-w-0 space-y-6">
+          <Section title="Invoice info">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Invoice number">
                 <input
-                  value={it.description}
-                  onChange={(e) => updateItem(it.id, { description: e.target.value })}
-                  placeholder="e.g. Full-stack website development"
+                  value={number}
+                  readOnly
+                  aria-readonly="true"
+                  className={`${inputCls} cursor-default bg-muted/40 text-foreground`}
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Auto-generated sequentially for the financial year (e.g. AM/26-27/0001).
+                </p>
+              </Field>
+              <Field label="Date">
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
                   className={inputCls}
                 />
+              </Field>
+              <Field label="Status">
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as Invoice["status"])}
+                  className={inputCls}
+                >
+                  <option value="generated">Generated (unpaid)</option>
+                  <option value="sent">Sent to client</option>
+                  <option value="paid">Paid</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </Field>
+            </div>
+          </Section>
+
+          <Section title="Bill to">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Select Client *" className="sm:col-span-2">
+                <select
+                  className={inputCls}
+                  value={clientId}
+                  onChange={(e) => {
+                    const cid = e.target.value;
+                    setClientId(cid);
+                    const found = (ops.clients ?? []).find((c) => c.id === cid);
+                    if (found) {
+                      setClientName(found.companyName);
+                      setClientContact(found.contactPerson);
+                      setClientPhone(found.phone);
+                      setClientEmail(found.email);
+                      setClientAddress(found.billingAddress);
+                      setClientGstin(found.gstNumber ?? "");
+                      setClientBusinessType(found.industry ?? "");
+                    } else {
+                      setClientName("");
+                      setClientContact("");
+                      setClientPhone("");
+                      setClientEmail("");
+                      setClientAddress("");
+                      setClientGstin("");
+                      setClientBusinessType("");
+                    }
+                  }}
+                  required
+                >
+                  <option value="">Select a saved client…</option>
+                  {(ops.clients ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.companyName}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Client / company name">
                 <input
-                  type="number"
-                  min={0}
-                  step="1"
-                  value={it.quantity}
-                  onChange={(e) => updateItem(it.id, { quantity: Number(e.target.value) })}
-                  className={`${inputCls} text-right`}
+                  value={clientName}
+                  readOnly
+                  className={`${inputCls} bg-muted/40 cursor-default`}
                 />
+              </Field>
+              <Field label="Type of business">
+                <input
+                  value={clientBusinessType}
+                  readOnly
+                  className={`${inputCls} bg-muted/40 cursor-default`}
+                />
+              </Field>
+              <Field label="Contact person">
+                <input
+                  value={clientContact}
+                  readOnly
+                  className={`${inputCls} bg-muted/40 cursor-default`}
+                />
+              </Field>
+              <Field label="Phone">
+                <input
+                  value={clientPhone}
+                  readOnly
+                  className={`${inputCls} bg-muted/40 cursor-default`}
+                />
+              </Field>
+              <Field label="Email">
+                <input
+                  value={clientEmail}
+                  readOnly
+                  className={`${inputCls} bg-muted/40 cursor-default`}
+                />
+              </Field>
+              <Field label="Address" className="sm:col-span-2">
+                <textarea
+                  value={clientAddress}
+                  readOnly
+                  rows={2}
+                  className={`${inputCls} bg-muted/40 cursor-default`}
+                />
+              </Field>
+              <Field label="GSTIN / Company No.">
+                <input
+                  value={clientGstin}
+                  readOnly
+                  className={`${inputCls} bg-muted/40 cursor-default`}
+                />
+              </Field>
+            </div>
+          </Section>
+
+          <Section title="Services">
+            <div className="space-y-3">
+              <div className="hidden grid-cols-[1fr_80px_120px_120px_40px] gap-3 px-2 text-xs uppercase tracking-wider text-muted-foreground sm:grid">
+                <div>Description</div>
+                <div className="text-right">Qty</div>
+                <div className="text-right">Rate (₹)</div>
+                <div className="text-right">Amount</div>
+                <div />
+              </div>
+              {items.map((it) => (
+                <div
+                  key={it.id}
+                  className="grid grid-cols-1 gap-3 rounded-md border border-border bg-background p-3 sm:grid-cols-[1fr_80px_120px_120px_40px] sm:items-center sm:border-0 sm:bg-transparent sm:p-0"
+                >
+                  <input
+                    value={it.description}
+                    onChange={(e) => updateItem(it.id, { description: e.target.value })}
+                    placeholder="e.g. Full-stack website development"
+                    className={inputCls}
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    step="1"
+                    value={it.quantity}
+                    onChange={(e) => updateItem(it.id, { quantity: Number(e.target.value) })}
+                    className={`${inputCls} text-right`}
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={it.rate}
+                    onChange={(e) => updateItem(it.id, { rate: Number(e.target.value) })}
+                    className={`${inputCls} text-right`}
+                  />
+                  <div className="text-right text-sm font-medium tabular-nums">
+                    {formatINR(lineAmount(it))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeItem(it.id)}
+                    className="rounded p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    title="Remove"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setItems([...items, blankItem()])}
+                className="inline-flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-primary"
+              >
+                <Plus className="h-4 w-4" /> Add service
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <Field label="Tax / GST %">
                 <input
                   type="number"
                   min={0}
                   step="0.01"
-                  value={it.rate}
-                  onChange={(e) => updateItem(it.id, { rate: Number(e.target.value) })}
-                  className={`${inputCls} text-right`}
+                  value={taxPercent}
+                  onChange={(e) => setTaxPercent(Number(e.target.value))}
+                  className={inputCls}
                 />
-                <div className="text-right text-sm font-medium tabular-nums">
-                  {formatINR(lineAmount(it))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeItem(it.id)}
-                  className="rounded p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  title="Remove"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => setItems([...items, blankItem()])}
-              className="inline-flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-primary"
-            >
-              <Plus className="h-4 w-4" /> Add service
-            </button>
-          </div>
+              </Field>
+              <Field label="Advance received (₹)">
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={advance}
+                  onChange={(e) => setAdvance(Number(e.target.value))}
+                  className={inputCls}
+                />
+              </Field>
+            </div>
+          </Section>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <Field label="Tax / GST %">
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={taxPercent}
-                onChange={(e) => setTaxPercent(Number(e.target.value))}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Advance received (₹)">
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={advance}
-                onChange={(e) => setAdvance(Number(e.target.value))}
-                className={inputCls}
-              />
-            </Field>
-          </div>
-        </Section>
-
-        <Section title="Payment & remarks">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Payment mode">
-              <input
-                value={paymentMode}
-                onChange={(e) => setPaymentMode(e.target.value)}
-                className={inputCls}
-                placeholder="UPI / Bank transfer / Cash"
-              />
-            </Field>
-            <Field label="Payment date">
-              <input
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Payment terms">
-              <input
-                value={paymentTerms}
-                onChange={(e) => setPaymentTerms(e.target.value)}
-                className={inputCls}
-                placeholder="e.g. Phase 1 advance"
-              />
-            </Field>
-            <Field label="Remarks" className="sm:col-span-2">
-              <textarea
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                rows={2}
-                className={inputCls}
-                placeholder="e.g. Token Advance of Phase 1"
-              />
-            </Field>
-          </div>
-        </Section>
-      </div>
-
-      <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-lg font-semibold tracking-tight">Totals</h3>
-          <dl className="mt-4 space-y-2 text-sm">
-            <Row label="Subtotal" value={formatINR(totals.subtotal)} />
-            {taxPercent > 0 && <Row label={`Tax (${taxPercent}%)`} value={formatINR(totals.tax)} />}
-            {advance > 0 && <Row label="Advance" value={`- ${formatINR(totals.advance)}`} />}
-            <div className="my-2 h-px bg-border" />
-            <Row label="Payable" value={formatINR(totals.payable)} highlight />
-          </dl>
-          <p className="mt-3 text-xs italic text-muted-foreground">
-            {rupeesInWords(totals.payable)}
-          </p>
+          <Section title="Payment & remarks">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Payment mode">
+                <input
+                  value={paymentMode}
+                  onChange={(e) => setPaymentMode(e.target.value)}
+                  className={inputCls}
+                  placeholder="UPI / Bank transfer / Cash"
+                />
+              </Field>
+              <Field label="Payment date">
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="Payment terms">
+                <input
+                  value={paymentTerms}
+                  onChange={(e) => setPaymentTerms(e.target.value)}
+                  className={inputCls}
+                  placeholder="e.g. Phase 1 advance"
+                />
+              </Field>
+              <Field label="Remarks" className="sm:col-span-2">
+                <textarea
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  rows={2}
+                  className={inputCls}
+                  placeholder="e.g. Token Advance of Phase 1"
+                />
+              </Field>
+            </div>
+          </Section>
         </div>
-      </aside>
+
+        <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h3 className="text-lg font-semibold tracking-tight">Totals</h3>
+            <dl className="mt-4 space-y-2 text-sm">
+              <Row label="Subtotal" value={formatINR(totals.subtotal)} />
+              {taxPercent > 0 && (
+                <Row label={`Tax (${taxPercent}%)`} value={formatINR(totals.tax)} />
+              )}
+              {advance > 0 && <Row label="Advance" value={`- ${formatINR(totals.advance)}`} />}
+              <div className="my-2 h-px bg-border" />
+              <Row label="Payable" value={formatINR(totals.payable)} highlight />
+            </dl>
+            <p className="mt-3 text-xs italic text-muted-foreground">
+              {rupeesInWords(totals.payable)}
+            </p>
+          </div>
+        </aside>
       </div>
 
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
         <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] gap-3 overflow-y-auto p-3 sm:w-[min(95vw,920px)] sm:max-w-none sm:gap-4 sm:p-6">
           <DialogHeader className="text-left">
             <DialogTitle>Live preview</DialogTitle>
-            <DialogDescription>
-              Same layout as the PDF — updates as you edit.
-            </DialogDescription>
+            <DialogDescription>Same layout as the PDF — updates as you edit.</DialogDescription>
           </DialogHeader>
           <div className="invoice-preview-shell rounded-lg bg-zinc-100/90 p-1.5 dark:bg-zinc-950/40 sm:p-4">
             <Suspense fallback={<LoadingDog message="Loading preview…" />}>

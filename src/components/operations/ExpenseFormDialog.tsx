@@ -129,7 +129,8 @@ export function ExpenseFormDialog({
         <DialogHeader>
           <DialogTitle>Log Business Expense</DialogTitle>
           <DialogDescription>
-            Record expenditures, invoices, or contractor fees. GST payments are compiled for tax audits.
+            Record expenditures, invoices, or contractor fees. GST payments are compiled for tax
+            audits.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

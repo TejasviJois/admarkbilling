@@ -9,7 +9,12 @@ import {
 } from "@/components/ui/select";
 import { SearchWithPeriodFilter } from "@/components/operations/SearchWithPeriodFilter";
 import type { OperationsData, Project, ProjectStatus } from "@/lib/types";
-import { matchesAnyDateInPeriod, DEFAULT_PERIOD, type PeriodKey, projectRelevantDates } from "@/lib/date-range-filter";
+import {
+  matchesAnyDateInPeriod,
+  DEFAULT_PERIOD,
+  type PeriodKey,
+  projectRelevantDates,
+} from "@/lib/date-range-filter";
 import { projectClientLabel, projectStatusLabel } from "@/lib/project-status";
 import { DataSection, EmptyRow, Field } from "./operations-ui";
 import { ProjectsTable } from "./ProjectsTable";

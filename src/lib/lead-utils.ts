@@ -41,6 +41,8 @@ export function leadTelHref(phone: string | undefined): string | undefined {
 
 export function sortLeads(leads: Lead[]): Lead[] {
   return [...leads].sort((a, b) =>
-    (a.company || a.name || "").localeCompare(b.company || b.name || "", undefined, { sensitivity: "base" })
+    (a.company || a.name || "").localeCompare(b.company || b.name || "", undefined, {
+      sensitivity: "base",
+    }),
   );
 }

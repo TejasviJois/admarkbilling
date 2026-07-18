@@ -2,6 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import type { ActivityLogEntry } from "@/lib/types";
 import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
+import { relationalDualWritesEnabled, relationalReadsEnabled } from "./env";
+import { loadRelationalActivityLogs } from "./relational-read-repository";
+import { replaceRelationalActivityLogs } from "./relational-write-repository";
 
 const ROW_ID = "activity_logs";
 const DEFAULT_ORG_ID = "org-admark-digitals";
@@ -25,6 +28,7 @@ function parseActivityLogs(payload: unknown): ActivityLogEntry[] {
 export const getActivityLogsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<ActivityLogEntry[]> => {
     await assertAppSession();
+    if (relationalReadsEnabled()) return loadRelationalActivityLogs();
     const sb = requireServerSupabase();
     const { data, error } = await sb
       .from("operations_data")
@@ -49,5 +53,8 @@ export const saveActivityLogsFn = createServerFn({ method: "POST" })
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;
+    if (relationalReadsEnabled() || relationalDualWritesEnabled()) {
+      await replaceRelationalActivityLogs(data);
+    }
     return { ok: true as const };
   });

@@ -66,7 +66,9 @@ export const getBackendHealthFn = createServerFn({ method: "GET" }).handler(asyn
       invoices.error?.message,
       company.error?.message,
       operations.error?.message,
-      !storageBucket ? `Storage bucket "${ADMARK_FILES_BUCKET}" not found — run supabase/admark_billing.sql` : null,
+      !storageBucket
+        ? `Storage bucket "${ADMARK_FILES_BUCKET}" not found — run supabase/admark_billing.sql`
+        : null,
     ].filter(Boolean) as string[],
   } as const;
 });

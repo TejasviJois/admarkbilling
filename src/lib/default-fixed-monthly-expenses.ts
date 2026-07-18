@@ -16,9 +16,9 @@ export const DEFAULT_FIXED_MONTHLY_EXPENSES: FixedMonthlyExpense[] = [
   },
 ];
 
-export function withDefaultFixedMonthlyExpenses<T extends { fixedMonthlyExpenses?: FixedMonthlyExpense[] }>(
-  data: T,
-): T {
+export function withDefaultFixedMonthlyExpenses<
+  T extends { fixedMonthlyExpenses?: FixedMonthlyExpense[] },
+>(data: T): T {
   if (data.fixedMonthlyExpenses && data.fixedMonthlyExpenses.length > 0) return data;
   return { ...data, fixedMonthlyExpenses: DEFAULT_FIXED_MONTHLY_EXPENSES };
 }

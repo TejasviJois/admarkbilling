@@ -13,6 +13,9 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "db:migrate:dry-run": "node scripts/migrate-json-to-relational.mjs",
+    "db:migrate:apply": "node scripts/migrate-json-to-relational.mjs --apply",
+    "db:migrate:validate": "node scripts/validate-relational-migration.mjs",
     "letterhead:png": "node scripts/letterhead-to-png.mjs",
     "favicon:generate": "node scripts/logo-to-favicon.mjs"
   },
@@ -79,6 +82,7 @@
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^5.0.4",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",

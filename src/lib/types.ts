@@ -653,6 +653,9 @@ export interface Invoice {
   id: string; // uuid
   organizationId?: string;
   clientId?: string;
+  /** Canonical source links; Agreement remains optional. */
+  projectId?: string;
+  agreementId?: string;
   number: string; // AM/26-27/0001 (legacy AM 0001/26-27 supported)
   date: string; // YYYY-MM-DD
   clientName: string;

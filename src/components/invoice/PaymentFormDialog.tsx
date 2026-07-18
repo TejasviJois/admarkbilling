@@ -88,11 +88,7 @@ export function PaymentFormDialog({
       alert("Please enter a valid amount.");
       return;
     }
-    if (
-      amountNum > 0 &&
-      outstandingBalance != null &&
-      amountNum > outstandingBalance + 0.005
-    ) {
+    if (amountNum > 0 && outstandingBalance != null && amountNum > outstandingBalance + 0.005) {
       alert(
         `This payment (${formatINR(amountNum)}) is more than the invoice's outstanding balance of ${formatINR(outstandingBalance)}. Reduce the amount, or create a new invoice for the extra work.`,
       );
@@ -119,7 +115,9 @@ export function PaymentFormDialog({
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Log Payment</DialogTitle>
-          <DialogDescription>Record full/partial payment, advance, or refunds against this invoice.</DialogDescription>
+          <DialogDescription>
+            Record full/partial payment, advance, or refunds against this invoice.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Field label="Amount (₹) *" id="pay-amount">

@@ -5,7 +5,9 @@ import { OperationsLoading, OperationsPageHeader } from "@/components/operations
 import { useDocuments } from "@/hooks/use-documents";
 import { logClientError } from "@/lib/client-logger";
 
-export const Route = createFileRoute("/documents/agreements")({ component: DocumentsAgreementsPage });
+export const Route = createFileRoute("/documents/agreements")({
+  component: DocumentsAgreementsPage,
+});
 
 function DocumentsAgreementsPage() {
   const { docs, loading, saving, saveAgreements } = useDocuments();
@@ -15,10 +17,7 @@ function DocumentsAgreementsPage() {
   return (
     <div>
       <DocumentsBreadcrumb
-        items={[
-          { label: "Documents", to: "/documents" },
-          { label: "Agreements" },
-        ]}
+        items={[{ label: "Documents", to: "/documents" }, { label: "Agreements" }]}
       />
       <OperationsPageHeader
         title="Agreements"

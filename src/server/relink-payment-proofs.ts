@@ -109,10 +109,7 @@ function mimeFromFileName(fileName: string): string {
   return "image/jpeg";
 }
 
-function paymentsNeedRelink(
-  existing: ProjectPayment[],
-  storagePaymentIds: string[],
-): boolean {
+function paymentsNeedRelink(existing: ProjectPayment[], storagePaymentIds: string[]): boolean {
   if (storagePaymentIds.length === 0) return false;
   if (existing.length === 0) return true;
   return storagePaymentIds.some(

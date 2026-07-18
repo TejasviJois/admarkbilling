@@ -392,9 +392,7 @@ export function calculateValuation(
   const currentStartKey = currentStart.toISOString().slice(0, 10);
   const previousStartKey = previousStart.toISOString().slice(0, 10);
 
-  // Historical rows (Ground Zero imports) are pre-migration context — the Opening
-  // Balance adjustment already reflects them, so summing them would double count.
-  const transactions = (ops.transactions ?? []).filter((transaction) => !transaction.historical);
+  const transactions = ops.transactions ?? [];
   const currentTransactions = transactions.filter(
     (transaction) => transaction.date >= currentStartKey && transaction.date <= asOfDate,
   );

@@ -10,10 +10,7 @@ import {
 } from "lucide-react";
 import { CategoryBreakdownPanel } from "@/components/analytics/CategoryBreakdownPanel";
 import { LazyMonthlyChart } from "@/components/analytics/LazyMonthlyChart";
-import {
-  AnalyticsKpiGrid,
-  AnalyticsPageHeader,
-} from "@/components/analytics/analytics-ui";
+import { AnalyticsKpiGrid, AnalyticsPageHeader } from "@/components/analytics/analytics-ui";
 import { OperationsLoading } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
 import {
@@ -147,7 +144,6 @@ function AnalyticsPage() {
         icon={Users}
         maxRows={10}
       />
-
     </div>
   );
 }

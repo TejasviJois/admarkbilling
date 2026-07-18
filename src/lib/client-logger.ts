@@ -4,7 +4,6 @@
  */
 export function logClientError(context: string, error: unknown): void {
   if (import.meta.env.DEV) {
-    // eslint-disable-next-line no-console -- dev-only diagnostics
     console.error(`[${context}]`, error);
   }
 }

@@ -23,7 +23,10 @@ export function CategoryBreakdownPanel({
   maxRows?: number;
 }) {
   const barClass = tone === "income" ? "bg-emerald-500" : "bg-rose-500";
-  const barGlow = tone === "income" ? "shadow-[0_0_12px_rgba(52,211,153,0.25)]" : "shadow-[0_0_12px_rgba(251,113,133,0.2)]";
+  const barGlow =
+    tone === "income"
+      ? "shadow-[0_0_12px_rgba(52,211,153,0.25)]"
+      : "shadow-[0_0_12px_rgba(251,113,133,0.2)]";
   const amountClass = tone === "income" ? "text-emerald-400" : "text-rose-400";
   const ringClass = tone === "income" ? "ring-emerald-500/20" : "ring-rose-500/20";
   const visible = rows.slice(0, maxRows);
@@ -39,7 +42,12 @@ export function CategoryBreakdownPanel({
   }
 
   return (
-    <section className={cn("rounded-xl border border-border bg-card p-5 shadow-sm ring-1 ring-inset sm:p-6", ringClass)}>
+    <section
+      className={cn(
+        "rounded-xl border border-border bg-card p-5 shadow-sm ring-1 ring-inset sm:p-6",
+        ringClass,
+      )}
+    >
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <PanelHeader title={title} description={description} icon={Icon} />
         <div className="text-right">

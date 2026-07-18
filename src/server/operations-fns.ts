@@ -21,6 +21,9 @@ import type {
 import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
 import { normalizeValuationSettings } from "@/lib/valuation-engine";
 import { requireServerSupabase } from "./supabase-admin";
+import { relationalDualWritesEnabled, relationalReadsEnabled } from "./env";
+import { loadRelationalOperations } from "./relational-read-repository";
+import { saveRelationalOperations } from "./relational-write-repository";
 import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
 import { externalizeOperationsData } from "./payload-files";
@@ -521,6 +524,9 @@ function parseOperationsPayload(payload: unknown): OperationsData {
 export const getOperationsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<OperationsData> => {
     await assertAppSession();
+    if (relationalReadsEnabled()) {
+      return cacheThrough(CACHE_KEYS.operations, loadRelationalOperations);
+    }
     return cacheThrough(CACHE_KEYS.operations, async () => {
       const sb = requireServerSupabase();
       const { data, error } = await sb
@@ -569,6 +575,9 @@ export const saveOperationsFn = createServerFn({ method: "POST" })
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;
+    if (relationalReadsEnabled() || relationalDualWritesEnabled()) {
+      await saveRelationalOperations(data);
+    }
     cacheDel(CACHE_KEYS.operations);
     return { ok: true as const };
   });

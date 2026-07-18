@@ -109,15 +109,21 @@ function LeadsPage() {
       {/* CRM Stats Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pipeline Value</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Pipeline Value
+          </p>
           <p className="mt-2 text-2xl font-bold text-foreground tabular-nums">
             {formatINRWhole(stats.pipelineValue)}
           </p>
-          <p className="mt-1 text-[10px] text-muted-foreground">{stats.activeCount} active deals in funnel</p>
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            {stats.activeCount} active deals in funnel
+          </p>
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Expected Value</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Expected Value
+          </p>
           <p className="mt-2 text-2xl font-bold text-primary tabular-nums">
             {formatINRWhole(stats.expectedRevenue)}
           </p>
@@ -125,15 +131,21 @@ function LeadsPage() {
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Win Rate</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Win Rate
+          </p>
           <p className="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
             {stats.conversionRate.toFixed(1)}%
           </p>
-          <p className="mt-1 text-[10px] text-muted-foreground">{stats.wonCount} won &middot; {stats.lostDeals} lost</p>
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            {stats.wonCount} won &middot; {stats.lostDeals} lost
+          </p>
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Lost Deals</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Lost Deals
+          </p>
           <p className="mt-2 text-2xl font-bold text-rose-600 dark:text-rose-400 tabular-nums">
             {stats.lostDeals}
           </p>
@@ -141,7 +153,9 @@ function LeadsPage() {
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Avg Deal Size</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Avg Deal Size
+          </p>
           <p className="mt-2 text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums">
             {formatINRWhole(stats.averageDealSize)}
           </p>

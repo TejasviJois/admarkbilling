@@ -17,7 +17,9 @@ export function validatePasswordStrength(password: string): void {
     throw new Error("Security Policy Violation: Password must be at least 8 characters long.");
   }
   if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-    throw new Error("Security Policy Violation: Password must contain uppercase, lowercase, and numeric characters.");
+    throw new Error(
+      "Security Policy Violation: Password must contain uppercase, lowercase, and numeric characters.",
+    );
   }
 }
 

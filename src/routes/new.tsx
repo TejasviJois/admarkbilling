@@ -16,9 +16,7 @@ function NewInvoicePage() {
   const navigate = useNavigate();
   return (
     <Suspense fallback={<InvoiceFormSkeleton />}>
-      <InvoiceForm
-        onSaved={(inv) => navigate({ to: "/invoice/$id", params: { id: inv.id } })}
-      />
+      <InvoiceForm onSaved={(inv) => navigate({ to: "/invoice/$id", params: { id: inv.id } })} />
     </Suspense>
   );
 }

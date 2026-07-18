@@ -185,7 +185,9 @@ export function AgreementsPanel({
 
       {formOpen && (
         <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4 sm:p-5">
-          <h3 className="text-sm font-semibold">{editingId ? "Edit agreement" : "New agreement"}</h3>
+          <h3 className="text-sm font-semibold">
+            {editingId ? "Edit agreement" : "New agreement"}
+          </h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block sm:col-span-2">
               <span className="mb-1 block text-xs text-muted-foreground">Title</span>
@@ -243,7 +245,9 @@ export function AgreementsPanel({
               />
             </label>
             <label className="block sm:col-span-2">
-              <span className="mb-1 block text-xs text-muted-foreground">External link (optional)</span>
+              <span className="mb-1 block text-xs text-muted-foreground">
+                External link (optional)
+              </span>
               <input
                 value={form.externalUrl ?? ""}
                 onChange={(e) =>
@@ -276,7 +280,13 @@ export function AgreementsPanel({
             {form.fileName && (
               <span className="text-xs text-muted-foreground">{form.fileName}</span>
             )}
-            <input ref={fileInputRef} type="file" accept={FILE_ACCEPT} className="hidden" onChange={onFilePick} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={FILE_ACCEPT}
+              className="hidden"
+              onChange={onFilePick}
+            />
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -336,13 +346,23 @@ export function AgreementsPanel({
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {a.externalUrl && (
-                  <a href={a.externalUrl} target="_blank" rel="noopener noreferrer" className={btnRow}>
+                  <a
+                    href={a.externalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={btnRow}
+                  >
                     <Link2 className="h-3 w-3" /> Open link
                   </a>
                 )}
                 {a.fileDataUrl && (
                   <>
-                    <a href={a.fileDataUrl} target="_blank" rel="noopener noreferrer" className={btnRow}>
+                    <a
+                      href={a.fileDataUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={btnRow}
+                    >
                       <FileText className="h-3 w-3" /> Open
                     </a>
                     <a href={a.fileDataUrl} download={a.fileName || "agreement"} className={btnRow}>

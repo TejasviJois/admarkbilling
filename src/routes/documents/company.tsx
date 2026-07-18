@@ -1,10 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Plus } from "lucide-react";
 import { DocumentsBreadcrumb } from "@/components/documents/documents-ui";
 import { ComplianceDocumentsPanel } from "@/components/settings/ComplianceDocumentsPanel";
 import { OperationsPageHeader } from "@/components/operations/operations-ui";
-import { Button } from "@/components/ui/button";
 import { logClientError } from "@/lib/client-logger";
 import { loadCompany, saveCompany } from "@/lib/storage";
 import type { CompanySettings, ComplianceDocument } from "@/lib/types";
@@ -14,13 +12,14 @@ export const Route = createFileRoute("/documents/company")({ component: Document
 function DocumentsCompanyPage() {
   const [company, setCompany] = useState<CompanySettings | null>(null);
   const [saved, setSaved] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
   const latestRef = useRef<CompanySettings | null>(null);
   latestRef.current = company;
 
   const complianceSig =
     company != null
-      ? `${company.udyamCertificateDataUrl?.length ?? 0}:${(company.complianceDocuments ?? []).length}:${(company.complianceDocuments ?? [])
+      ? `${company.udyamCertificateDataUrl?.length ?? 0}:${(company.complianceDocuments ?? []).length}:${(
+          company.complianceDocuments ?? []
+        )
           .map((d) => `${d.id}|${d.title}|${d.externalUrl ?? ""}|${d.fileName ?? ""}`)
           .join("¬")}`
       : "";
@@ -28,7 +27,9 @@ function DocumentsCompanyPage() {
   const primedComplianceAutoSave = useRef(false);
 
   useEffect(() => {
-    void loadCompany().then(setCompany).catch((e) => logClientError("documents.company.load", e));
+    void loadCompany()
+      .then(setCompany)
+      .catch((e) => logClientError("documents.company.load", e));
   }, []);
 
   useEffect(() => {
@@ -72,7 +73,9 @@ function DocumentsCompanyPage() {
     }
     const reader = new FileReader();
     reader.onload = () => {
-      setCompany((prev) => (prev ? { ...prev, udyamCertificateDataUrl: String(reader.result) } : null));
+      setCompany((prev) =>
+        prev ? { ...prev, udyamCertificateDataUrl: String(reader.result) } : null,
+      );
     };
     reader.readAsDataURL(file);
   };
@@ -84,27 +87,13 @@ function DocumentsCompanyPage() {
   return (
     <div>
       <DocumentsBreadcrumb
-        items={[
-          { label: "Documents", to: "/documents" },
-          { label: "Company documents" },
-        ]}
+        items={[{ label: "Documents", to: "/documents" }, { label: "Company documents" }]}
       />
       <OperationsPageHeader
         title="Company documents"
-        description="All company files in one list — open any document, or add more with the + button."
+        description="All company files in one list — open any document, or add more below."
         action={
-          <div className="flex items-center gap-3">
-            {saved && <span className="text-xs font-medium text-emerald-400">Saved</span>}
-            <Button
-              type="button"
-              size="icon"
-              onClick={() => setAddOpen(true)}
-              aria-label="Add document"
-              title="Add document"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
+          saved ? <span className="text-xs font-medium text-emerald-400">Saved</span> : undefined
         }
       />
 
@@ -112,12 +101,12 @@ function DocumentsCompanyPage() {
         <ComplianceDocumentsPanel
           company={company}
           onUdyamUpload={handleUdyamPdf}
-          onUdyamClear={() => setCompany((prev) => (prev ? { ...prev, udyamCertificateDataUrl: undefined } : null))}
+          onUdyamClear={() =>
+            setCompany((prev) => (prev ? { ...prev, udyamCertificateDataUrl: undefined } : null))
+          }
           onDocumentsChange={(docs: ComplianceDocument[]) =>
             setCompany((prev) => (prev ? { ...prev, complianceDocuments: docs } : null))
           }
-          addOpen={addOpen}
-          onAddOpenChange={setAddOpen}
         />
       </section>
     </div>

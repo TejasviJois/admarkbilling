@@ -38,14 +38,52 @@ export function CRMKanbanBoard({
         const colCount = columnLeads.length;
 
         // Custom column styling
-        const colTones: Record<LeadStatus, { border: string; bg: string; text: string; dot: string }> = {
-          new_lead: { border: "border-slate-200 dark:border-slate-800", bg: "bg-slate-500/5", text: "text-slate-700 dark:text-slate-300", dot: "bg-slate-400" },
-          contacted: { border: "border-blue-200 dark:border-blue-800/60", bg: "bg-blue-500/5", text: "text-blue-700 dark:text-blue-300", dot: "bg-blue-400" },
-          meeting_scheduled: { border: "border-indigo-200 dark:border-indigo-800/60", bg: "bg-indigo-500/5", text: "text-indigo-700 dark:text-indigo-300", dot: "bg-indigo-400" },
-          proposal_sent: { border: "border-amber-200 dark:border-amber-800/60", bg: "bg-amber-500/5", text: "text-amber-700 dark:text-amber-300", dot: "bg-amber-400" },
-          negotiation: { border: "border-purple-200 dark:border-purple-800/60", bg: "bg-purple-500/5", text: "text-purple-700 dark:text-purple-300", dot: "bg-purple-400" },
-          won: { border: "border-emerald-200 dark:border-emerald-800/60", bg: "bg-emerald-500/5", text: "text-emerald-700 dark:text-emerald-300", dot: "bg-emerald-500" },
-          lost: { border: "border-rose-200 dark:border-rose-800/60", bg: "bg-rose-500/5", text: "text-rose-700 dark:text-rose-300", dot: "bg-rose-500" },
+        const colTones: Record<
+          LeadStatus,
+          { border: string; bg: string; text: string; dot: string }
+        > = {
+          new_lead: {
+            border: "border-slate-200 dark:border-slate-800",
+            bg: "bg-slate-500/5",
+            text: "text-slate-700 dark:text-slate-300",
+            dot: "bg-slate-400",
+          },
+          contacted: {
+            border: "border-blue-200 dark:border-blue-800/60",
+            bg: "bg-blue-500/5",
+            text: "text-blue-700 dark:text-blue-300",
+            dot: "bg-blue-400",
+          },
+          meeting_scheduled: {
+            border: "border-indigo-200 dark:border-indigo-800/60",
+            bg: "bg-indigo-500/5",
+            text: "text-indigo-700 dark:text-indigo-300",
+            dot: "bg-indigo-400",
+          },
+          proposal_sent: {
+            border: "border-amber-200 dark:border-amber-800/60",
+            bg: "bg-amber-500/5",
+            text: "text-amber-700 dark:text-amber-300",
+            dot: "bg-amber-400",
+          },
+          negotiation: {
+            border: "border-purple-200 dark:border-purple-800/60",
+            bg: "bg-purple-500/5",
+            text: "text-purple-700 dark:text-purple-300",
+            dot: "bg-purple-400",
+          },
+          won: {
+            border: "border-emerald-200 dark:border-emerald-800/60",
+            bg: "bg-emerald-500/5",
+            text: "text-emerald-700 dark:text-emerald-300",
+            dot: "bg-emerald-500",
+          },
+          lost: {
+            border: "border-rose-200 dark:border-rose-800/60",
+            bg: "bg-rose-500/5",
+            text: "text-rose-700 dark:text-rose-300",
+            dot: "bg-rose-500",
+          },
         };
 
         const tone = colTones[status];
@@ -58,7 +96,9 @@ export function CRMKanbanBoard({
             {/* Column Header */}
             <div className="mb-3 space-y-1">
               <div className="flex items-center justify-between">
-                <span className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider ${tone.text}`}>
+                <span
+                  className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider ${tone.text}`}
+                >
                   <span className={`h-2.5 w-2.5 rounded-full ${tone.dot}`} />
                   {leadStatusLabel(status)}
                 </span>
@@ -92,9 +132,13 @@ export function CRMKanbanBoard({
                       {/* Company Name / Action block */}
                       <div className="flex items-start justify-between gap-1">
                         <div>
-                          <h4 className="text-sm font-bold text-foreground leading-snug">{lead.company}</h4>
+                          <h4 className="text-sm font-bold text-foreground leading-snug">
+                            {lead.company}
+                          </h4>
                           {lead.contactPerson && (
-                            <p className="text-[11px] text-muted-foreground mt-0.5">{lead.contactPerson}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              {lead.contactPerson}
+                            </p>
                           )}
                         </div>
                         <div className="flex items-center gap-0.5">
@@ -136,8 +180,8 @@ export function CRMKanbanBoard({
                                     lead.probability > 70
                                       ? "bg-emerald-500"
                                       : lead.probability > 40
-                                      ? "bg-amber-500"
-                                      : "bg-blue-500"
+                                        ? "bg-amber-500"
+                                        : "bg-blue-500"
                                   }`}
                                   style={{ width: `${lead.probability}%` }}
                                 />
@@ -188,13 +232,11 @@ export function CRMKanbanBoard({
                           Next <ArrowRight className="h-3 w-3" />
                         </button>
                       </div>
-
                     </div>
                   );
                 })
               )}
             </div>
-
           </div>
         );
       })}

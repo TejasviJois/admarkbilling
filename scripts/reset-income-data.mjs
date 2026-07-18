@@ -42,7 +42,9 @@ const headers = {
 };
 
 async function main() {
-  const res = await fetch(`${url}/rest/v1/operations_data?id=eq.default&select=payload`, { headers });
+  const res = await fetch(`${url}/rest/v1/operations_data?id=eq.default&select=payload`, {
+    headers,
+  });
   const rows = await res.json();
   if (!res.ok) throw new Error(JSON.stringify(rows));
 

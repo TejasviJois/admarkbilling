@@ -442,26 +442,25 @@ function ExecutiveDashboard() {
                 ops.projects
                   .filter((p) => p.status === "active")
                   .map((project) => (
-                      <div
-                        key={project.id}
-                        className="border border-border/60 rounded p-3 bg-muted/10"
+                    <div
+                      key={project.id}
+                      className="border border-border/60 rounded p-3 bg-muted/10"
+                    >
+                      <Link
+                        to="/projects/$id"
+                        params={{ id: project.id }}
+                        className="font-bold text-xs text-primary hover:underline"
                       >
-                        <Link
-                          to="/projects/$id"
-                          params={{ id: project.id }}
-                          className="font-bold text-xs text-primary hover:underline"
-                        >
-                          {project.client}
-                        </Link>
-                        <p className="text-[10px] text-muted-foreground">
-                          {project.projectType || "General Work"}
-                        </p>
-                      </div>
-                    ))
+                        {project.client}
+                      </Link>
+                      <p className="text-[10px] text-muted-foreground">
+                        {project.projectType || "General Work"}
+                      </p>
+                    </div>
+                  ))
               )}
             </div>
           </div>
-
         </div>
 
         {/* Right Column */}

@@ -12,8 +12,6 @@ export function requireServerSupabase() {
   const nodeMajor = Number(process.versions.node.split(".")[0]);
   return createClient(cfg.url, cfg.serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
-    ...(nodeMajor < 22
-      ? { realtime: { transport: ws as unknown as typeof WebSocket } }
-      : {}),
+    ...(nodeMajor < 22 ? { realtime: { transport: ws as unknown as typeof WebSocket } } : {}),
   });
 }

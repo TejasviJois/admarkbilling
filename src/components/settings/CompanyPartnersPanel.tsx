@@ -136,9 +136,7 @@ export function CompanyPartnersPanel({
             <div
               key={member.id}
               onClick={() => ledger && setActiveId(member.id)}
-              className={`rounded-xl border p-4 transition-all ${
-                ledger ? "cursor-pointer" : ""
-              } ${
+              className={`rounded-xl border p-4 transition-all ${ledger ? "cursor-pointer" : ""} ${
                 isSelected
                   ? "border-primary bg-primary/5 ring-1 ring-primary"
                   : "border-border bg-muted/10 hover:border-primary/20"
@@ -219,15 +217,13 @@ export function CompanyPartnersPanel({
                   </div>
                   <div className="flex justify-between border-t border-border/80 pt-1.5 text-sm font-semibold">
                     <span className="text-foreground">Share Balance:</span>
-                    <span
-                      className={ledger.currentBalance >= 0 ? "text-primary" : "text-rose-600"}
-                    >
+                    <span className={ledger.currentBalance >= 0 ? "text-primary" : "text-rose-600"}>
                       {formatINRWhole(ledger.currentBalance)}
                     </span>
                   </div>
                   <p className="text-[10px] leading-snug text-muted-foreground">
-                    Salary is company pay — it does not reduce the share balance. Click the card
-                    for the full statement.
+                    Salary is company pay — it does not reduce the share balance. Click the card for
+                    the full statement.
                   </p>
                   {ledger.founder.notes && (
                     <p className="border-t border-dashed border-border pt-1.5 text-[10px] italic text-muted-foreground line-clamp-2">

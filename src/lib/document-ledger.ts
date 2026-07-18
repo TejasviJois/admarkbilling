@@ -98,7 +98,9 @@ export function summarizeClients(ops: OperationsData): ClientPaymentSummary[] {
 }
 
 export function clientPaymentHistory(ops: OperationsData, clientName: string) {
-  const rows = flattenProjectIncome(ops.payments ?? [], ops.projects).filter((r) => r.client === clientName);
+  const rows = flattenProjectIncome(ops.payments ?? [], ops.projects).filter(
+    (r) => r.client === clientName,
+  );
   const projects = ops.projects.filter((p) => projectClientLabel(p) === clientName);
   const total = rows.reduce((s, r) => s + r.amount, 0);
   const totalContractValue = projects.reduce((s, p) => s + projectContractValue(p), 0);
@@ -106,9 +108,14 @@ export function clientPaymentHistory(ops: OperationsData, clientName: string) {
 }
 
 export function summarizePartners(ops: OperationsData): PartnerPaymentSummary[] {
-  const payouts = ops.expenses.filter((e) => !e.isBaseline && isExternalPayout(e) && Boolean(e.partnershipId));
+  const payouts = ops.expenses.filter(
+    (e) => !e.isBaseline && isExternalPayout(e) && Boolean(e.partnershipId),
+  );
 
-  const byPartner = new Map<string, { count: number; proofs: number; total: number; dates: string[] }>();
+  const byPartner = new Map<
+    string,
+    { count: number; proofs: number; total: number; dates: string[] }
+  >();
   for (const e of payouts) {
     const id = e.partnershipId!;
     const entry = byPartner.get(id) ?? { count: 0, proofs: 0, total: 0, dates: [] };
@@ -148,9 +155,14 @@ export function partnerPaymentHistory(ops: OperationsData, partnershipId: string
 }
 
 export function summarizeVendors(ops: OperationsData): VendorPaymentSummary[] {
-  const payouts = ops.expenses.filter((e) => !e.isBaseline && isExternalPayout(e) && !e.partnershipId);
+  const payouts = ops.expenses.filter(
+    (e) => !e.isBaseline && isExternalPayout(e) && !e.partnershipId,
+  );
 
-  const byLabel = new Map<string, { count: number; proofs: number; total: number; dates: string[] }>();
+  const byLabel = new Map<
+    string,
+    { count: number; proofs: number; total: number; dates: string[] }
+  >();
   for (const e of payouts) {
     const label = e.label.trim() || "Unnamed vendor";
     const entry = byLabel.get(label) ?? { count: 0, proofs: 0, total: 0, dates: [] };
@@ -188,7 +200,10 @@ export function vendorPaymentHistory(ops: OperationsData, vendorLabel: string) {
   return { label: vendorLabel, rows, total };
 }
 
-function outgoingRowsFromExpenses(expenses: ExpenseEntry[], partnerships: Partnership[]): OutgoingPaymentRow[] {
+function outgoingRowsFromExpenses(
+  expenses: ExpenseEntry[],
+  partnerships: Partnership[],
+): OutgoingPaymentRow[] {
   const partnerName = (id?: string) => partnerships.find((p) => p.id === id)?.name;
   return expenses
     .map((e) => ({

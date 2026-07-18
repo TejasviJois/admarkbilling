@@ -32,7 +32,10 @@ export function ClientPaymentHistoryTable({
 
   const uploadProof = useCallback(
     async (row: IncomeRow, file: File) => {
-      const proof = await proofFromFile(file, `proofs/projects/${row.projectId}/payments/${row.id}`);
+      const proof = await proofFromFile(
+        file,
+        `proofs/projects/${row.projectId}/payments/${row.id}`,
+      );
       persist(attachProjectPaymentProof(ops, row.projectId, row.id, proof));
     },
     [ops, persist],
@@ -58,7 +61,9 @@ export function ClientPaymentHistoryTable({
   );
 
   if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">No payments recorded for this client yet.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">No payments recorded for this client yet.</p>
+    );
   }
 
   return (
@@ -118,9 +123,7 @@ export function OutgoingPaymentHistoryTable({
           imageUrl={r.proofImageUrl}
           label={`${r.label} ${formatINRWhole(r.amount)}`}
           onView={(src) => openProof(r.label, r.amount, src)}
-          onUpload={
-            allowUpload && !r.proofImageUrl ? (file) => uploadProof(r, file) : undefined
-          }
+          onUpload={allowUpload && !r.proofImageUrl ? (file) => uploadProof(r, file) : undefined}
         />,
         r.notes || "—",
       ]),

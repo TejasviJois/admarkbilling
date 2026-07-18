@@ -9,7 +9,9 @@ import { DEFAULT_PERIOD, type PeriodKey } from "@/lib/date-range-filter";
 import { summarizePartners, partnerMatchesPeriod } from "@/lib/document-ledger";
 import { formatINRWhole } from "@/lib/invoice-calc";
 
-export const Route = createFileRoute("/documents/payments/partners/")({ component: DocumentsPartnersPage });
+export const Route = createFileRoute("/documents/payments/partners/")({
+  component: DocumentsPartnersPage,
+});
 
 function DocumentsPartnersPage() {
   const { ops, loading } = useOperations();
@@ -53,7 +55,9 @@ function DocumentsPartnersPage() {
 
       {filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {search || period !== DEFAULT_PERIOD ? "No partners match your filters." : "No partners on file yet."}
+          {search || period !== DEFAULT_PERIOD
+            ? "No partners match your filters."
+            : "No partners on file yet."}
         </p>
       ) : (
         <div className="space-y-2">

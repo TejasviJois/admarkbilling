@@ -7,11 +7,7 @@ import {
   sumFutureMonthlyPipeline,
   sumPipelineBookedRevenue,
 } from "./project-billing";
-import {
-  isVerifiedPayment,
-  resolvePaymentProof,
-  sumProjectPayments,
-} from "./project-payments";
+import { isVerifiedPayment, resolvePaymentProof, sumProjectPayments } from "./project-payments";
 import type { OperationsData, Payment, Project, ProjectPayment, ExpenseCategory } from "./types";
 import {
   buildMoneyOutRows,
@@ -56,7 +52,13 @@ export function sumOngoingProjectRevenue(projects: Project[]): number {
   return sumPipelineBookedRevenue(projects);
 }
 
-export { sumActiveMrr, sumFutureMonthlyPipeline, sumActivePipelineBooked, sumPipelineBookedRevenue, projectBillingRows };
+export {
+  sumActiveMrr,
+  sumFutureMonthlyPipeline,
+  sumActivePipelineBooked,
+  sumPipelineBookedRevenue,
+  projectBillingRows,
+};
 
 export function allProjectPaymentsByMonth(payments: Payment[]): Map<string, number> {
   const months = new Map<string, number>();
@@ -164,9 +166,16 @@ export function buildMoneyOutCategoryBreakdown(ops: OperationsData): CategoryAmo
     newEntryCount: row.newEntryCount,
   }));
 
-  // Handouts are loans to be repaid via the monthly EMI schedule — money that
-  // has not left the company yet, so they never appear as an outflow.
   const rows: CategoryAmountRow[] = moneyOut.map(({ newEntryCount: _n, ...row }) => row);
+
+  if (financial.totalHandoutsTaken > 0) {
+    rows.push({
+      key: "handout",
+      label: EXPENSE_CATEGORY_SHORT_LABELS.handout,
+      amount: financial.totalHandoutsTaken,
+      hint: EXPENSE_CATEGORY_DESCRIPTIONS.handout,
+    });
+  }
 
   return rows.sort((a, b) => b.amount - a.amount);
 }
@@ -179,7 +188,13 @@ export function buildMonthlyChart(ops: OperationsData) {
 
   const ensure = (key: string) => {
     if (!months.has(key)) {
-      months.set(key, { month: formatMonthLabel(key), income: 0, expenses: 0, net: 0, sortKey: key });
+      months.set(key, {
+        month: formatMonthLabel(key),
+        income: 0,
+        expenses: 0,
+        net: 0,
+        sortKey: key,
+      });
     }
     return months.get(key)!;
   };
@@ -201,7 +216,11 @@ export function buildMonthlyChart(ops: OperationsData) {
   return [...months.values()].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 }
 
-export function periodProjectIncome(payments: Payment[], projects: Project[], period: PeriodKey): number {
+export function periodProjectIncome(
+  payments: Payment[],
+  projects: Project[],
+  period: PeriodKey,
+): number {
   return flattenProjectIncome(payments, projects)
     .filter((row) => isWithinPeriod(row.date, period))
     .reduce((sum, row) => sum + row.amount, 0);
@@ -234,7 +253,8 @@ export function periodMoneyOutTotal(ops: OperationsData, period: PeriodKey): num
   const { baseline } = financial;
   let total = 0;
   if (isWithinPeriod(baseline.asOfDate, period)) {
-    total += baseline.totalExternalPayouts + baseline.totalCompanyExpenses + baseline.founderPayoutPool;
+    total +=
+      baseline.totalExternalPayouts + baseline.totalCompanyExpenses + baseline.founderPayoutPool;
   }
 
   total += periodLoggedExpenses(ops, period);
@@ -274,7 +294,10 @@ export function buildIncomeSourceForPeriod(
   ];
 }
 
-export function buildMoneyOutForPeriod(ops: OperationsData, period: PeriodKey): CategoryAmountRow[] {
+export function buildMoneyOutForPeriod(
+  ops: OperationsData,
+  period: PeriodKey,
+): CategoryAmountRow[] {
   if (period === "all") return buildMoneyOutCategoryBreakdown(ops);
 
   const totals = new Map<ExpenseCategory, number>();
@@ -323,7 +346,9 @@ export function paymentProofCoverage(
   projects: Project[],
   period: PeriodKey,
 ): { withProof: number; total: number; pct: number } {
-  const rows = flattenProjectIncome(payments, projects).filter((row) => isWithinPeriod(row.date, period));
+  const rows = flattenProjectIncome(payments, projects).filter((row) =>
+    isWithinPeriod(row.date, period),
+  );
   const withProof = rows.filter((row) => row.hasProof).length;
   return {
     withProof,
@@ -335,6 +360,7 @@ export function paymentProofCoverage(
 export type AnalyticsSnapshot = {
   periodIncome: number;
   periodExpenses: number;
+  netFlow: number;
   cashBalance: number;
   activeMrr: number;
   futureMonthly: number;
@@ -350,6 +376,7 @@ export function buildAnalyticsSnapshot(ops: OperationsData, period: PeriodKey): 
   return {
     periodIncome,
     periodExpenses,
+    netFlow: periodIncome - periodExpenses,
     cashBalance: financial.currentCashBalance,
     activeMrr: sumActiveMrr(ops.projects),
     futureMonthly: sumFutureMonthlyPipeline(ops.projects),

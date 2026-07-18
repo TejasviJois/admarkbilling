@@ -15,7 +15,9 @@ export function shouldPromptForPaymentProof(paymentStatus: string | undefined): 
   );
 }
 
-export function readImageAsDataUrl(file: File): Promise<{ dataUrl: string; fileName: string; mimeType: string }> {
+export function readImageAsDataUrl(
+  file: File,
+): Promise<{ dataUrl: string; fileName: string; mimeType: string }> {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith("image/")) {
       reject(new Error("Please choose an image file (PNG, JPG, or screenshot)."));

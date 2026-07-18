@@ -58,11 +58,19 @@ const { data: companyRow } = await sb
 const company = companyRow?.payload ?? {};
 
 console.log("=== operations_data (payload arrays) ===");
-console.log("Clients (total):        ", clients.length, `(root: ${rootClients.length}, sub: ${childClients.length})`);
+console.log(
+  "Clients (total):        ",
+  clients.length,
+  `(root: ${rootClients.length}, sub: ${childClients.length})`,
+);
 console.log("Projects (total):       ", projects.length, JSON.stringify(byStatus));
 console.log("Leads:                  ", len(ops.leads));
 console.log("Directory contacts:     ", len(ops.contacts));
-console.log("Transactions:           ", txns.length, `(historical: ${historicalTx}, live: ${txns.length - historicalTx})`);
+console.log(
+  "Transactions:           ",
+  txns.length,
+  `(historical: ${historicalTx}, live: ${txns.length - historicalTx})`,
+);
 console.log("Fixed monthly costs:    ", len(ops.fixedMonthlyExpenses));
 console.log("Founders:               ", len(ops.founders));
 console.log("Partnerships:           ", len(ops.partnerships));

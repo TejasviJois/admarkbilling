@@ -1,11 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import {
-  actionLabel,
-  entityLabel,
-  formatActivityTimestamp,
-} from "@/lib/activity-log-labels";
+import { actionLabel, entityLabel, formatActivityTimestamp } from "@/lib/activity-log-labels";
 import { logClientError } from "@/lib/client-logger";
 import type { ActivityEntity, ActivityLogEntry } from "@/lib/types";
 export const Route = createFileRoute("/logs")({ component: LogsPage });

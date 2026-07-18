@@ -98,7 +98,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-")) return "recharts";
+          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-"))
+            return "recharts";
           if (id.includes("node_modules/jspdf")) return "jspdf";
           if (id.includes("node_modules/@supabase")) return "supabase";
         },

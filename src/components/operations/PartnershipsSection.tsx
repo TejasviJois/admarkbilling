@@ -10,7 +10,15 @@ import {
 } from "@/components/ui/select";
 import type { OperationsData, Partnership, PartnershipStatus } from "@/lib/types";
 import { partnershipStatusBadgeClass, partnershipStatusLabel } from "@/lib/partnership-status";
-import { DataSection, DataTable, EmptyRow, Field, RowDelete, RowEdit, ContactLinks } from "./operations-ui";
+import {
+  DataSection,
+  DataTable,
+  EmptyRow,
+  Field,
+  RowDelete,
+  RowEdit,
+  ContactLinks,
+} from "./operations-ui";
 
 const PARTNERSHIP_STATUSES: PartnershipStatus[] = ["active", "prospect", "inactive"];
 
@@ -69,7 +77,15 @@ export function PartnershipsSection({
     return ops.partnerships.filter((p) => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
       if (!q) return true;
-      const haystack = [p.name, p.type, p.opportunityType, p.phone, p.email, p.contact, partnershipStatusLabel(p.status)]
+      const haystack = [
+        p.name,
+        p.type,
+        p.opportunityType,
+        p.phone,
+        p.email,
+        p.contact,
+        partnershipStatusLabel(p.status),
+      ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();

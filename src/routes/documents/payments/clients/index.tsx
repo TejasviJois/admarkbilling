@@ -9,7 +9,9 @@ import { DEFAULT_PERIOD, type PeriodKey } from "@/lib/date-range-filter";
 import { summarizeClients, clientMatchesPeriod } from "@/lib/document-ledger";
 import { formatINRWhole } from "@/lib/invoice-calc";
 
-export const Route = createFileRoute("/documents/payments/clients/")({ component: DocumentsClientsPage });
+export const Route = createFileRoute("/documents/payments/clients/")({
+  component: DocumentsClientsPage,
+});
 
 function DocumentsClientsPage() {
   const { ops, loading } = useOperations();
@@ -53,7 +55,9 @@ function DocumentsClientsPage() {
 
       {filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {search || period !== DEFAULT_PERIOD ? "No clients match your filters." : "No clients with payments yet."}
+          {search || period !== DEFAULT_PERIOD
+            ? "No clients match your filters."
+            : "No clients with payments yet."}
         </p>
       ) : (
         <div className="space-y-2">

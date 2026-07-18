@@ -7,9 +7,7 @@ const MonthlyIncomeExpenseChartInner = lazy(() =>
   })),
 );
 
-export function LazyMonthlyChart(
-  props: ComponentProps<typeof MonthlyIncomeExpenseChartInner>,
-) {
+export function LazyMonthlyChart(props: ComponentProps<typeof MonthlyIncomeExpenseChartInner>) {
   return (
     <Suspense fallback={<LoadingDog message="Loading chart…" />}>
       <MonthlyIncomeExpenseChartInner {...props} />

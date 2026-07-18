@@ -19,7 +19,10 @@ export function SettingsSection({
   return (
     <section
       id={id}
-      className={cn("scroll-mt-24 rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6", className)}
+      className={cn(
+        "scroll-mt-24 rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6",
+        className,
+      )}
     >
       <div className="mb-5">
         <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
@@ -78,7 +81,11 @@ export function SettingsProfileHero({
         <div className="flex shrink-0 flex-col items-center gap-3 sm:flex-row lg:flex-col">
           <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-2xl border border-border bg-background shadow-sm">
             {logoPreview ? (
-              <img src={logoPreview} alt="Company logo" className="h-full w-full object-contain p-2" />
+              <img
+                src={logoPreview}
+                alt="Company logo"
+                className="h-full w-full object-contain p-2"
+              />
             ) : (
               <span className="text-xs text-muted-foreground">No logo</span>
             )}

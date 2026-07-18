@@ -27,10 +27,14 @@ function checkSecurityEnvironmentVariables() {
 
   if (process.env.NODE_ENV === "production") {
     if (!secret || secret.length < 16) {
-      console.error("FATAL ERROR: APP_SESSION_SECRET must be configured and be at least 16 characters in production.");
+      console.error(
+        "FATAL ERROR: APP_SESSION_SECRET must be configured and be at least 16 characters in production.",
+      );
     }
     if (!password || password === "HTRP@2026") {
-      console.warn("SECURITY WARNING: Running production with default or unconfigured admin password.");
+      console.warn(
+        "SECURITY WARNING: Running production with default or unconfigured admin password.",
+      );
     }
   } else {
     // Development alerts

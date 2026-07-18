@@ -8,8 +8,12 @@ import type { Invoice, Project, Transaction } from "./types";
  */
 export function invoiceProjectCandidates(
   projects: Project[],
-  inv: Pick<Invoice, "clientId" | "clientName">,
+  inv: Pick<Invoice, "clientId" | "clientName" | "projectId">,
 ): Project[] {
+  if (inv.projectId) {
+    const explicit = projects.find((project) => project.id === inv.projectId);
+    if (explicit) return [explicit];
+  }
   const name = inv.clientName.trim().toLowerCase();
   return projects.filter(
     (project) =>
@@ -25,7 +29,7 @@ export function invoiceProjectCandidates(
  */
 export function resolveRelatedProject(
   projects: Project[],
-  inv: Pick<Invoice, "clientId" | "clientName">,
+  inv: Pick<Invoice, "clientId" | "clientName" | "projectId">,
 ): Project | undefined {
   const candidates = invoiceProjectCandidates(projects, inv);
   if (candidates.length <= 1) return candidates[0];

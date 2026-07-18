@@ -416,7 +416,9 @@ export function buildInvoicePdf(
   doc.setFontSize(9);
   doc.setTextColor(...INK);
   doc.text(`For ${company.name}`, W - M, sigLineY + 13, { align: "right" });
-  doc.text(company.authorizedName || "Authorized Signatory", W - M, sigLineY + 25, { align: "right" });
+  doc.text(company.authorizedName || "Authorized Signatory", W - M, sigLineY + 25, {
+    align: "right",
+  });
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);

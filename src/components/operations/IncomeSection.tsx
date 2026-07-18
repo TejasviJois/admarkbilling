@@ -31,7 +31,10 @@ export function IncomeSection({
   const [viewerSrc, setViewerSrc] = useState<string | null>(null);
   const [viewerTitle, setViewerTitle] = useState("Payment proof");
 
-  const rows = useMemo(() => flattenProjectIncome(ops.payments ?? [], ops.projects), [ops.payments, ops.projects]);
+  const rows = useMemo(
+    () => flattenProjectIncome(ops.payments ?? [], ops.projects),
+    [ops.payments, ops.projects],
+  );
   const total = (ops.payments ?? []).reduce((s, p) => s + p.amount, 0);
 
   const filtered = useMemo(() => {
@@ -56,7 +59,10 @@ export function IncomeSection({
 
   const uploadProof = useCallback(
     async (row: IncomeRow, file: File) => {
-      const proof = await proofFromFile(file, `proofs/projects/${row.projectId}/payments/${row.id}`);
+      const proof = await proofFromFile(
+        file,
+        `proofs/projects/${row.projectId}/payments/${row.id}`,
+      );
       persist(attachProjectPaymentProof(ops, row.projectId, row.id, proof));
     },
     [ops, persist],

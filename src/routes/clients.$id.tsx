@@ -1,6 +1,15 @@
 import { useEffect, useState, useMemo } from "react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, Briefcase, FileText, Calendar, Building, DollarSign, Activity, FileDigit } from "lucide-react";
+import {
+  ArrowLeft,
+  Briefcase,
+  FileText,
+  Calendar,
+  Building,
+  DollarSign,
+  Activity,
+  FileDigit,
+} from "lucide-react";
 import { useOperations } from "@/hooks/use-operations";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useDocuments } from "@/hooks/use-documents";
@@ -123,7 +132,13 @@ function ClientOverviewPage() {
   }, [clientProjects]);
 
   const recentPayments = useMemo(() => {
-    const list: Array<{ id: string; amount: number; date: string; note?: string; projectTitle: string }> = [];
+    const list: Array<{
+      id: string;
+      amount: number;
+      date: string;
+      note?: string;
+      projectTitle: string;
+    }> = [];
     for (const proj of clientProjects) {
       if (proj.payments) {
         for (const p of proj.payments) {
@@ -146,13 +161,12 @@ function ClientOverviewPage() {
       .filter((log) => {
         if (log.entityId && relationshipClientIds.has(log.entityId)) return true;
         if (
-          [...relationshipCompanyNames].some((name) =>
-            log.summary.toLowerCase().includes(name),
-          )
+          [...relationshipCompanyNames].some((name) => log.summary.toLowerCase().includes(name))
         ) {
           return true;
         }
-        const isProj = log.entity === "project" && clientProjects.some((p) => p.id === log.entityId);
+        const isProj =
+          log.entity === "project" && clientProjects.some((p) => p.id === log.entityId);
         const isInv = log.entity === "invoice" && clientInvoices.some((i) => i.id === log.entityId);
         return isProj || isInv;
       })
@@ -198,7 +212,8 @@ function ClientOverviewPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{client.companyName}</h1>
           <p className="text-sm text-muted-foreground">
-            Client Since {client.clientSince} &bull; <span className="capitalize">{client.status}</span>
+            Client Since {client.clientSince} &bull;{" "}
+            <span className="capitalize">{client.status}</span>
           </p>
         </div>
       </div>
@@ -207,7 +222,9 @@ function ClientOverviewPage() {
       <div className="grid gap-4 sm:grid-cols-4">
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Outstanding Amount</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">
+              Outstanding Amount
+            </span>
             <DollarSign className="h-4 w-4 text-destructive" />
           </div>
           <p className="mt-2 text-2xl font-bold text-destructive">
@@ -230,14 +247,14 @@ function ClientOverviewPage() {
             <span className="text-xs font-semibold uppercase tracking-wider">Active Projects</span>
             <Briefcase className="h-4 w-4 text-primary" />
           </div>
-          <p className="mt-2 text-2xl font-bold text-foreground">
-            {activeProjects.length}
-          </p>
+          <p className="mt-2 text-2xl font-bold text-foreground">{activeProjects.length}</p>
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Completed Projects</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">
+              Completed Projects
+            </span>
             <Briefcase className="h-4 w-4 text-muted-foreground" />
           </div>
           <p className="mt-2 text-2xl font-bold text-muted-foreground">
@@ -321,12 +338,15 @@ function ClientOverviewPage() {
                 </div>
               ) : (
                 clientInvoices.slice(0, 5).map((inv) => (
-                  <div key={inv.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/10">
+                  <div
+                    key={inv.id}
+                    className="flex items-center justify-between px-4 py-3 hover:bg-muted/10"
+                  >
                     <div>
                       <h4 className="font-medium text-foreground text-sm">{inv.number}</h4>
                       <p className="text-xs text-muted-foreground">
-                        Date: {inv.date} &bull; Total: {formatINR(computeTotals(inv).total)} &bull; Status:{" "}
-                        <span className="capitalize">{inv.status}</span>
+                        Date: {inv.date} &bull; Total: {formatINR(computeTotals(inv).total)} &bull;
+                        Status: <span className="capitalize">{inv.status}</span>
                       </p>
                     </div>
                     <Link
@@ -375,7 +395,9 @@ function ClientOverviewPage() {
         <div className="space-y-6">
           {/* Client Details */}
           <div className="rounded-lg border border-border bg-card p-4 shadow-sm space-y-4 text-sm">
-            <h3 className="font-semibold border-b border-border pb-2 text-foreground">Client Profile</h3>
+            <h3 className="font-semibold border-b border-border pb-2 text-foreground">
+              Client Profile
+            </h3>
             <div className="space-y-3">
               <div className="flex items-start gap-2">
                 <Building className="mt-0.5 h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -441,10 +463,7 @@ function ClientOverviewPage() {
                   <div key={doc.id} className="flex items-center gap-2 text-xs">
                     <FileDigit className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     <span className="truncate text-foreground font-medium flex-1">{doc.title}</span>
-                    <Link
-                      to="/documents"
-                      className="text-primary hover:underline text-[10px]"
-                    >
+                    <Link to="/documents" className="text-primary hover:underline text-[10px]">
                       Open Vault
                     </Link>
                   </div>

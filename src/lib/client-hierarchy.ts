@@ -4,7 +4,11 @@ const PRAJWAL_ID = "cli-relationship-prajwal";
 const PRASHANTH_ID = "cli-relationship-prashanth-uncle";
 
 function normalize(value: string | undefined): string {
-  return (value ?? "").trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function relationshipClient(id: string, name: string): Client {
@@ -22,7 +26,9 @@ function relationshipClient(id: string, name: string): Client {
 }
 
 function projectMatchesClient(project: Project, client: Client): boolean {
-  return project.clientId === client.id || normalize(project.client) === normalize(client.companyName);
+  return (
+    project.clientId === client.id || normalize(project.client) === normalize(client.companyName)
+  );
 }
 
 /**

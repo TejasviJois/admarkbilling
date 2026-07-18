@@ -1,5 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
-import type { ActivityLogEntry, CompanySettings, DocumentsData, Invoice, OperationsData } from "@/lib/types";
+import type {
+  ActivityLogEntry,
+  CompanySettings,
+  DocumentsData,
+  Invoice,
+  OperationsData,
+} from "@/lib/types";
 import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel } from "./data-cache";
@@ -8,11 +14,7 @@ import {
   externalizeDocumentsData,
   externalizeOperationsData,
 } from "./payload-files";
-import {
-  encryptInvoice,
-  encryptCompanySettings,
-  encryptOperationsData,
-} from "@/lib/encryption";
+import { encryptInvoice, encryptCompanySettings, encryptOperationsData } from "@/lib/encryption";
 
 export interface SyncAllPayload {
   company?: CompanySettings;
@@ -101,7 +103,10 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
     }
 
     if (data.activityLogs) {
-      const logsWithTenant = data.activityLogs.map((log) => ({ ...log, organizationId: DEFAULT_ORG_ID }));
+      const logsWithTenant = data.activityLogs.map((log) => ({
+        ...log,
+        organizationId: DEFAULT_ORG_ID,
+      }));
       const { error } = await sb.from("operations_data").upsert({
         id: "activity_logs",
         payload: { entries: logsWithTenant, organizationId: DEFAULT_ORG_ID },

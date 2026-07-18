@@ -11,7 +11,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Field, OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
+import {
+  Field,
+  OperationsLoading,
+  OperationsPageHeader,
+} from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
 import { leadFromContact } from "@/lib/lead-conversion";
 import type { Contact } from "@/lib/types";
@@ -38,8 +42,8 @@ function DirectoryPage() {
     const sorted = [...contacts].sort((a, b) => a.personName.localeCompare(b.personName));
     if (!q) return sorted;
     return sorted.filter((contact) =>
-      [contact.personName, contact.companyName, contact.phone, contact.contactVia].some(
-        (value) => value?.toLowerCase().includes(q),
+      [contact.personName, contact.companyName, contact.phone, contact.contactVia].some((value) =>
+        value?.toLowerCase().includes(q),
       ),
     );
   }, [contacts, query]);

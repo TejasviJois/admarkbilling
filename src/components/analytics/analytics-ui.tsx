@@ -37,7 +37,9 @@ export function AnalyticsPageHeader({
             Back to analytics
           </Link>
         )}
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+          {title}
+        </h1>
         {description && (
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-[15px]">
             {description}
@@ -161,7 +163,9 @@ export function AnalyticsKpiGrid({
             <p className={cn("mt-2 text-xl font-semibold tabular-nums sm:text-2xl", valueClass)}>
               {item.value}
             </p>
-            {item.hint && <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{item.hint}</p>}
+            {item.hint && (
+              <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{item.hint}</p>
+            )}
           </>
         );
 
@@ -178,10 +182,7 @@ export function AnalyticsKpiGrid({
         }
 
         return (
-          <div
-            key={item.label}
-            className="rounded-xl border border-border bg-card p-4 shadow-sm"
-          >
+          <div key={item.label} className="rounded-xl border border-border bg-card p-4 shadow-sm">
             {body}
           </div>
         );

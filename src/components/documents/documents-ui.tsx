@@ -1,10 +1,7 @@
 import { Link, type LinkProps } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 
-export function DocumentsBreadcrumb({  items,
-}: {
-  items: { label: string; to?: string }[];
-}) {
+export function DocumentsBreadcrumb({ items }: { items: { label: string; to?: string }[] }) {
   return (
     <nav className="mb-6 flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
       {items.map((item, i) => (
@@ -82,8 +79,11 @@ export function EntityListCard({
         {subtitle && <p className="mt-0.5 truncate text-sm text-muted-foreground">{subtitle}</p>}
         {meta && <p className="mt-1 text-xs text-muted-foreground">{meta}</p>}
         {proofHint && <p className="mt-1 text-xs font-medium text-emerald-400/90">{proofHint}</p>}
-      </div>      <div className="flex shrink-0 items-center gap-2">
-        {amount && <span className="text-sm font-semibold tabular-nums text-foreground">{amount}</span>}
+      </div>{" "}
+      <div className="flex shrink-0 items-center gap-2">
+        {amount && (
+          <span className="text-sm font-semibold tabular-nums text-foreground">{amount}</span>
+        )}
         <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
     </Link>

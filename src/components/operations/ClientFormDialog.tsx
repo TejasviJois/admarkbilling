@@ -112,7 +112,9 @@ export function ClientFormDialog({
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit client profile" : "Add new client"}</DialogTitle>
-          <DialogDescription>Create a central profile that houses all associated projects, invoices, and documents.</DialogDescription>
+          <DialogDescription>
+            Create a central profile that houses all associated projects, invoices, and documents.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">

@@ -45,11 +45,7 @@ function describeProjectFieldChanges(before: Project, after: Project): string[] 
 
   label("Client", projectClientLabel(before), projectClientLabel(after));
   label("Type", before.projectType ?? "", after.projectType ?? "");
-  label(
-    "Status",
-    projectStatusLabel(before.status),
-    projectStatusLabel(after.status),
-  );
+  label("Status", projectStatusLabel(before.status), projectStatusLabel(after.status));
   label("Revenue", before.revenueValue ?? "", after.revenueValue ?? "");
   label("Start", before.startDate ?? "", after.startDate ?? "");
   label("End", before.endDate ?? "", after.endDate ?? "");
@@ -78,11 +74,7 @@ function describePartnershipFieldChanges(before: Partnership, after: Partnership
   label("Contact", before.contact ?? "", after.contact ?? "");
   label("Type", before.type ?? "", after.type ?? "");
   label("Opportunity", before.opportunityType ?? "", after.opportunityType ?? "");
-  label(
-    "Status",
-    partnershipStatusLabel(before.status),
-    partnershipStatusLabel(after.status),
-  );
+  label("Status", partnershipStatusLabel(before.status), partnershipStatusLabel(after.status));
   label("Notes", before.notes ?? "", after.notes ?? "");
   return changes;
 }

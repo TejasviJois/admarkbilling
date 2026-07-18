@@ -73,7 +73,8 @@ export function statusBadgeClassDark(status: Invoice["status"]): string {
     viewed: "border border-purple-400/40 bg-purple-500/20 text-purple-50 shadow-sm",
     partially_paid: "border border-sky-400/40 bg-sky-500/20 text-sky-50 shadow-sm",
     paid: "border border-emerald-400/40 bg-emerald-500/20 text-emerald-50 shadow-sm",
-    cancelled: "border border-slate-400/20 bg-slate-500/10 text-slate-400/50 shadow-sm line-through",
+    cancelled:
+      "border border-slate-400/20 bg-slate-500/10 text-slate-400/50 shadow-sm line-through",
     overdue: "border border-red-400/40 bg-red-500/20 text-red-50 shadow-sm",
   };
   return map[status] || map.draft;

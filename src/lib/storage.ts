@@ -43,9 +43,7 @@ function loadCompanyLocal(): CompanySettings {
   if (!isBrowser()) return DEFAULT_COMPANY;
   try {
     const raw = localStorage.getItem(COMPANY_KEY);
-    return raw
-      ? normalizeCompanySettings(JSON.parse(raw) as CompanySettings)
-      : DEFAULT_COMPANY;
+    return raw ? normalizeCompanySettings(JSON.parse(raw) as CompanySettings) : DEFAULT_COMPANY;
   } catch {
     return DEFAULT_COMPANY;
   }

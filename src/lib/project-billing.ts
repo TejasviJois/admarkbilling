@@ -226,10 +226,7 @@ export function buildRevenueValueFromBilling(billing: ProjectBilling): string | 
   return label === "—" ? undefined : label;
 }
 
-export function recurringStatus(
-  billing: ProjectBilling,
-  asOfDate: string,
-): RecurringBillingStatus {
+export function recurringStatus(billing: ProjectBilling, asOfDate: string): RecurringBillingStatus {
   if (!billing.monthlyAmount) return "none";
   // Permanently closed retainers never come back as active or future.
   if (billing.monthlyEndDate && billing.monthlyEndDate <= asOfDate) return "ended";

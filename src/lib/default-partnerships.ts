@@ -46,13 +46,7 @@ export const DEFAULT_PARTNERSHIPS: Partnership[] = [
     "inactive",
     "Project Based",
   ),
-  part(
-    "part-megha-signs",
-    "Megha Signs Kodagu",
-    "Marketing Agency",
-    "inactive",
-    "Project Based",
-  ),
+  part("part-megha-signs", "Megha Signs Kodagu", "Marketing Agency", "inactive", "Project Based"),
   part("part-4am-media", "4AM Media", "Marketing Agency", "inactive", "Project Based"),
   part("part-sparkling-ads", "Sparkling Ads", "Marketing Agency", "inactive", "Project Based"),
 ];

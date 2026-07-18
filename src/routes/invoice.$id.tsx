@@ -27,10 +27,7 @@ import {
   removeAccountTransactionFromProjects,
   syncAccountTransactionToProjects,
 } from "@/lib/project-payment-sync";
-import {
-  downloadPaymentReceiptPdf,
-  sharePaymentReceiptPdf,
-} from "@/lib/payment-receipt-pdf";
+import { downloadPaymentReceiptPdf, sharePaymentReceiptPdf } from "@/lib/payment-receipt-pdf";
 import type { CompanySettings, Invoice, Payment, Project, Transaction } from "@/lib/types";
 
 /** Reject path-like or absurd IDs before hitting storage / server. */
@@ -48,10 +45,7 @@ function InvoiceNotFoundView() {
       <p className="mt-2 text-sm text-muted-foreground">
         This link may be wrong or the invoice was removed.
       </p>
-      <Link
-        to="/invoices"
-        className="mt-4 inline-block text-sm text-primary hover:underline"
-      >
+      <Link to="/invoices" className="mt-4 inline-block text-sm text-primary hover:underline">
         ← Back to invoices
       </Link>
     </div>
@@ -145,7 +139,9 @@ function InvoicePage() {
         // payments) and roll them back off the linked projects.
         const removedIds = new Set(
           (ops.transactions ?? [])
-            .filter((t) => t.relatedInvoiceId === inv.id || t.id === invoiceAdvanceTransactionId(inv.id))
+            .filter(
+              (t) => t.relatedInvoiceId === inv.id || t.id === invoiceAdvanceTransactionId(inv.id),
+            )
             .map((t) => t.id),
         );
         if (removedIds.size > 0 || (ops.payments ?? []).some((p) => p.invoiceId === inv.id)) {
@@ -421,7 +417,9 @@ function InvoicePage() {
                         <span>{pay.date}</span>
                         {pay.transactionId && <span>Tx: {pay.transactionId}</span>}
                       </div>
-                      {pay.notes && <p className="text-[10px] text-muted-foreground">{pay.notes}</p>}
+                      {pay.notes && (
+                        <p className="text-[10px] text-muted-foreground">{pay.notes}</p>
+                      )}
                       {pay.screenshotDataUrl && (
                         <div className="flex items-center gap-1 text-[10px] text-primary">
                           <ImageIcon className="h-3 w-3" />

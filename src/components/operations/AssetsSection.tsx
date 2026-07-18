@@ -25,8 +25,7 @@ export function AssetsSection({
   const [editing, setEditing] = useState<AssetEntry | null>(null);
 
   const assets = useMemo(
-    () =>
-      [...(ops.assets ?? [])].sort((a, b) => b.acquiredDate.localeCompare(a.acquiredDate)),
+    () => [...(ops.assets ?? [])].sort((a, b) => b.acquiredDate.localeCompare(a.acquiredDate)),
     [ops.assets],
   );
   const total = sumAssets(assets);

@@ -1,7 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { OutgoingPaymentHistoryTable } from "@/components/documents/PaymentHistoryTable";
 import { DocumentsBreadcrumb } from "@/components/documents/documents-ui";
-import { ContactLinks, OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
+import {
+  ContactLinks,
+  OperationsLoading,
+  OperationsPageHeader,
+} from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
 import { partnerPaymentHistory } from "@/lib/document-ledger";
 import { formatINRWhole } from "@/lib/invoice-calc";
@@ -30,7 +34,10 @@ function DocumentsPartnerDetailPage() {
           ]}
         />
         <p className="text-sm text-muted-foreground">Partner not found.</p>
-        <Link to="/documents/payments/partners" className="mt-2 inline-block text-sm text-primary hover:underline">
+        <Link
+          to="/documents/payments/partners"
+          className="mt-2 inline-block text-sm text-primary hover:underline"
+        >
           Back to partners
         </Link>
       </div>
@@ -79,7 +86,10 @@ function DocumentsPartnerDetailPage() {
               <dd className="inline capitalize">{partnership.status}</dd>
             </div>
           </dl>
-          <Link to="/partnerships" className="mt-3 inline-block text-xs text-primary hover:underline">
+          <Link
+            to="/partnerships"
+            className="mt-3 inline-block text-xs text-primary hover:underline"
+          >
             Edit in Partnerships
           </Link>
         </section>

@@ -40,7 +40,10 @@ const headers = {
 };
 
 async function rest(path, opts = {}) {
-  const res = await fetch(`${url}/rest/v1/${path}`, { ...opts, headers: { ...headers, ...opts.headers } });
+  const res = await fetch(`${url}/rest/v1/${path}`, {
+    ...opts,
+    headers: { ...headers, ...opts.headers },
+  });
   const text = await res.text();
   let body;
   try {
@@ -48,12 +51,18 @@ async function rest(path, opts = {}) {
   } catch {
     body = text;
   }
-  if (!res.ok) throw new Error(typeof body === "object" && body?.message ? body.message : text || res.statusText);
+  if (!res.ok)
+    throw new Error(
+      typeof body === "object" && body?.message ? body.message : text || res.statusText,
+    );
   return body;
 }
 
 async function storage(path, opts = {}) {
-  const res = await fetch(`${url}/storage/v1/${path}`, { ...opts, headers: { ...headers, ...opts.headers } });
+  const res = await fetch(`${url}/storage/v1/${path}`, {
+    ...opts,
+    headers: { ...headers, ...opts.headers },
+  });
   const text = await res.text();
   let body;
   try {
@@ -61,7 +70,10 @@ async function storage(path, opts = {}) {
   } catch {
     body = text;
   }
-  if (!res.ok) throw new Error(typeof body === "object" && body?.message ? body.message : text || res.statusText);
+  if (!res.ok)
+    throw new Error(
+      typeof body === "object" && body?.message ? body.message : text || res.statusText,
+    );
   return body;
 }
 
@@ -96,10 +108,13 @@ await check("invoices table", async () => {
 
 await check("admark-files bucket", async () => {
   const buckets = await storage("bucket");
-  const bucket = buckets?.find?.((b) => b.id === "admark-files") ?? buckets?.find?.((b) => b.name === "admark-files");
+  const bucket =
+    buckets?.find?.((b) => b.id === "admark-files") ??
+    buckets?.find?.((b) => b.name === "admark-files");
   if (!bucket && Array.isArray(buckets)) {
     const found = buckets.find((b) => b.id === "admark-files");
-    if (!found) throw new Error('Bucket "admark-files" not found — run supabase/admark_billing.sql');
+    if (!found)
+      throw new Error('Bucket "admark-files" not found — run supabase/admark_billing.sql');
     return `public=${found.public}`;
   }
   if (!bucket) throw new Error('Bucket "admark-files" not found — run supabase/admark_billing.sql');
@@ -133,5 +148,7 @@ await check("storage upload", async () => {
 
 const failed = checks.filter((c) => !c.ok);
 console.log("");
-console.log(failed.length === 0 ? "All Supabase checks passed." : `${failed.length} check(s) failed.`);
+console.log(
+  failed.length === 0 ? "All Supabase checks passed." : `${failed.length} check(s) failed.`,
+);
 process.exit(failed.length === 0 ? 0 : 1);

@@ -5,7 +5,12 @@ import { NewInvoiceLink } from "@/components/invoice/NewInvoiceLink";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useOperations } from "@/hooks/use-operations";
 import { prefetchInvoiceEditor, preloadNewInvoiceRoute } from "@/lib/prefetch-invoice-editor";
-import { computeTotals, formatINR, calculateInvoicePayments, deriveInvoiceStatus } from "@/lib/invoice-calc";
+import {
+  computeTotals,
+  formatINR,
+  calculateInvoicePayments,
+  deriveInvoiceStatus,
+} from "@/lib/invoice-calc";
 import { statusBadgeClassDark, statusIndicatorEmoji } from "@/lib/invoice-status";
 import type { Invoice } from "@/lib/types";
 
@@ -23,7 +28,9 @@ function InvoicesDashboard() {
     preloadNewInvoiceRoute();
   }, []);
 
-  const totalRevenue = invoices.filter((i) => i.status !== "cancelled").reduce((s, i) => s + computeTotals(i).total, 0);
+  const totalRevenue = invoices
+    .filter((i) => i.status !== "cancelled")
+    .reduce((s, i) => s + computeTotals(i).total, 0);
   const totalCollected = invoices
     .filter((i) => i.status !== "cancelled")
     .reduce((s, i) => s + calculateInvoicePayments(i, payments).paidAmount, 0);
@@ -53,15 +60,12 @@ function InvoicesDashboard() {
                 Invoice management
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-foreground/90 md:text-[15px] [text-shadow:0_1px_2px_oklch(0_0_0/0.4)]">
-                Create, track, and send professional invoices with auto-numbering, tax
-                calculations, and PDF export. Company details from Settings appear on every
-                invoice automatically.
+                Create, track, and send professional invoices with auto-numbering, tax calculations,
+                and PDF export. Company details from Settings appear on every invoice automatically.
               </p>
             </div>
             <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap md:flex-col lg:flex-row">
-              <NewInvoiceLink
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-md ring-1 ring-white/15 transition-colors hover:bg-primary/90"
-              >
+              <NewInvoiceLink className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-md ring-1 ring-white/15 transition-colors hover:bg-primary/90">
                 <Plus className="h-4 w-4 shrink-0" strokeWidth={2} /> New invoice
               </NewInvoiceLink>
               <Link
@@ -150,7 +154,9 @@ function InvoicesDashboard() {
                         </div>
                         <div className="flex justify-between gap-3 border-t border-border pt-2">
                           <dt className="font-medium text-foreground">Amount</dt>
-                          <dd className="font-semibold tabular-nums text-foreground">{formatINR(t.total)}</dd>
+                          <dd className="font-semibold tabular-nums text-foreground">
+                            {formatINR(t.total)}
+                          </dd>
                         </div>
                       </dl>
                     </article>
@@ -173,7 +179,10 @@ function InvoicesDashboard() {
                   {recent.map((inv) => {
                     const t = computeTotals(inv);
                     return (
-                      <tr key={inv.id} className="border-t border-border transition-colors hover:bg-muted/40">
+                      <tr
+                        key={inv.id}
+                        className="border-t border-border transition-colors hover:bg-muted/40"
+                      >
                         <td className="max-w-[12rem] px-4 py-3">
                           <Link
                             to="/invoice/$id"
@@ -187,7 +196,9 @@ function InvoicesDashboard() {
                         <td className="max-w-[10rem] truncate px-4 py-3" title={inv.clientName}>
                           {inv.clientName}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{inv.date}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                          {inv.date}
+                        </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums text-foreground">
                           {formatINR(t.total)}
                         </td>
@@ -214,7 +225,9 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
         <span className="shrink-0 text-primary/75 [&_svg]:opacity-95">{icon}</span>
       </div>
-      <p className="mt-3 text-2xl font-semibold tracking-tight text-foreground tabular-nums">{value}</p>
+      <p className="mt-3 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+        {value}
+      </p>
     </div>
   );
 }
@@ -238,9 +251,7 @@ function EmptyState() {
       <FileText className="mx-auto h-10 w-10 text-muted-foreground/60" strokeWidth={1.5} />
       <p className="mt-4 font-medium text-foreground">No invoices yet</p>
       <p className="mt-1 text-sm text-muted-foreground">Create an invoice to see it listed here.</p>
-      <NewInvoiceLink
-        className="mt-5 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-      >
+      <NewInvoiceLink className="mt-5 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
         <Plus className="h-4 w-4" strokeWidth={2} /> Create invoice
       </NewInvoiceLink>
     </div>

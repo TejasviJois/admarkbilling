@@ -8,12 +8,7 @@ import {
   StatusPill,
 } from "@/components/operations/operations-ui";
 import { isWithinPeriod, DEFAULT_PERIOD, type PeriodKey } from "@/lib/date-range-filter";
-import {
-  formatLeadPhone,
-  leadStatusLabel,
-  leadTelHref,
-  sortLeads,
-} from "@/lib/lead-utils";
+import { formatLeadPhone, leadStatusLabel, leadTelHref, sortLeads } from "@/lib/lead-utils";
 import type { Lead } from "@/lib/types";
 
 function leadMatchesPeriod(lead: Lead, period: PeriodKey): boolean {
@@ -63,7 +58,11 @@ export function LeadsTable({
       </span>,
       lead.company || lead.business || "—",
       tel ? (
-        <a key={`phone-${lead.id}`} href={tel} className="tabular-nums text-primary hover:underline">
+        <a
+          key={`phone-${lead.id}`}
+          href={tel}
+          className="tabular-nums text-primary hover:underline"
+        >
           {formatLeadPhone(lead.phone)}
         </a>
       ) : (

@@ -23,7 +23,9 @@ import type { ExpenseEntry, OperationsData, Partnership } from "@/lib/types";
 import { DataTable, RowDelete } from "./operations-ui";
 
 function loggedExternalPayouts(expenses: ExpenseEntry[]) {
-  return expenses.filter((e) => !e.isBaseline && normalizeCategory(e.category) === "external_payout");
+  return expenses.filter(
+    (e) => !e.isBaseline && normalizeCategory(e.category) === "external_payout",
+  );
 }
 
 function externalPayoutDocumentsLink(ops: OperationsData): string {
@@ -71,8 +73,8 @@ export function ExpensesPipelineSummary({
       value: formatFinancialINR(row.amount),
       hint:
         row.category === "external_payout"
-          ? externalPayoutDocumentsHint(ops) ??
-            (row.newEntryCount > 0 ? `${row.newEntryCount} logged` : undefined)
+          ? (externalPayoutDocumentsHint(ops) ??
+            (row.newEntryCount > 0 ? `${row.newEntryCount} logged` : undefined))
           : row.newEntryCount > 0
             ? `${row.newEntryCount} logged`
             : undefined,
@@ -187,8 +189,7 @@ export function ExpensesTable({
       <DataTable
         headers={["Description", "Date", "Category", "Amount", "Proof", ""]}
         rows={expenses.map((e) => {
-          const partner =
-            e.partnershipId && partnerships.find((p) => p.id === e.partnershipId);
+          const partner = e.partnershipId && partnerships.find((p) => p.id === e.partnershipId);
           return [
             <span key={`lbl-${e.id}`}>
               {e.label}

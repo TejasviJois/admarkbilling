@@ -65,9 +65,7 @@ function RetainersPage() {
 
   const active = rows.filter((r) => r.status === "active");
   const future = rows.filter((r) => r.status === "not_started");
-  const closed = rows.filter(
-    (r) => r.status === "ended" && r.billing.monthlyEndDate != null,
-  );
+  const closed = rows.filter((r) => r.status === "ended" && r.billing.monthlyEndDate != null);
 
   const activeMrrTotal = sumActiveMrr(ops.projects, asOf);
   const futureTotal = sumFutureMonthlyPipeline(ops.projects, asOf);
@@ -244,7 +242,9 @@ function RetainerSection({
   muted?: boolean;
 }) {
   return (
-    <section className={`rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6 ${muted ? "opacity-70" : ""}`}>
+    <section
+      className={`rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6 ${muted ? "opacity-70" : ""}`}
+    >
       <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
       {rows.length === 0 ? (

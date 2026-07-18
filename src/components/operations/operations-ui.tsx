@@ -17,7 +17,9 @@ export function OperationsPageHeader({
   return (
     <div className="mb-8 flex items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+          {title}
+        </h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-[15px]">
           {description}
         </p>
@@ -75,7 +77,10 @@ export function DataSection({
 
   if (!collapsible) {
     return (
-      <section id={id} className="scroll-mt-24 rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
+      <section
+        id={id}
+        className="scroll-mt-24 rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6"
+      >
         <div className="mb-5 flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-start gap-3">{headerBody}</div>
           {action ? <div className="shrink-0">{action}</div> : null}
@@ -87,7 +92,10 @@ export function DataSection({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <section id={id} className="scroll-mt-24 rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
+      <section
+        id={id}
+        className="scroll-mt-24 rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6"
+      >
         <div className="flex items-start justify-between gap-3">
           <CollapsibleTrigger asChild>
             <button
@@ -208,7 +216,10 @@ export function ContactLinks({
   return (
     <div className="flex min-w-[8rem] flex-col gap-0.5 text-xs">
       {tel && (
-        <a href={`tel:${tel.replace(/\s/g, "")}`} className="font-medium text-primary hover:underline">
+        <a
+          href={`tel:${tel.replace(/\s/g, "")}`}
+          className="font-medium text-primary hover:underline"
+        >
           {tel}
         </a>
       )}

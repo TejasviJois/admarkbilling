@@ -2,8 +2,22 @@ import { createServerFn } from "@tanstack/react-start";
 import type { CompanySettings, Invoice } from "@/lib/types";
 import { DEFAULT_COMPANY } from "@/lib/constants";
 import { normalizeCompanySettings } from "@/lib/company-settings";
-import { getSupabaseServerConfig } from "./env";
+import {
+  getSupabaseServerConfig,
+  relationalDualWritesEnabled,
+  relationalReadsEnabled,
+} from "./env";
 import { requireServerSupabase } from "./supabase-admin";
+import {
+  getRelationalInvoice,
+  listRelationalInvoices,
+  loadRelationalCompany,
+} from "./relational-read-repository";
+import {
+  saveRelationalCompany,
+  softDeleteRelationalInvoice,
+  upsertRelationalInvoice,
+} from "./relational-write-repository";
 import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
 import { externalizeCompanySettings } from "./payload-files";
@@ -26,11 +40,15 @@ function parseInvoicePayload(payload: unknown): Invoice | null {
 /** Public: lets the UI know if server-side Supabase is wired (no secrets leaked). */
 export const getDataBackendStatus = createServerFn({ method: "GET" }).handler(async () => ({
   configured: Boolean(getSupabaseServerConfig()),
+  relationalReads: relationalReadsEnabled(),
 }));
 
 export const listInvoicesFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<Invoice[]> => {
     await assertAppSession();
+    if (relationalReadsEnabled()) {
+      return cacheThrough(CACHE_KEYS.invoices, listRelationalInvoices);
+    }
     return cacheThrough(CACHE_KEYS.invoices, async () => {
       const sb = requireServerSupabase();
       // Do not filter by organization_id — that column is not present in the live
@@ -59,6 +77,7 @@ export const getInvoiceFn = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }): Promise<Invoice | null> => {
     await assertAppSession();
+    if (relationalReadsEnabled()) return getRelationalInvoice(data.id);
     const sb = requireServerSupabase();
     const { data: row, error } = await sb
       .from("invoices")
@@ -86,6 +105,9 @@ export const upsertInvoiceFn = createServerFn({ method: "POST" })
       created_at: new Date(data.createdAt).toISOString(),
     });
     if (error) throw error;
+    if (relationalReadsEnabled() || relationalDualWritesEnabled()) {
+      await upsertRelationalInvoice(data);
+    }
     cacheDel(CACHE_KEYS.invoices);
     return { ok: true as const };
   });
@@ -100,6 +122,9 @@ export const deleteInvoiceFn = createServerFn({ method: "POST" })
     const sb = requireServerSupabase();
     const { error } = await sb.from("invoices").delete().eq("id", data.id);
     if (error) throw error;
+    if (relationalReadsEnabled() || relationalDualWritesEnabled()) {
+      await softDeleteRelationalInvoice(data.id);
+    }
     cacheDel(CACHE_KEYS.invoices);
     return { ok: true as const };
   });
@@ -107,6 +132,9 @@ export const deleteInvoiceFn = createServerFn({ method: "POST" })
 export const getCompanyFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<CompanySettings> => {
     await assertAppSession();
+    if (relationalReadsEnabled()) {
+      return cacheThrough(CACHE_KEYS.company, loadRelationalCompany);
+    }
     return cacheThrough(CACHE_KEYS.company, async () => {
       const sb = requireServerSupabase();
       const { data, error } = await sb
@@ -136,6 +164,9 @@ export const saveCompanyFn = createServerFn({ method: "POST" })
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;
+    if (relationalReadsEnabled() || relationalDualWritesEnabled()) {
+      await saveRelationalCompany(data);
+    }
     cacheDel(CACHE_KEYS.company);
     return { ok: true as const };
   });

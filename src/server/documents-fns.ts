@@ -4,6 +4,9 @@ import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
 import { externalizeDocumentsData } from "./payload-files";
+import { relationalDualWritesEnabled, relationalReadsEnabled } from "./env";
+import { loadRelationalDocuments } from "./relational-read-repository";
+import { saveRelationalDocuments } from "./relational-write-repository";
 
 const DEFAULT_ORG_ID = "org-admark-digitals";
 
@@ -12,7 +15,11 @@ export const EMPTY_DOCUMENTS: DocumentsData = { agreements: [] };
 function parseAgreement(raw: unknown): Agreement | null {
   if (!raw || typeof raw !== "object") return null;
   const a = raw as Partial<Agreement>;
-  if (typeof a.id !== "string" || typeof a.title !== "string" || typeof a.counterpartyName !== "string") {
+  if (
+    typeof a.id !== "string" ||
+    typeof a.title !== "string" ||
+    typeof a.counterpartyName !== "string"
+  ) {
     return null;
   }
   const now = Date.now();
@@ -47,6 +54,9 @@ function parseDocumentsPayload(payload: unknown): DocumentsData {
 export const getDocumentsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<DocumentsData> => {
     await assertAppSession();
+    if (relationalReadsEnabled()) {
+      return cacheThrough(CACHE_KEYS.documents, loadRelationalDocuments);
+    }
     return cacheThrough(CACHE_KEYS.documents, async () => {
       const sb = requireServerSupabase();
       const { data, error } = await sb
@@ -78,6 +88,9 @@ export const saveDocumentsFn = createServerFn({ method: "POST" })
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;
+    if (relationalReadsEnabled() || relationalDualWritesEnabled()) {
+      await saveRelationalDocuments(data);
+    }
     cacheDel(CACHE_KEYS.documents);
     return { ok: true as const };
   });

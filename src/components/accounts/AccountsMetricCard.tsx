@@ -31,7 +31,9 @@ export function AccountsMetricCard({
   const body = (
     <>
       <span className="text-sm font-medium text-muted-foreground">{label}</span>
-      <p className={`mt-2 text-xl font-semibold tabular-nums tracking-tight sm:text-2xl ${toneClass}`}>
+      <p
+        className={`mt-2 text-xl font-semibold tabular-nums tracking-tight sm:text-2xl ${toneClass}`}
+      >
         {value}
       </p>
       {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}

@@ -97,7 +97,10 @@ export function ProjectBillingSection({
         </Link>
       </section>
 
-      <Dialog open={breakdownDialog === "booked"} onOpenChange={(open) => !open && setBreakdownDialog(null)}>
+      <Dialog
+        open={breakdownDialog === "booked"}
+        onOpenChange={(open) => !open && setBreakdownDialog(null)}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Revenue booked — breakdown</DialogTitle>
@@ -113,13 +116,16 @@ export function ProjectBillingSection({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={breakdownDialog === "future"} onOpenChange={(open) => !open && setBreakdownDialog(null)}>
+      <Dialog
+        open={breakdownDialog === "future"}
+        onOpenChange={(open) => !open && setBreakdownDialog(null)}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>FMRR — breakdown</DialogTitle>
             <DialogDescription>
-              Unstarted monthly billing only. Fixed-term projects show rate × number of months; ongoing
-              retainers show per-month amount. Upfront amounts are not included here.
+              Unstarted monthly billing only. Fixed-term projects show rate × number of months;
+              ongoing retainers show per-month amount. Upfront amounts are not included here.
             </DialogDescription>
           </DialogHeader>
           <FutureMonthlyBreakdownList rows={futureRows} />
@@ -129,7 +135,10 @@ export function ProjectBillingSection({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={breakdownDialog === "mrr"} onOpenChange={(open) => !open && setBreakdownDialog(null)}>
+      <Dialog
+        open={breakdownDialog === "mrr"}
+        onOpenChange={(open) => !open && setBreakdownDialog(null)}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Active MRR — breakdown</DialogTitle>

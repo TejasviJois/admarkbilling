@@ -3,7 +3,13 @@ import { assertAppSession } from "./app-session";
 import { requireServerSupabase } from "./supabase-admin";
 import { uploadDataUrlToStorage } from "./file-storage";
 
-const ALLOWED_MIME_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "application/pdf"];
+const ALLOWED_MIME_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+  "application/pdf",
+];
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
 export const uploadFileFn = createServerFn({ method: "POST" })
@@ -19,7 +25,9 @@ export const uploadFileFn = createServerFn({ method: "POST" })
 
     const mimeType = match[1].toLowerCase();
     if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
-      throw new Error(`Unsupported file type: ${mimeType}. Only PNG, JPG, WEBP, and PDF files are allowed.`);
+      throw new Error(
+        `Unsupported file type: ${mimeType}. Only PNG, JPG, WEBP, and PDF files are allowed.`,
+      );
     }
 
     const base64Data = match[2];

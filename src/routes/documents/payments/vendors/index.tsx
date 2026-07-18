@@ -9,7 +9,9 @@ import { DEFAULT_PERIOD, type PeriodKey } from "@/lib/date-range-filter";
 import { summarizeVendors, vendorMatchesPeriod } from "@/lib/document-ledger";
 import { formatINRWhole } from "@/lib/invoice-calc";
 
-export const Route = createFileRoute("/documents/payments/vendors/")({ component: DocumentsVendorsPage });
+export const Route = createFileRoute("/documents/payments/vendors/")({
+  component: DocumentsVendorsPage,
+});
 
 function DocumentsVendorsPage() {
   const { ops, loading } = useOperations();
@@ -53,7 +55,9 @@ function DocumentsVendorsPage() {
 
       {filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {search || period !== DEFAULT_PERIOD ? "No vendors match your filters." : "No vendor payouts logged yet."}
+          {search || period !== DEFAULT_PERIOD
+            ? "No vendors match your filters."
+            : "No vendor payouts logged yet."}
         </p>
       ) : (
         <div className="space-y-2">

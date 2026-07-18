@@ -22,10 +22,7 @@ function DocumentsPaymentsHub() {
   return (
     <div>
       <DocumentsBreadcrumb
-        items={[
-          { label: "Documents", to: "/documents" },
-          { label: "Payments" },
-        ]}
+        items={[{ label: "Documents", to: "/documents" }, { label: "Payments" }]}
       />
       <OperationsPageHeader
         title="Payment histories"
@@ -58,7 +55,8 @@ function DocumentsPaymentsHub() {
 
       <p className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
         <IndianRupee className="h-3.5 w-3.5" />
-        Payment data comes from Projects and Expenses. Add new entries there; this section is your read-only archive.
+        Payment data comes from Projects and Expenses. Add new entries there; this section is your
+        read-only archive.
       </p>
     </div>
   );

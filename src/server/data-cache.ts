@@ -3,7 +3,10 @@ import { LRUCache } from "lru-cache";
 const TTL_MS = 60_000;
 const MAX_ENTRIES = 64;
 
-const store = new LRUCache<string, unknown>({
+/** lru-cache requires the value type to be non-nullish; cast at the get/set boundary. */
+type CacheValue = NonNullable<unknown>;
+
+const store = new LRUCache<string, CacheValue>({
   max: MAX_ENTRIES,
   ttl: TTL_MS,
 });
@@ -13,7 +16,11 @@ export function cacheGet<T>(key: string): T | undefined {
 }
 
 export function cacheSet<T>(key: string, value: T): void {
-  store.set(key, value);
+  if (value == null) {
+    store.delete(key);
+    return;
+  }
+  store.set(key, value as CacheValue);
 }
 
 export function cacheDel(key: string): void {

@@ -4,7 +4,9 @@ import type { CompanySettings, OperationsData, Invoice } from "./types";
 const ALGORITHM = "aes-256-cbc";
 
 function getEncryptionKey(): Buffer {
-  const secret = process.env.APP_SESSION_SECRET || "admark-dev-only-session-secret-change-with-APP_SESSION_SECRET";
+  const secret =
+    process.env.APP_SESSION_SECRET ||
+    "admark-dev-only-session-secret-change-with-APP_SESSION_SECRET";
   return crypto.createHash("sha256").update(secret).digest();
 }
 
