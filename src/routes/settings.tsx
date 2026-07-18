@@ -323,7 +323,7 @@ function SettingsPage() {
           )
         ) {
           // 1. Restore Operations (Clients, Leads, Expenses, Projects, Partnerships)
-          await persist(operations);
+          await persist(operations, { allowAllDeletes: true });
 
           // 2. Restore Invoices
           const invoicesToRestore: Invoice[] = restoredInvoices;
@@ -339,7 +339,7 @@ function SettingsPage() {
           }
 
           // 4. Restore document repository and activity history (v2 backups).
-          if (documents) await saveDocuments(documents);
+          if (documents) await saveDocuments(documents, { allowAllDeletes: true });
           if (Array.isArray(activityLogs)) await replaceActivityLogs(activityLogs);
 
           alert("Success! System backup restored successfully. Reloading route context...");

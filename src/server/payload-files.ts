@@ -108,7 +108,21 @@ export async function externalizeDocumentsData(
   const agreements = await Promise.all(
     docs.agreements.map(async (agreement) => externalizeAgreement(sb, agreement)),
   );
-  return { agreements };
+  const archiveDocuments = await Promise.all(
+    (docs.archiveDocuments ?? []).map(async (document) => {
+      if (!document.fileDataUrl) return document;
+      return {
+        ...document,
+        fileDataUrl: await externalizeDataUrl(
+          sb,
+          document.fileDataUrl,
+          `documents/archive/${document.id}`,
+          document.fileName,
+        ),
+      };
+    }),
+  );
+  return { agreements, archiveDocuments };
 }
 
 async function externalizeAgreement(sb: SupabaseClient, agreement: Agreement): Promise<Agreement> {

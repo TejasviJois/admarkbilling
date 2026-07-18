@@ -120,6 +120,8 @@ export interface Project {
   id: string;
   organizationId?: string;
   clientId?: string;
+  /** CRM lead that owns this discussion/delivery project (one primary project per lead). */
+  leadId?: string;
   /** Client / account name (primary label). */
   client: string;
   /** @deprecated Use `client` — kept for older saved rows. */
@@ -227,6 +229,8 @@ export interface Lead {
   probability?: number;
   expectedClosingDate?: string;
   assignedSalesperson?: string;
+  /** Client created/activated when this lead was Won. */
+  convertedClientId?: string;
   createdAt?: string;
 }
 
@@ -613,9 +617,30 @@ export interface Agreement {
   updatedAt: number;
 }
 
-/** Agreements vault — persisted in Supabase `operations_data` row `documents`. */
+export type ArchiveDocumentType = "agreement" | "proposal" | "other";
+
+/** User-uploaded file shown in the unified document archive. */
+export interface ArchiveDocument {
+  id: string;
+  organizationId?: string;
+  title: string;
+  documentType: ArchiveDocumentType;
+  customType?: string;
+  clientId: string;
+  clientName: string;
+  fileDataUrl?: string;
+  fileName?: string;
+  mimeType?: string;
+  externalUrl?: string;
+  notes?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Unified document archive metadata. Generated invoices remain in the invoice store. */
 export interface DocumentsData {
   agreements: Agreement[];
+  archiveDocuments: ArchiveDocument[];
 }
 
 export type ActivityEntity =

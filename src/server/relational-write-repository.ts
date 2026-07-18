@@ -511,7 +511,8 @@ interface NamedLookupRow extends ExistingRow {
 }
 
 interface ProjectLookupRow extends ExistingRow {
-  client_id: string;
+  client_id: string | null;
+  lead_id?: string | null;
 }
 
 interface AssignmentLookupRow extends ExistingRow {
@@ -592,7 +593,7 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
       db,
       "projects",
       org.id,
-      "id, legacy_id, deleted_at, client_id",
+      "id, legacy_id, deleted_at, client_id, lead_id",
     ),
     fetchExistingRows<AssignmentLookupRow>(
       db,
@@ -757,9 +758,106 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
     if (partnership.name) partnershipIdByName.set(normalizeName(partnership.name), id);
   }
 
+  // --- Leads + Directory contacts (contacts persist as leads with source Directory)
+  // Built before projects so discussion projects can resolve lead_id FKs.
+  interface LeadSeed {
+    legacyId: string;
+    companyName: string;
+    contactPerson: string | null;
+    email: string | null;
+    phone: string | null;
+    status: string | undefined;
+    source: string | null;
+    expectedRevenue: number | null;
+    probability: number | null;
+    expectedClosingDate: string | null;
+    notes: string | null;
+    assignedSalesperson: string | null;
+    convertedClientId: string | null;
+    createdAt: string;
+  }
+  const leadSeeds: LeadSeed[] = [];
+  for (const lead of ops.leads ?? []) {
+    const legacyId = requireLegacyId("leads", lead.id);
+    const companyName = text(lead.company) ?? text(lead.business) ?? text(lead.name);
+    if (!companyName) {
+      throw new Error(`Failed to write admark.leads: lead "${legacyId}" has no company name.`);
+    }
+    leadSeeds.push({
+      legacyId,
+      companyName,
+      contactPerson: text(lead.contactPerson),
+      email: text(lead.email),
+      phone: text(lead.phone),
+      status: lead.status,
+      source: text(lead.source),
+      expectedRevenue: numeric(lead.expectedRevenue),
+      probability: numeric(lead.probability),
+      expectedClosingDate: isoDate(lead.expectedClosingDate),
+      notes: text(lead.notes),
+      assignedSalesperson: text(lead.assignedSalesperson),
+      convertedClientId: text(lead.convertedClientId),
+      createdAt: isoTimestamp(lead.createdAt),
+    });
+  }
+  for (const contact of ops.contacts ?? []) {
+    const legacyId = requireLegacyId("leads", contact.id);
+    const companyName = text(contact.companyName) ?? text(contact.personName);
+    if (!companyName) {
+      throw new Error(`Failed to write admark.leads: contact "${legacyId}" has no name.`);
+    }
+    leadSeeds.push({
+      legacyId,
+      companyName,
+      contactPerson: text(contact.personName),
+      email: null,
+      phone: text(contact.phone),
+      status: "new_lead",
+      source: "Directory",
+      expectedRevenue: null,
+      probability: null,
+      expectedClosingDate: null,
+      notes: text(contact.contactVia),
+      assignedSalesperson: null,
+      convertedClientId: null,
+      createdAt: isoTimestamp(contact.createdAt),
+    });
+  }
+  for (const seed of leadSeeds) {
+    const id = leadIds.resolve(seed.legacyId);
+    leadBatch.add({
+      id,
+      organization_id: org.id,
+      legacy_id: leadIds.storedLegacyId(id, seed.legacyId),
+      converted_client_id:
+        clientIds.lookup(seed.convertedClientId) ??
+        clientIdByName.get(normalizeName(seed.companyName)) ??
+        null,
+      source_partnership_id: partnershipIdByName.get(normalizeName(seed.source)) ?? null,
+      assigned_team_member_id:
+        teamIds.lookup(seed.assignedSalesperson) ??
+        teamIdByName.get(normalizeName(seed.assignedSalesperson)) ??
+        null,
+      company_name: seed.companyName,
+      contact_person: seed.contactPerson,
+      email: seed.email,
+      phone: seed.phone,
+      status: pickAllowed(seed.status, LEAD_STATUSES, "new_lead"),
+      source: seed.source,
+      expected_revenue: seed.expectedRevenue,
+      probability: seed.probability,
+      expected_closing_date: seed.expectedClosingDate,
+      notes: seed.notes,
+      created_at: seed.createdAt,
+      deleted_at: null,
+    });
+  }
+
   // --- Projects, synthetic clients, assignments, milestones ---------------------
   const projectClientByRowId = new Map<string, string>();
-  for (const row of projectRows) projectClientByRowId.set(row.id, row.client_id);
+  for (const row of projectRows) {
+    if (row.client_id) projectClientByRowId.set(row.id, row.client_id);
+  }
   const projectNameByRowId = new Map<string, string>();
   const seenAssignmentPairs = new Set<string>();
   const assignmentIdByPair = new Map<string, string>();
@@ -769,15 +867,17 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
 
   for (const project of ops.projects ?? []) {
     const legacyId = requireLegacyId("projects", project.id);
-    // Resolve the client by legacy id, then by name, else create a synthetic client
-    // (the migration used the same fallback for imported projects).
+    const leadRowId = leadIds.lookup(project.leadId);
+    // Resolve the client by legacy id, then by name. Discussion projects linked to a
+    // lead may omit a client until Won; revenue/imported projects still get a
+    // synthetic client when neither link resolves (same fallback as the migration).
     let clientRowId =
       clientIds.lookup(project.clientId) ?? clientIdByName.get(normalizeName(project.client));
-    if (!clientRowId) {
+    if (!clientRowId && !leadRowId) {
       const clientName = text(project.client);
       if (!clientName) {
         throw new Error(
-          `Failed to write admark.projects: project "${legacyId}" has no resolvable client.`,
+          `Failed to write admark.projects: project "${legacyId}" has no resolvable client or lead.`,
         );
       }
       const syntheticRow = buildClientRow(org.id, clientIds, {
@@ -793,7 +893,7 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
     }
 
     const id = projectIds.resolve(legacyId);
-    projectClientByRowId.set(id, clientRowId);
+    if (clientRowId) projectClientByRowId.set(id, clientRowId);
     const displayName = text(project.name) ?? text(project.client) ?? "Unnamed project";
     projectNameByRowId.set(id, displayName);
     projectBatch.add({
@@ -801,6 +901,7 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
       organization_id: org.id,
       legacy_id: projectIds.storedLegacyId(id, legacyId),
       client_id: clientRowId,
+      lead_id: leadRowId,
       display_name: displayName,
       project_type: text(project.projectType),
       status: pickAllowed(project.status, PROJECT_STATUSES, "planning"),
@@ -871,94 +972,6 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
         position,
         deleted_at: null,
       });
-    });
-  }
-
-  // --- Leads + Directory contacts (contacts persist as leads with source Directory)
-  interface LeadSeed {
-    legacyId: string;
-    companyName: string;
-    contactPerson: string | null;
-    email: string | null;
-    phone: string | null;
-    status: string | undefined;
-    source: string | null;
-    expectedRevenue: number | null;
-    probability: number | null;
-    expectedClosingDate: string | null;
-    notes: string | null;
-    assignedSalesperson: string | null;
-    createdAt: string;
-  }
-  const leadSeeds: LeadSeed[] = [];
-  for (const lead of ops.leads ?? []) {
-    const legacyId = requireLegacyId("leads", lead.id);
-    const companyName = text(lead.company) ?? text(lead.business) ?? text(lead.name);
-    if (!companyName) {
-      throw new Error(`Failed to write admark.leads: lead "${legacyId}" has no company name.`);
-    }
-    leadSeeds.push({
-      legacyId,
-      companyName,
-      contactPerson: text(lead.contactPerson),
-      email: text(lead.email),
-      phone: text(lead.phone),
-      status: lead.status,
-      source: text(lead.source),
-      expectedRevenue: numeric(lead.expectedRevenue),
-      probability: numeric(lead.probability),
-      expectedClosingDate: isoDate(lead.expectedClosingDate),
-      notes: text(lead.notes),
-      assignedSalesperson: text(lead.assignedSalesperson),
-      createdAt: isoTimestamp(lead.createdAt),
-    });
-  }
-  for (const contact of ops.contacts ?? []) {
-    const legacyId = requireLegacyId("leads", contact.id);
-    const companyName = text(contact.companyName) ?? text(contact.personName);
-    if (!companyName) {
-      throw new Error(`Failed to write admark.leads: contact "${legacyId}" has no name.`);
-    }
-    leadSeeds.push({
-      legacyId,
-      companyName,
-      contactPerson: text(contact.personName),
-      email: null,
-      phone: text(contact.phone),
-      status: "new_lead",
-      source: "Directory",
-      expectedRevenue: null,
-      probability: null,
-      expectedClosingDate: null,
-      notes: text(contact.contactVia),
-      assignedSalesperson: null,
-      createdAt: isoTimestamp(contact.createdAt),
-    });
-  }
-  for (const seed of leadSeeds) {
-    const id = leadIds.resolve(seed.legacyId);
-    leadBatch.add({
-      id,
-      organization_id: org.id,
-      legacy_id: leadIds.storedLegacyId(id, seed.legacyId),
-      converted_client_id: clientIdByName.get(normalizeName(seed.companyName)) ?? null,
-      source_partnership_id: partnershipIdByName.get(normalizeName(seed.source)) ?? null,
-      assigned_team_member_id:
-        teamIds.lookup(seed.assignedSalesperson) ??
-        teamIdByName.get(normalizeName(seed.assignedSalesperson)) ??
-        null,
-      company_name: seed.companyName,
-      contact_person: seed.contactPerson,
-      email: seed.email,
-      phone: seed.phone,
-      status: pickAllowed(seed.status, LEAD_STATUSES, "new_lead"),
-      source: seed.source,
-      expected_revenue: seed.expectedRevenue,
-      probability: seed.probability,
-      expected_closing_date: seed.expectedClosingDate,
-      notes: seed.notes,
-      created_at: seed.createdAt,
-      deleted_at: null,
     });
   }
 
@@ -2042,7 +2055,7 @@ export async function saveRelationalDocuments(data: DocumentsData): Promise<void
   const db = admarkDb(sb);
   const org = await resolveOrganization(db);
 
-  const [agreementRows, documentRows, clientRows] = await Promise.all([
+  const [agreementRows, documentRows, allDocumentRows, clientRows] = await Promise.all([
     fetchExistingRows<ExistingRow>(db, "agreements", org.id, "id, legacy_id, deleted_at"),
     fetchExistingRows<ExistingRow>(
       db,
@@ -2051,6 +2064,12 @@ export async function saveRelationalDocuments(data: DocumentsData): Promise<void
       "id, legacy_id, deleted_at, document_type",
       { column: "document_type", values: ["agreement"] },
     ),
+    fetchExistingRows<ExistingRow>(
+      db,
+      "documents",
+      org.id,
+      "id, legacy_id, deleted_at, document_type",
+    ),
     fetchExistingRows<ClientLookupRow>(
       db,
       "clients",
@@ -2058,9 +2077,13 @@ export async function saveRelationalDocuments(data: DocumentsData): Promise<void
       "id, legacy_id, deleted_at, company_name",
     ),
   ]);
+  const archiveDocumentRows = allDocumentRows.filter((row) =>
+    String((row as ExistingRow & { document_type?: string }).document_type).startsWith("archive:"),
+  );
 
   const agreementIds = new RowIdResolver("agreement", agreementRows);
   const documentIds = new RowIdResolver("document", documentRows);
+  const archiveDocumentIds = new RowIdResolver("archive-document", archiveDocumentRows);
   const clientIds = new RowIdResolver("client", clientRows);
   const clientIdByName = new Map<string, string>();
   for (const row of clientRows) {
@@ -2108,6 +2131,32 @@ export async function saveRelationalDocuments(data: DocumentsData): Promise<void
     });
     if (documentRow) documentBatch.add(documentRow);
   }
+  for (const document of docs.archiveDocuments ?? []) {
+    const legacyId = requireLegacyId("archive documents", document.id);
+    const clientRowId =
+      clientIds.lookup(document.clientId) ??
+      clientIdByName.get(normalizeName(document.clientName)) ??
+      null;
+    if (!clientRowId) continue;
+    const typeLabel =
+      document.documentType === "other"
+        ? text(document.customType)
+            ?.toLowerCase()
+            .replace(/[^a-z0-9_-]+/g, "-") || "other"
+        : document.documentType;
+    const documentRow = buildDocumentRow(org.id, archiveDocumentIds, {
+      legacyId: `archive-document-${legacyId}`,
+      title: text(document.title) ?? "Untitled document",
+      documentType: `archive:${typeLabel}`,
+      fileUrl: document.fileDataUrl,
+      externalUrl: document.externalUrl,
+      fileName: document.fileName,
+      mimeType: document.mimeType,
+      notes: document.notes,
+      owner: { client_id: clientRowId },
+    });
+    if (documentRow) documentBatch.add(documentRow);
+  }
 
   await upsertRows(db, "agreements", agreementBatch.rows);
   await upsertRows(db, "documents", documentBatch.rows);
@@ -2116,6 +2165,10 @@ export async function saveRelationalDocuments(data: DocumentsData): Promise<void
     documentRows.filter((row) => !row.deleted_at).map((row) => row.id),
   );
   await softDeleteOmitted(db, "documents", org.id, agreementDocumentActiveIds, documentBatch.ids);
+  const archiveDocumentActiveIds = new Set(
+    archiveDocumentRows.filter((row) => !row.deleted_at).map((row) => row.id),
+  );
+  await softDeleteOmitted(db, "documents", org.id, archiveDocumentActiveIds, documentBatch.ids);
   await softDeleteOmitted(db, "agreements", org.id, agreementIds.activeIds, agreementBatch.ids);
 }
 

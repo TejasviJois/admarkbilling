@@ -7,7 +7,7 @@ import { CRMKanbanBoard } from "@/components/crm/CRMKanbanBoard";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
 import { formatINRWhole } from "@/lib/invoice-calc";
-import { ensureClientForWonLead } from "@/lib/lead-conversion";
+import { syncLeadLifecycle } from "@/lib/lead-conversion";
 import type { Lead, LeadStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/leads")({ component: LeadsPage });
@@ -72,24 +72,20 @@ function LeadsPage() {
     const nextLeads = editing
       ? leads.map((l) => (l.id === saved.id ? saved : l))
       : [saved, ...leads];
-    let next = { ...ops, leads: nextLeads };
-    if (saved.status === "won") next = ensureClientForWonLead(next, saved);
-    persist(next);
+    persist(syncLeadLifecycle({ ...ops, leads: nextLeads }, saved));
   };
 
   const handleRemove = (id: string) => {
     if (!confirm("Are you sure you want to delete this CRM deal record?")) return;
-    persist({ ...ops, leads: leads.filter((l) => l.id !== id) });
+    persist({ ...ops, leads: leads.filter((l) => l.id !== id) }, { deleteIds: { leads: [id] } });
   };
 
   const handleMoveStatus = (id: string, nextStatus: LeadStatus) => {
-    const nextLeads = leads.map((l) => (l.id === id ? { ...l, status: nextStatus } : l));
-    let next = { ...ops, leads: nextLeads };
-    if (nextStatus === "won") {
-      const wonLead = nextLeads.find((l) => l.id === id);
-      if (wonLead) next = ensureClientForWonLead(next, wonLead);
-    }
-    persist(next);
+    const moved = leads.find((l) => l.id === id);
+    if (!moved) return;
+    const nextLead = { ...moved, status: nextStatus };
+    const nextLeads = leads.map((l) => (l.id === id ? nextLead : l));
+    persist(syncLeadLifecycle({ ...ops, leads: nextLeads }, nextLead));
   };
 
   if (loading) return <OperationsLoading />;

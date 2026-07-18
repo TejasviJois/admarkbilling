@@ -28,6 +28,18 @@ function saveActivityLogsLocal(entries: ActivityLogEntry[]) {
 }
 
 let serverConfiguredCache: boolean | null = null;
+let activityVersion: string | null = null;
+let activitySnapshot: ActivityLogEntry[] = [];
+
+class ActivityLogsConflictError extends Error {
+  constructor(
+    public readonly latest: ActivityLogEntry[],
+    public readonly version: string,
+  ) {
+    super("Activity logs changed in another browser.");
+    this.name = "ActivityLogsConflictError";
+  }
+}
 
 async function serverApiEnabled(): Promise<boolean> {
   if (serverConfiguredCache !== null) return serverConfiguredCache;
@@ -48,7 +60,9 @@ export async function loadActivityLogs(): Promise<ActivityLogEntry[]> {
 
   try {
     const remote = await getActivityLogsFn();
-    const trimmed = trimActivityLogs(remote);
+    activityVersion = remote.version;
+    activitySnapshot = remote.entries;
+    const trimmed = trimActivityLogs(remote.entries);
     saveActivityLogsLocal(trimmed);
     return trimmed;
   } catch (e) {
@@ -57,14 +71,34 @@ export async function loadActivityLogs(): Promise<ActivityLogEntry[]> {
   }
 }
 
-async function persistActivityLogs(entries: ActivityLogEntry[]) {
+async function persistActivityLogs(entries: ActivityLogEntry[], expectedVersion?: string) {
   const trimmed = trimActivityLogs(entries);
   if (await serverApiEnabled()) {
     try {
-      await saveActivityLogsFn({ data: trimmed });
-      saveActivityLogsLocal(trimmed);
+      const previous = new Map(activitySnapshot.map((entry) => [entry.id, entry]));
+      const next = new Map(trimmed.map((entry) => [entry.id, entry]));
+      const upserts = [...next.values()].filter(
+        (entry) => JSON.stringify(previous.get(entry.id)) !== JSON.stringify(entry),
+      );
+      const deletes = [...previous.keys()].filter((id) => !next.has(id));
+      // Skip no-op saves so the version token is not bumped for nothing.
+      if (upserts.length === 0 && deletes.length === 0) {
+        saveActivityLogsLocal(trimmed);
+        return;
+      }
+      const version = expectedVersion ?? activityVersion;
+      if (!version) throw new Error("Activity log version is not loaded.");
+      const result = await saveActivityLogsFn({
+        data: { upserts, deletes, expectedVersion: version },
+      });
+      activityVersion = result.version;
+      activitySnapshot = result.entries;
+      const saved = trimActivityLogs(result.entries);
+      saveActivityLogsLocal(saved);
+      if (!result.ok) throw new ActivityLogsConflictError(saved, result.version);
       return;
     } catch (e) {
+      if (e instanceof ActivityLogsConflictError) throw e;
       logClientError("activity-log-storage.saveRemote", e);
     }
   }
@@ -73,17 +107,23 @@ async function persistActivityLogs(entries: ActivityLogEntry[]) {
 
 /** Replace the complete activity-log history (used by full-system restore). */
 export async function replaceActivityLogs(entries: ActivityLogEntry[]): Promise<void> {
+  if (activityVersion == null) await loadActivityLogs();
   await persistActivityLogs(entries);
 }
 
 export async function appendActivityLogs(drafts: LogDraft[]): Promise<void> {
   if (drafts.length === 0) return;
-  const current = await loadActivityLogs();
-  const next = trimActivityLogs([
-    ...drafts.map((draft) => createActivityLogEntry(draft)),
-    ...current,
-  ]);
-  await persistActivityLogs(next);
+  const additions = drafts.map((draft) => createActivityLogEntry(draft));
+  let current = await loadActivityLogs();
+  try {
+    await persistActivityLogs(trimActivityLogs([...additions, ...current]));
+  } catch (error) {
+    if (!(error instanceof ActivityLogsConflictError)) throw error;
+    activityVersion = error.version;
+    activitySnapshot = error.latest;
+    current = error.latest;
+    await persistActivityLogs(trimActivityLogs([...additions, ...current]), error.version);
+  }
 }
 
 export async function appendActivityLog(draft: LogDraft): Promise<void> {

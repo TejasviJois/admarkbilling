@@ -144,17 +144,23 @@ function InvoicePage() {
             )
             .map((t) => t.id),
         );
-        if (removedIds.size > 0 || (ops.payments ?? []).some((p) => p.invoiceId === inv.id)) {
+        const removedPaymentIds = (ops.payments ?? [])
+          .filter((p) => p.invoiceId === inv.id)
+          .map((p) => p.id);
+        if (removedIds.size > 0 || removedPaymentIds.length > 0) {
           let nextProjects = ops.projects;
           for (const txId of removedIds) {
             nextProjects = removeAccountTransactionFromProjects(nextProjects, txId);
           }
-          persistOps({
-            ...ops,
-            payments: (ops.payments ?? []).filter((p) => p.invoiceId !== inv.id),
-            transactions: (ops.transactions ?? []).filter((t) => !removedIds.has(t.id)),
-            projects: nextProjects,
-          });
+          persistOps(
+            {
+              ...ops,
+              payments: (ops.payments ?? []).filter((p) => p.invoiceId !== inv.id),
+              transactions: (ops.transactions ?? []).filter((t) => !removedIds.has(t.id)),
+              projects: nextProjects,
+            },
+            { deleteIds: { payments: removedPaymentIds, transactions: [...removedIds] } },
+          );
         }
         navigate({ to: "/invoices" });
       })
@@ -219,14 +225,17 @@ function InvoicePage() {
   const handleRemovePayment = (payId: string) => {
     if (!confirm("Delete this payment record?")) return;
     const transactionId = `invoice-payment-${payId}`;
-    persistOps({
-      ...ops,
-      payments: (ops.payments ?? []).filter((p) => p.id !== payId),
-      transactions: (ops.transactions ?? []).filter(
-        (transaction) => transaction.id !== transactionId,
-      ),
-      projects: removeAccountTransactionFromProjects(ops.projects, transactionId),
-    });
+    persistOps(
+      {
+        ...ops,
+        payments: (ops.payments ?? []).filter((p) => p.id !== payId),
+        transactions: (ops.transactions ?? []).filter(
+          (transaction) => transaction.id !== transactionId,
+        ),
+        projects: removeAccountTransactionFromProjects(ops.projects, transactionId),
+      },
+      { deleteIds: { payments: [payId], transactions: [transactionId] } },
+    );
   };
 
   const advancePayment: Payment | null =

@@ -264,5 +264,8 @@ export function syncSystemNotifications(
     });
   }
 
-  return newList;
+  // Notification generation may run from a stale browser snapshot. Preserve
+  // unmatched server-backed notifications; only an explicit user action may delete.
+  const generatedIds = new Set(newList.map((notification) => notification.id));
+  return [...newList, ...existing.filter((notification) => !generatedIds.has(notification.id))];
 }

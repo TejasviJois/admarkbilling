@@ -2,14 +2,25 @@ import { Edit2, Eye, Trash2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { Client } from "@/lib/types";
 
+type ProjectBadge = "active" | "completed" | "none";
+
+const PROJECT_BADGE_STYLES: Record<ProjectBadge, { label: string; className: string }> = {
+  active: { label: "Active", className: "bg-emerald-500/10 text-emerald-500" },
+  completed: { label: "Completed", className: "bg-sky-500/10 text-sky-500" },
+  none: { label: "No Projects", className: "bg-muted-foreground/10 text-muted-foreground" },
+};
+
 export function ClientsTable({
   clients,
   allClients = clients,
+  projectBadgeById,
   onEdit,
   onRemove,
 }: {
   clients: Client[];
   allClients?: Client[];
+  /** Per-client project state badge (Active / Completed / No Projects). */
+  projectBadgeById?: Map<string, ProjectBadge>;
   onEdit: (client: Client) => void;
   onRemove: (id: string) => void;
 }) {
@@ -46,6 +57,13 @@ export function ClientsTable({
                     >
                       {c.companyName}
                     </Link>
+                    {projectBadgeById?.has(c.id) && (
+                      <span
+                        className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${PROJECT_BADGE_STYLES[projectBadgeById.get(c.id)!].className}`}
+                      >
+                        {PROJECT_BADGE_STYLES[projectBadgeById.get(c.id)!].label}
+                      </span>
+                    )}
                     {allClients.some((child) => child.parentClientId === c.id) && (
                       <p className="mt-0.5 text-[11px] font-normal text-muted-foreground">
                         {allClients.filter((child) => child.parentClientId === c.id).length}{" "}

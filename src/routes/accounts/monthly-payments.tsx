@@ -215,7 +215,13 @@ function MonthlyPaymentsPage() {
 
   const removeItem = (item: FixedMonthlyExpense) => {
     if (!confirm(`Delete monthly payment “${item.label}”?`)) return;
-    saveItems(items.filter((candidate) => candidate.id !== item.id));
+    persist(
+      {
+        ...ops,
+        fixedMonthlyExpenses: items.filter((candidate) => candidate.id !== item.id),
+      },
+      { deleteIds: { fixedMonthlyExpenses: [item.id] } },
+    );
   };
 
   const isApplicableThisMonth = (item: FixedMonthlyExpense) =>

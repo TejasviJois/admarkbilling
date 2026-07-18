@@ -16,6 +16,7 @@ import { mergeAllProjectBilling } from "./project-billing";
 import { logClientError } from "./client-logger";
 import { getOperationsFn, saveOperationsFn, EMPTY_OPERATIONS } from "@/server/operations-fns";
 import { getDataBackendStatus } from "@/server/invoice-fns";
+import type { OperationsMutation } from "./operations-mutations";
 
 const OPERATIONS_KEY = "admark.operations";
 
@@ -246,6 +247,20 @@ function saveOperationsLocal(data: OperationsData) {
 }
 
 let serverConfiguredCache: boolean | null = null;
+let operationsVersion: string | null = null;
+let writeQueue: Promise<unknown> = Promise.resolve();
+let blockedConflict: OperationsConflictError | null = null;
+
+export class OperationsConflictError extends Error {
+  constructor(
+    public readonly latest: OperationsData,
+    public readonly version: string,
+    public readonly mutation: OperationsMutation,
+  ) {
+    super("This data changed in another browser. Reload or merge before saving.");
+    this.name = "OperationsConflictError";
+  }
+}
 
 async function serverApiEnabled(): Promise<boolean> {
   if (serverConfiguredCache !== null) return serverConfiguredCache;
@@ -267,7 +282,9 @@ export async function loadOperations(): Promise<OperationsData> {
 
   try {
     const remote = await getOperationsFn();
-    const merged = mergeWithDefaults(remote);
+    operationsVersion = remote.version;
+    blockedConflict = null;
+    const merged = mergeWithDefaults(remote.data);
     saveOperationsLocal(merged);
     return merged;
   } catch (e) {
@@ -276,12 +293,46 @@ export async function loadOperations(): Promise<OperationsData> {
   }
 }
 
-export async function saveOperations(data: OperationsData) {
+export async function saveOperations(
+  data: OperationsData,
+  mutation: OperationsMutation,
+  conflictVersion?: string,
+): Promise<OperationsData> {
   saveOperationsLocal(data);
-  if (!(await serverApiEnabled())) return;
-  try {
-    await saveOperationsFn({ data });
-  } catch (e) {
-    logClientError("operations-storage.saveRemote", e);
-  }
+  if (!(await serverApiEnabled())) return data;
+
+  const task = async (): Promise<OperationsData> => {
+    if (conflictVersion) {
+      operationsVersion = conflictVersion;
+      blockedConflict = null;
+    } else if (blockedConflict) {
+      throw blockedConflict;
+    }
+    if (!operationsVersion) {
+      throw new Error("Cannot safely save before the current server version is loaded.");
+    }
+
+    const result = await saveOperationsFn({
+      data: { mutation, expectedVersion: operationsVersion },
+    });
+    operationsVersion = result.version;
+    if (!result.ok) {
+      const conflict = new OperationsConflictError(result.data, result.version, mutation);
+      blockedConflict = conflict;
+      throw conflict;
+    }
+
+    blockedConflict = null;
+    const saved = mergeWithDefaults(result.data);
+    saveOperationsLocal(saved);
+    return saved;
+  };
+
+  const queued = writeQueue.then(task, task);
+  writeQueue = queued.catch((error) => {
+    if (!(error instanceof OperationsConflictError)) {
+      logClientError("operations-storage.saveRemote", error);
+    }
+  });
+  return queued;
 }

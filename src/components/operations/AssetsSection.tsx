@@ -5,6 +5,7 @@ import { AssetFormDialog } from "@/components/operations/AssetFormDialog";
 import { SearchWithPeriodFilter } from "@/components/operations/SearchWithPeriodFilter";
 import { assetCategoryLabel, formatAssetValue, sumAssets } from "@/lib/assets";
 import { isWithinPeriod, DEFAULT_PERIOD, type PeriodKey } from "@/lib/date-range-filter";
+import type { PersistOperations } from "@/lib/operations-mutations";
 import type { AssetEntry, OperationsData } from "@/lib/types";
 import { DataSection, DataTable, EmptyRow, RowDelete, RowEdit } from "./operations-ui";
 
@@ -15,7 +16,7 @@ export function AssetsSection({
   onOpenChange,
 }: {
   ops: OperationsData;
-  persist: (next: OperationsData) => void;
+  persist: PersistOperations;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
@@ -58,7 +59,10 @@ export function AssetsSection({
   };
 
   const removeAsset = (id: string) => {
-    persist({ ...ops, assets: (ops.assets ?? []).filter((a) => a.id !== id) });
+    persist(
+      { ...ops, assets: (ops.assets ?? []).filter((a) => a.id !== id) },
+      { deleteIds: { assets: [id] } },
+    );
   };
 
   const openAdd = () => {

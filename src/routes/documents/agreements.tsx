@@ -29,9 +29,9 @@ function DocumentsAgreementsPage() {
         <AgreementsPanel
           agreements={docs.agreements}
           saving={saving}
-          onChange={async (next) => {
+          onChange={async (next, options) => {
             try {
-              await saveAgreements(next);
+              await saveAgreements(next, options);
             } catch (e) {
               logClientError("documents.agreements.save", e);
               alert(e instanceof Error ? e.message : "Could not save agreements.");

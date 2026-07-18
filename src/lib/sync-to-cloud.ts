@@ -43,8 +43,9 @@ export async function pushLocalDataToCloud(): Promise<{ synced: string[] }> {
       expenses: [],
       financialBaseline: DEFAULT_FINANCIAL_BASELINE,
     }),
-    documents: readJson<{ agreements: DocumentsData["agreements"] }>(KEYS.documents, {
+    documents: readJson<DocumentsData>(KEYS.documents, {
       agreements: [],
+      archiveDocuments: [],
     }),
     invoices: readJson<Invoice[]>(KEYS.invoices, []),
     activityLogs: readJson<ActivityLogEntry[]>(KEYS.activityLogs, []),

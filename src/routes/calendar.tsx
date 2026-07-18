@@ -82,7 +82,10 @@ function CalendarPage() {
 
   const deleteEvent = (event: ScheduleEvent) => {
     if (!confirm(`Delete "${event.title}"?`)) return;
-    persist({ ...ops, scheduleEvents: events.filter((item) => item.id !== event.id) });
+    persist(
+      { ...ops, scheduleEvents: events.filter((item) => item.id !== event.id) },
+      { deleteIds: { scheduleEvents: [event.id] } },
+    );
   };
 
   const openNew = () => {

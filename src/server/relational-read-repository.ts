@@ -13,6 +13,7 @@ import type {
   ActivityEntity,
   ActivityLogEntry,
   Agreement,
+  ArchiveDocument,
   AgreementCounterpartyType,
   AppNotification,
   AssetCategory,
@@ -259,7 +260,8 @@ interface AgreementRow extends BaseRow {
 }
 
 interface ProjectRow extends BaseRow {
-  client_id: string;
+  client_id: string | null;
+  lead_id: string | null;
   agreement_id: string | null;
   display_name: string;
   project_type: string | null;
@@ -405,6 +407,7 @@ interface PaymentRow extends BaseRow {
 
 interface DocumentRow extends BaseRow {
   company_id: string | null;
+  client_id: string | null;
   project_id: string | null;
   agreement_id: string | null;
   transaction_id: string | null;
@@ -414,6 +417,7 @@ interface DocumentRow extends BaseRow {
   external_url: string | null;
   file_name: string | null;
   mime_type: string | null;
+  notes: string | null;
 }
 
 interface CalendarRow extends BaseRow {
@@ -823,6 +827,7 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
   const clientNameById = new Map(clientRows.map((row) => [row.id, row.company_name]));
   const teamLegacyById = new Map(teamMemberRows.map((row) => [row.id, legacyIdOf(row)]));
   const partnershipLegacyById = new Map(partnershipRows.map((row) => [row.id, legacyIdOf(row)]));
+  const leadLegacyById = new Map(leadRows.map((row) => [row.id, legacyIdOf(row)]));
   const projectLegacyById = new Map(projectRows.map((row) => [row.id, legacyIdOf(row)]));
   const invoiceLegacyById = new Map(invoiceRows.map((row) => [row.id, legacyIdOf(row)]));
   const recurringLegacyById = new Map(recurringRows.map((row) => [row.id, legacyIdOf(row)]));
@@ -958,11 +963,14 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
     });
     const payments = projectPaymentsByProject.get(row.id);
     const milestones = milestonesByProject.get(row.id);
+    const clientLegacyId = row.client_id ? clientLegacyById.get(row.client_id) : undefined;
+    const leadLegacyId = row.lead_id ? leadLegacyById.get(row.lead_id) : undefined;
     return {
       id: legacyIdOf(row),
       organizationId: org.legacyId,
-      clientId: clientLegacyById.get(row.client_id),
-      client: clientNameById.get(row.client_id) ?? row.display_name,
+      clientId: clientLegacyId,
+      leadId: leadLegacyId,
+      client: (row.client_id ? clientNameById.get(row.client_id) : undefined) ?? row.display_name,
       name: row.display_name,
       projectType: orUndefined(row.project_type),
       status: pickOne(row.status, PROJECT_STATUSES, "planning"),
@@ -1037,6 +1045,9 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
       expectedClosingDate: orUndefined(row.expected_closing_date),
       assignedSalesperson: row.assigned_team_member_id
         ? teamLegacyById.get(row.assigned_team_member_id)
+        : undefined,
+      convertedClientId: row.converted_client_id
+        ? clientLegacyById.get(row.converted_client_id)
         : undefined,
       createdAt: row.created_at,
     });
@@ -1224,7 +1235,7 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
   // Valuation audit entries were merged into activity_logs with entity_type "valuation".
   const valuationAudit: ValuationAuditEntry[] = activityLogRows
     .filter((row) => row.entity_type === "valuation")
-    .map((row) => {
+    .map((row): ValuationAuditEntry => {
       const metadata = isRecord(row.metadata) ? row.metadata : {};
       return {
         id: legacyIdOf(row),
@@ -1542,7 +1553,31 @@ export async function loadRelationalDocuments(): Promise<DocumentsData> {
       };
     })
     .sort((a, b) => a.createdAt - b.createdAt);
-  return { agreements };
+  const archiveDocuments = documentRows
+    .filter((row) => row.document_type.startsWith("archive:") && row.client_id)
+    .map((row): ArchiveDocument => {
+      const storedType = row.document_type.slice("archive:".length);
+      const documentType: ArchiveDocument["documentType"] =
+        storedType === "agreement" || storedType === "proposal" ? storedType : "other";
+      return {
+        id: legacyIdOf(row).replace(/^archive-document-/, ""),
+        organizationId: org.legacyId,
+        title: row.title,
+        documentType,
+        customType: documentType === "other" ? storedType || "Other" : undefined,
+        clientId: clientLegacyById.get(row.client_id!) ?? row.client_id!,
+        clientName: clientNameById.get(row.client_id!) ?? "Unknown company",
+        fileDataUrl: orUndefined(row.file_url),
+        fileName: orUndefined(row.file_name),
+        mimeType: orUndefined(row.mime_type),
+        externalUrl: orUndefined(row.external_url),
+        notes: orUndefined(row.notes),
+        createdAt: toMillis(row.created_at, Date.now()),
+        updatedAt: toMillis(row.updated_at, Date.now()),
+      };
+    })
+    .sort((a, b) => b.createdAt - a.createdAt);
+  return { agreements, archiveDocuments };
 }
 
 // ---------------------------------------------------------------------------

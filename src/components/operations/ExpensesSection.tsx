@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { EXPENSE_CATEGORY_LABELS, expenseCategoryLabel, normalizeCategory } from "@/lib/financial";
 import { isWithinPeriod, DEFAULT_PERIOD, type PeriodKey } from "@/lib/date-range-filter";
+import type { PersistOperations } from "@/lib/operations-mutations";
 import type { ExpenseCategory, OperationsData } from "@/lib/types";
 import { SearchWithPeriodFilter } from "@/components/operations/SearchWithPeriodFilter";
 import { DataSection, EmptyRow, Field } from "./operations-ui";
@@ -28,7 +29,7 @@ export function ExpensesSection({
   onOpenChange,
 }: {
   ops: OperationsData;
-  persist: (next: OperationsData) => void;
+  persist: PersistOperations;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
@@ -60,7 +61,10 @@ export function ExpensesSection({
   }, [loggedExpenses, search, period, categoryFilter, ops.partnerships]);
 
   const removeExpense = (id: string) => {
-    persist({ ...ops, expenses: ops.expenses.filter((e) => e.id !== id) });
+    persist(
+      { ...ops, expenses: ops.expenses.filter((e) => e.id !== id) },
+      { deleteIds: { expenses: [id] } },
+    );
   };
 
   return (

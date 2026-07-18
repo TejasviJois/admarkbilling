@@ -19,28 +19,42 @@ function ClientsPage() {
 
   const clients = ops.clients ?? [];
   const visibleClients = useMemo(() => {
-    const normalized = (value: string) => value.trim().toLowerCase();
     return clients
       .filter((client) => !client.parentClientId)
-      .filter((client) => {
-        const companyIds = new Set([
-          client.id,
-          ...clients.filter((child) => child.parentClientId === client.id).map((child) => child.id),
-        ]);
-        const companyNames = new Set(
-          clients
-            .filter((candidate) => companyIds.has(candidate.id))
-            .map((candidate) => normalized(candidate.companyName)),
-        );
-        return ops.projects.some(
-          (project) =>
-            isRevenueProject(project.status) &&
-            ((project.clientId != null && companyIds.has(project.clientId)) ||
-              companyNames.has(normalized(project.client))),
-        );
-      })
       .sort((a, b) => a.companyName.localeCompare(b.companyName));
-  }, [clients, ops.projects]);
+  }, [clients]);
+
+  // "Active" wins over "Completed"; clients with no revenue projects show "No Projects".
+  const projectBadgeById = useMemo(() => {
+    const normalized = (value: string) => value.trim().toLowerCase();
+    const map = new Map<string, "active" | "completed" | "none">();
+    for (const client of visibleClients) {
+      const companyIds = new Set([
+        client.id,
+        ...clients.filter((child) => child.parentClientId === client.id).map((child) => child.id),
+      ]);
+      const companyNames = new Set(
+        clients
+          .filter((candidate) => companyIds.has(candidate.id))
+          .map((candidate) => normalized(candidate.companyName)),
+      );
+      const related = ops.projects.filter(
+        (project) =>
+          isRevenueProject(project.status) &&
+          ((project.clientId != null && companyIds.has(project.clientId)) ||
+            companyNames.has(normalized(project.client))),
+      );
+      map.set(
+        client.id,
+        related.some((project) => project.status === "active")
+          ? "active"
+          : related.some((project) => project.status === "completed")
+            ? "completed"
+            : "none",
+      );
+    }
+    return map;
+  }, [visibleClients, clients, ops.projects]);
 
   const openAdd = () => {
     setEditing(null);
@@ -75,12 +89,15 @@ function ClientsPage() {
       )
     )
       return;
-    persist({
-      ...ops,
-      clients: clients.filter((c) => c.id !== id),
-      // Drop the dangling reference so the auto-repair doesn't restore the client.
-      projects: ops.projects.map((p) => (p.clientId === id ? { ...p, clientId: undefined } : p)),
-    });
+    persist(
+      {
+        ...ops,
+        clients: clients.filter((c) => c.id !== id),
+        // Drop the dangling reference so the auto-repair doesn't restore the client.
+        projects: ops.projects.map((p) => (p.clientId === id ? { ...p, clientId: undefined } : p)),
+      },
+      { deleteIds: { clients: [id] } },
+    );
   };
 
   if (loading) return <OperationsLoading />;
@@ -106,6 +123,7 @@ function ClientsPage() {
       <ClientsTable
         clients={visibleClients}
         allClients={clients}
+        projectBadgeById={projectBadgeById}
         onEdit={openEdit}
         onRemove={handleRemove}
       />

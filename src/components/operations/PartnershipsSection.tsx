@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { OperationsData, Partnership, PartnershipStatus } from "@/lib/types";
+import type { PersistOperations } from "@/lib/operations-mutations";
 import { partnershipStatusBadgeClass, partnershipStatusLabel } from "@/lib/partnership-status";
 import {
   DataSection,
@@ -66,7 +67,7 @@ export function PartnershipsSection({
   onEdit,
 }: {
   ops: OperationsData;
-  persist: (next: OperationsData) => void;
+  persist: PersistOperations;
   onEdit: (partnership: Partnership) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -94,7 +95,10 @@ export function PartnershipsSection({
   }, [ops.partnerships, search, statusFilter]);
 
   const removePartnership = (id: string) => {
-    persist({ ...ops, partnerships: ops.partnerships.filter((p) => p.id !== id) });
+    persist(
+      { ...ops, partnerships: ops.partnerships.filter((p) => p.id !== id) },
+      { deleteIds: { partnerships: [id] } },
+    );
   };
 
   return (

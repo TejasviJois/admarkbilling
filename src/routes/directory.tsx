@@ -67,16 +67,22 @@ function DirectoryPage() {
 
   const moveToLeads = (contact: Contact) => {
     if (!confirm(`Move ${contact.personName} to Leads? They will leave the directory.`)) return;
-    persist({
-      ...ops,
-      contacts: contacts.filter((c) => c.id !== contact.id),
-      leads: [leadFromContact(contact), ...(ops.leads ?? [])],
-    });
+    persist(
+      {
+        ...ops,
+        contacts: contacts.filter((c) => c.id !== contact.id),
+        leads: [leadFromContact(contact), ...(ops.leads ?? [])],
+      },
+      { deleteIds: { contacts: [contact.id] } },
+    );
   };
 
   const handleRemove = (contact: Contact) => {
     if (!confirm(`Remove ${contact.personName} from the directory?`)) return;
-    persist({ ...ops, contacts: contacts.filter((c) => c.id !== contact.id) });
+    persist(
+      { ...ops, contacts: contacts.filter((c) => c.id !== contact.id) },
+      { deleteIds: { contacts: [contact.id] } },
+    );
   };
 
   if (loading) return <OperationsLoading />;

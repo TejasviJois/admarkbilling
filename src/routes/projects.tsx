@@ -7,7 +7,7 @@ import { ProjectsSection } from "@/components/operations/ProjectsSection";
 import { ProjectsPipelineSummary } from "@/components/operations/ProjectsTable";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
-import type { Project } from "@/lib/types";
+import type { Project, ProjectStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/projects")({ component: ProjectsPage });
 
@@ -15,6 +15,7 @@ function ProjectsPage() {
   const { ops, persist, loading } = useOperations();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
+  const [statusFilter, setStatusFilter] = useState<ProjectStatus | "all">("all");
 
   const openAdd = () => {
     setEditing(null);
@@ -56,7 +57,11 @@ function ProjectsPage() {
         }
       />
       <div className="mb-8">
-        <ProjectsPipelineSummary projects={ops.projects} />
+        <ProjectsPipelineSummary
+          projects={ops.projects}
+          selected={statusFilter === "all" ? undefined : statusFilter}
+          onSelect={(status) => setStatusFilter((current) => (current === status ? "all" : status))}
+        />
       </div>
       <ProjectFormDialog
         open={formOpen}
@@ -64,7 +69,13 @@ function ProjectsPage() {
         project={editing}
         onSave={handleSave}
       />
-      <ProjectsSection ops={ops} persist={persist} onEdit={openEdit} />
+      <ProjectsSection
+        ops={ops}
+        persist={persist}
+        onEdit={openEdit}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+      />
     </div>
   );
 }

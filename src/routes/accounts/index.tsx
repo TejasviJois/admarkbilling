@@ -86,11 +86,14 @@ function AccountsPage() {
 
   const deleteTransaction = (id: string) => {
     if (!confirm("Delete this financial movement? All account totals will recalculate.")) return;
-    persist({
-      ...ops,
-      transactions: transactions.filter((transaction) => transaction.id !== id),
-      projects: removeAccountTransactionFromProjects(ops.projects, id),
-    });
+    persist(
+      {
+        ...ops,
+        transactions: transactions.filter((transaction) => transaction.id !== id),
+        projects: removeAccountTransactionFromProjects(ops.projects, id),
+      },
+      { deleteIds: { transactions: [id] } },
+    );
   };
 
   const filteredTransactions = useMemo(() => {

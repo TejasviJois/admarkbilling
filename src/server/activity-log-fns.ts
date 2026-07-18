@@ -9,6 +9,19 @@ import { replaceRelationalActivityLogs } from "./relational-write-repository";
 const ROW_ID = "activity_logs";
 const DEFAULT_ORG_ID = "org-admark-digitals";
 
+export type VersionedActivityLogs = {
+  entries: ActivityLogEntry[];
+  version: string;
+};
+export type SaveActivityLogsInput = {
+  upserts: ActivityLogEntry[];
+  deletes: string[];
+  expectedVersion: string;
+};
+export type SaveActivityLogsResult =
+  | { ok: true; entries: ActivityLogEntry[]; version: string }
+  | { ok: false; conflict: true; entries: ActivityLogEntry[]; version: string };
+
 function parseActivityLogs(payload: unknown): ActivityLogEntry[] {
   if (!payload || typeof payload !== "object") return [];
   const raw = payload as { entries?: unknown };
@@ -26,35 +39,77 @@ function parseActivityLogs(payload: unknown): ActivityLogEntry[] {
 }
 
 export const getActivityLogsFn = createServerFn({ method: "GET" }).handler(
-  async (): Promise<ActivityLogEntry[]> => {
+  async (): Promise<VersionedActivityLogs> => {
     await assertAppSession();
-    if (relationalReadsEnabled()) return loadRelationalActivityLogs();
     const sb = requireServerSupabase();
+    if (relationalReadsEnabled()) {
+      const [{ data: versionRow, error }, entries] = await Promise.all([
+        sb.from("operations_data").select("updated_at").eq("id", ROW_ID).maybeSingle(),
+        loadRelationalActivityLogs(),
+      ]);
+      if (error) throw error;
+      if (!versionRow?.updated_at) throw new Error("Activity log version is missing.");
+      return { entries, version: versionRow.updated_at };
+    }
     const { data, error } = await sb
       .from("operations_data")
-      .select("payload")
+      .select("payload, updated_at")
       .eq("id", ROW_ID)
       .maybeSingle();
     if (error) throw error;
-    if (!data?.payload) return [];
-    return parseActivityLogs(data.payload);
+    if (!data?.payload || !data.updated_at) {
+      // First run — initialize the row so versioned saves have a CAS token.
+      const { data: created, error: initError } = await sb
+        .from("operations_data")
+        .upsert({ id: ROW_ID, payload: { entries: [] }, updated_at: new Date().toISOString() })
+        .select("payload, updated_at")
+        .single();
+      if (initError) throw initError;
+      return { entries: parseActivityLogs(created.payload), version: created.updated_at };
+    }
+    return { entries: parseActivityLogs(data.payload), version: data.updated_at };
   },
 );
 
 export const saveActivityLogsFn = createServerFn({ method: "POST" })
-  .inputValidator((data: ActivityLogEntry[]) => data)
-  .handler(async ({ data }) => {
+  .inputValidator((data: SaveActivityLogsInput) => data)
+  .handler(async ({ data }): Promise<SaveActivityLogsResult> => {
     await assertAppSession();
     const sb = requireServerSupabase();
-    const entriesWithTenant = data.map((entry) => ({ ...entry, organizationId: DEFAULT_ORG_ID }));
-    const { error } = await sb.from("operations_data").upsert({
-      id: ROW_ID,
-      payload: { entries: entriesWithTenant, organizationId: DEFAULT_ORG_ID },
-      updated_at: new Date().toISOString(),
+    const entriesWithTenant = data.upserts.map((entry) => ({
+      ...entry,
+      organizationId: DEFAULT_ORG_ID,
+    }));
+    const { data: rows, error } = await sb.rpc("mutate_operations_aux_data", {
+      p_row_id: ROW_ID,
+      p_expected_updated_at: data.expectedVersion,
+      p_entity_key: "entries",
+      p_upserts: entriesWithTenant,
+      p_deletes: data.deletes,
     });
     if (error) throw error;
-    if (relationalReadsEnabled() || relationalDualWritesEnabled()) {
-      await replaceRelationalActivityLogs(data);
+    const result = (
+      rows as Array<{
+        success: boolean;
+        is_conflict: boolean;
+        result_payload: unknown;
+        result_updated_at: string;
+      }> | null
+    )?.[0];
+    if (!result?.result_payload || !result.result_updated_at) {
+      throw new Error("Safe activity log mutation returned no result.");
     }
-    return { ok: true as const };
+    const entries = parseActivityLogs(result.result_payload);
+    if (!result.success || result.is_conflict) {
+      return {
+        ok: false,
+        conflict: true,
+        entries,
+        version: result.result_updated_at,
+      };
+    }
+    if (relationalReadsEnabled() || relationalDualWritesEnabled()) {
+      await replaceRelationalActivityLogs(entries);
+    }
+    return { ok: true, entries, version: result.result_updated_at };
   });

@@ -3,6 +3,7 @@ import { FileText, Link2, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fileFromUpload } from "@/components/documents/proof-ui";
 import { logClientError } from "@/lib/client-logger";
+import type { DocumentsPersistOptions } from "@/lib/documents-storage";
 import type { Agreement, AgreementCounterpartyType } from "@/lib/types";
 
 const MAX_FILE_BYTES = 6 * 1024 * 1024;
@@ -54,7 +55,7 @@ export function AgreementsPanel({
   saving,
 }: {
   agreements: Agreement[];
-  onChange: (next: Agreement[]) => void | Promise<void>;
+  onChange: (next: Agreement[], options?: DocumentsPersistOptions) => void | Promise<void>;
   saving?: boolean;
 }) {
   const [formOpen, setFormOpen] = useState(false);
@@ -94,7 +95,12 @@ export function AgreementsPanel({
 
   const remove = (id: string) => {
     if (!confirm("Remove this agreement from the vault?")) return;
-    void onChange(agreements.filter((a) => a.id !== id));
+    void onChange(
+      agreements.filter((a) => a.id !== id),
+      {
+        deleteIds: { agreements: [id] },
+      },
+    );
   };
 
   const save = async () => {

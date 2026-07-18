@@ -29,6 +29,30 @@ import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
 import { externalizeOperationsData } from "./payload-files";
 import { relinkOrphanedPaymentProofs } from "./relink-payment-proofs";
 import { encryptOperationsData, decryptOperationsData } from "@/lib/encryption";
+import {
+  applyOperationsMutation,
+  type OperationsEntityKey,
+  type OperationsMutation,
+} from "@/lib/operations-mutations";
+
+export type VersionedOperations = {
+  data: OperationsData;
+  version: string;
+};
+
+export type SaveOperationsMutationInput = {
+  mutation: OperationsMutation;
+  expectedVersion: string;
+};
+
+export type SaveOperationsMutationResult =
+  | { ok: true; data: OperationsData; version: string }
+  | {
+      ok: false;
+      conflict: true;
+      data: OperationsData;
+      version: string;
+    };
 
 export const EMPTY_OPERATIONS: OperationsData = {
   projects: [],
@@ -225,6 +249,7 @@ function parseLead(raw: unknown): Lead | null {
     probability: typeof l.probability === "number" ? l.probability : undefined,
     expectedClosingDate: l.expectedClosingDate,
     assignedSalesperson: l.assignedSalesperson,
+    convertedClientId: typeof l.convertedClientId === "string" ? l.convertedClientId : undefined,
     createdAt: l.createdAt ?? new Date().toISOString().slice(0, 10),
   };
 }
@@ -414,6 +439,7 @@ function parseProject(raw: unknown): Project | null {
     id: p.id,
     organizationId: p.organizationId ?? DEFAULT_ORG_ID,
     clientId: p.clientId,
+    leadId: typeof p.leadId === "string" ? p.leadId : undefined,
     client: p.client,
     name: p.name ?? p.client,
     projectType: p.projectType,
@@ -522,62 +548,142 @@ function parseOperationsPayload(payload: unknown): OperationsData {
 }
 
 export const getOperationsFn = createServerFn({ method: "GET" }).handler(
-  async (): Promise<OperationsData> => {
+  async (): Promise<VersionedOperations> => {
     await assertAppSession();
+    const sb = requireServerSupabase();
     if (relationalReadsEnabled()) {
-      return cacheThrough(CACHE_KEYS.operations, loadRelationalOperations);
-    }
-    return cacheThrough(CACHE_KEYS.operations, async () => {
-      const sb = requireServerSupabase();
-      const { data, error } = await sb
-        .from("operations_data")
-        .select("payload")
-        .eq("id", "default")
-        .maybeSingle();
+      const [{ data: versionRow, error }, operations] = await Promise.all([
+        sb.from("operations_data").select("updated_at").eq("id", "default").maybeSingle(),
+        loadRelationalOperations(),
+      ]);
       if (error) throw error;
-      if (!data?.payload) return injectTenantIntoOperations(EMPTY_OPERATIONS);
-
-      let ops = parseOperationsPayload(data.payload);
-      try {
-        const relinked = await relinkOrphanedPaymentProofs(sb, ops);
-        if (relinked.changed) {
-          const encryptedOps = encryptOperationsData(relinked.data);
-          const payload = await externalizeOperationsData(sb, encryptedOps);
-          const payloadWithTenant = { ...payload, organizationId: DEFAULT_ORG_ID };
-          const { error: saveError } = await sb.from("operations_data").upsert({
-            id: "default",
-            payload: payloadWithTenant,
-            updated_at: new Date().toISOString(),
-          });
-          if (saveError) throw saveError;
-          ops = relinked.data;
-        }
-      } catch (relinkError) {
-        console.error("[operations] payment proof relink failed:", relinkError);
+      if (!versionRow?.updated_at) {
+        throw new Error("operations_data/default is missing a concurrency version.");
       }
+      return { data: operations, version: versionRow.updated_at };
+    }
+    // Do not cache the concurrency token: every browser must receive the current
+    // database version or its first mutation could overwrite a newer save.
+    const { data, error } = await sb
+      .from("operations_data")
+      .select("payload, updated_at")
+      .eq("id", "default")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data?.payload || !data.updated_at) {
+      // First run — initialize the row so versioned saves have a CAS token.
+      const { data: created, error: initError } = await sb
+        .from("operations_data")
+        .upsert({ id: "default", payload: EMPTY_OPERATIONS, updated_at: new Date().toISOString() })
+        .select("payload, updated_at")
+        .single();
+      if (initError) throw initError;
+      return {
+        data: decryptOperationsData(parseOperationsPayload(created.payload)),
+        version: created.updated_at,
+      };
+    }
 
-      return decryptOperationsData(ops);
-    });
+    let ops = parseOperationsPayload(data.payload);
+    try {
+      const relinked = await relinkOrphanedPaymentProofs(sb, ops);
+      if (relinked.changed) ops = relinked.data;
+    } catch (relinkError) {
+      console.error("[operations] payment proof relink failed:", relinkError);
+    }
+
+    return { data: decryptOperationsData(ops), version: data.updated_at };
   },
 );
 
+function preparedMutation(
+  mutation: OperationsMutation,
+  prepared: OperationsData,
+): OperationsMutation {
+  const upserts: OperationsMutation["upserts"] = {};
+  for (const [rawKey, items] of Object.entries(mutation.upserts)) {
+    const key = rawKey as OperationsEntityKey;
+    const wanted = new Set((items ?? []).map((item) => item.id));
+    const preparedItems = (prepared[key] ?? []) as unknown as Array<
+      { id: string } & Record<string, unknown>
+    >;
+    upserts[key] = preparedItems.filter((item) => wanted.has(item.id));
+  }
+
+  const sets: OperationsMutation["sets"] = {};
+  for (const key of Object.keys(mutation.sets) as Array<keyof typeof mutation.sets>) {
+    sets[key] = prepared[key] as never;
+  }
+  return { upserts, deletes: mutation.deletes, sets };
+}
+
 export const saveOperationsFn = createServerFn({ method: "POST" })
-  .inputValidator((data: OperationsData) => data)
-  .handler(async ({ data }) => {
+  .inputValidator((data: SaveOperationsMutationInput) => data)
+  .handler(async ({ data }): Promise<SaveOperationsMutationResult> => {
     await assertAppSession();
     const sb = requireServerSupabase();
-    const encrypted = encryptOperationsData(data);
-    const payload = await externalizeOperationsData(sb, encrypted);
-    const payloadWithTenant = { ...payload, organizationId: DEFAULT_ORG_ID };
-    const { error } = await sb.from("operations_data").upsert({
-      id: "default",
-      payload: payloadWithTenant,
-      updated_at: new Date().toISOString(),
+
+    const { data: currentRow, error: currentError } = await sb
+      .from("operations_data")
+      .select("payload")
+      .eq("id", "default")
+      .maybeSingle();
+    if (currentError) throw currentError;
+    if (!currentRow?.payload) throw new Error("operations_data/default is missing.");
+
+    const current = decryptOperationsData(parseOperationsPayload(currentRow.payload));
+    const merged = applyOperationsMutation(current, data.mutation);
+    const externalized = await externalizeOperationsData(sb, merged);
+    const encrypted = encryptOperationsData(externalized);
+    const mutation = preparedMutation(data.mutation, encrypted);
+
+    const { data: rows, error } = await sb.rpc("mutate_operations_data", {
+      p_expected_updated_at: data.expectedVersion,
+      p_upserts: mutation.upserts,
+      p_deletes: mutation.deletes,
+      p_sets: mutation.sets,
     });
-    if (error) throw error;
-    if (relationalReadsEnabled() || relationalDualWritesEnabled()) {
-      await saveRelationalOperations(data);
+    if (error) {
+      const migrationHint =
+        error.code === "PGRST202"
+          ? " Apply migration 20260719100000_safe_operations_mutations.sql."
+          : "";
+      throw new Error(`Safe operations mutation failed: ${error.message}.${migrationHint}`);
     }
+    const result = (
+      rows as Array<{
+        success: boolean;
+        is_conflict: boolean;
+        result_payload: unknown;
+        result_updated_at: string;
+      }> | null
+    )?.[0];
+    if (!result?.result_payload || !result.result_updated_at) {
+      throw new Error("Safe operations mutation returned no result.");
+    }
+
+    const latest = decryptOperationsData(parseOperationsPayload(result.result_payload));
+    if (!result.success || result.is_conflict) {
+      return {
+        ok: false,
+        conflict: true,
+        data: latest,
+        version: result.result_updated_at,
+      };
+    }
+
+    if (relationalReadsEnabled() || relationalDualWritesEnabled()) {
+      try {
+        await saveRelationalOperations(latest);
+      } catch (relationalError) {
+        console.error("[operations] relational dual-write failed:", relationalError);
+      }
+    }
+
     cacheDel(CACHE_KEYS.operations);
-    return { ok: true as const };
+    return {
+      ok: true,
+      data: latest,
+      version: result.result_updated_at,
+    };
   });

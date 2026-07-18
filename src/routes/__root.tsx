@@ -30,6 +30,7 @@ import {
 
 import appCss from "../styles.css?url";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Toaster } from "@/components/ui/sonner";
 import { PUBLIC_HOME_URL } from "@/lib/constants";
 import { logClientError } from "@/lib/client-logger";
 import { companyLogoSrc } from "@/lib/company-branding";
@@ -137,6 +138,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        <Toaster position="top-right" closeButton richColors />
         <Scripts />
       </body>
     </html>

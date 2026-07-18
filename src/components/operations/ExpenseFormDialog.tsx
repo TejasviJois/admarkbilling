@@ -21,18 +21,29 @@ import { Field } from "@/components/operations/operations-ui";
 import type { Transaction } from "@/lib/types";
 
 export const EXPENSE_CATEGORIES = [
-  "Salary",
-  "Software",
   "Hosting",
-  "Marketing",
+  "Software",
+  "Salary",
   "Travel",
-  "Food",
+  "Marketing",
   "Office",
   "Internet",
   "Legal",
   "GST",
+  "Food",
+  "Utilities",
   "Miscellaneous",
 ];
+
+/** Case-insensitive match to the fixed list; unknown legacy values map to "Miscellaneous". */
+export function matchExpenseCategory(raw: string | undefined): string {
+  const trimmed = raw?.trim();
+  if (!trimmed) return "";
+  return (
+    EXPENSE_CATEGORIES.find((cat) => cat.toLowerCase() === trimmed.toLowerCase()) ??
+    "Miscellaneous"
+  );
+}
 
 const PAYMENT_METHODS = [
   { value: "upi", label: "UPI (GPay / PhonePe / Paytm)" },

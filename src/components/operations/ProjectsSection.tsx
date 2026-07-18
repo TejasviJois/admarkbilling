@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Briefcase } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -9,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { SearchWithPeriodFilter } from "@/components/operations/SearchWithPeriodFilter";
 import type { OperationsData, Project, ProjectStatus } from "@/lib/types";
+import type { PersistOperations } from "@/lib/operations-mutations";
 import {
   matchesAnyDateInPeriod,
   DEFAULT_PERIOD,
@@ -16,7 +16,7 @@ import {
   projectRelevantDates,
 } from "@/lib/date-range-filter";
 import { projectClientLabel, projectStatusLabel } from "@/lib/project-status";
-import { DataSection, EmptyRow, Field } from "./operations-ui";
+import { EmptyRow } from "./operations-ui";
 import { ProjectsTable } from "./ProjectsTable";
 
 const PROJECT_STATUSES: ProjectStatus[] = [
@@ -35,7 +35,7 @@ export function ProjectsSection({
   onStatusFilterChange,
 }: {
   ops: OperationsData;
-  persist: (next: OperationsData) => void;
+  persist: PersistOperations;
   onEdit: (project: Project) => void;
   /** Controlled status filter (e.g. driven by the pipeline summary cards). */
   statusFilter?: ProjectStatus | "all";
@@ -70,45 +70,45 @@ export function ProjectsSection({
   }, [ops.projects, search, period, statusFilter]);
 
   const removeProject = (id: string) => {
-    persist({ ...ops, projects: ops.projects.filter((p) => p.id !== id) });
+    persist(
+      { ...ops, projects: ops.projects.filter((p) => p.id !== id) },
+      { deleteIds: { projects: [id] } },
+    );
   };
 
-  const sectionTitle =
-    statusFilter === "all" ? "All projects" : `${projectStatusLabel(statusFilter)} projects`;
-
   return (
-    <DataSection
-      title={sectionTitle}
-      description="Operational view of project status, progress, contacts, and contract revenue."
-      icon={<Briefcase className="h-5 w-5 text-primary" strokeWidth={2} />}
-    >
-      <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+    <section className="scroll-mt-24 rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
+      <div className="mb-5 flex flex-wrap items-center gap-2">
         <SearchWithPeriodFilter
           id="proj-search"
           search={search}
           onSearchChange={setSearch}
           period={period}
           onPeriodChange={setPeriod}
-          placeholder="Client or project type…"
+          placeholder="Search projects…"
+          className="w-full sm:w-auto"
+          inputClassName="h-8 text-sm sm:w-56"
         />
-        <Field label="Status" id="proj-filter-status">
-          <Select
-            value={statusFilter}
-            onValueChange={(v) => setStatusFilter(v as ProjectStatus | "all")}
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => setStatusFilter(v as ProjectStatus | "all")}
+        >
+          <SelectTrigger
+            id="proj-filter-status"
+            className="h-8 w-full text-sm sm:w-[10rem]"
+            aria-label="Status filter"
           >
-            <SelectTrigger id="proj-filter-status">
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              {PROJECT_STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {projectStatusLabel(s)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            {PROJECT_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {projectStatusLabel(s)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {ops.projects.length === 0 ? (
@@ -131,6 +131,6 @@ export function ProjectsSection({
           }
         />
       )}
-    </DataSection>
+    </section>
   );
 }

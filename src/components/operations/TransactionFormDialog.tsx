@@ -1,5 +1,14 @@
 import { useState, useEffect } from "react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -17,7 +27,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { Field } from "@/components/operations/operations-ui";
+import {
+  EXPENSE_CATEGORIES,
+  matchExpenseCategory,
+} from "@/components/operations/ExpenseFormDialog";
 import { useOperations } from "@/hooks/use-operations";
 import { FOUNDER_SALARY_CATEGORY, FOUNDER_SHARE_WITHDRAWAL_CATEGORY } from "@/lib/founder-ledger";
 import type { Transaction, TransactionType, Client, Project } from "@/lib/types";
@@ -70,6 +85,7 @@ export function TransactionFormDialog({
   onSave: (tx: Transaction) => void;
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
+  const [categoryOpen, setCategoryOpen] = useState(false);
   const { ops } = useOperations();
   const clients = ops.clients ?? [];
   const projects = ops.projects ?? [];
@@ -288,6 +304,54 @@ export function TransactionFormDialog({
                     </SelectItem>
                   </SelectContent>
                 </Select>
+              </Field>
+            ) : form.type === "expense" ? (
+              <Field label="Category *" id="tx-category">
+                <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="tx-category"
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={categoryOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {matchExpenseCategory(form.category) || "Select category…"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
+                    <Command>
+                      <CommandInput placeholder="Search category…" />
+                      <CommandList>
+                        <CommandEmpty>No category found.</CommandEmpty>
+                        <CommandGroup>
+                          {EXPENSE_CATEGORIES.map((cat) => (
+                            <CommandItem
+                              key={cat}
+                              value={cat}
+                              onSelect={() => {
+                                setForm((f) => ({ ...f, category: cat }));
+                                setCategoryOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  matchExpenseCategory(form.category) === cat
+                                    ? "opacity-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                              {cat}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </Field>
             ) : (
               <Field label="Category *" id="tx-category">
