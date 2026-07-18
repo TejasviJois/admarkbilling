@@ -6,6 +6,7 @@ import { ClientFormDialog } from "@/components/operations/ClientFormDialog";
 import { ClientsTable } from "@/components/operations/ClientsTable";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
+import { relinkProjectsAfterClientRename } from "@/lib/client-links";
 import { isRevenueProject } from "@/lib/project-status";
 import type { Client } from "@/lib/types";
 
@@ -55,7 +56,10 @@ function ClientsPage() {
     const nextClients = editing
       ? clients.map((c) => (c.id === saved.id ? saved : c))
       : [saved, ...clients];
-    persist({ ...ops, clients: nextClients });
+    const nextProjects = editing
+      ? relinkProjectsAfterClientRename(ops.projects, editing, saved)
+      : ops.projects;
+    persist({ ...ops, clients: nextClients, projects: nextProjects });
   };
 
   const handleRemove = (id: string) => {
@@ -64,7 +68,12 @@ function ClientsPage() {
       return;
     }
     if (!confirm("Remove this client profile? All linked projects and invoices will remain but lose their client profile reference.")) return;
-    persist({ ...ops, clients: clients.filter((c) => c.id !== id) });
+    persist({
+      ...ops,
+      clients: clients.filter((c) => c.id !== id),
+      // Drop the dangling reference so the auto-repair doesn't restore the client.
+      projects: ops.projects.map((p) => (p.clientId === id ? { ...p, clientId: undefined } : p)),
+    });
   };
 
   if (loading) return <OperationsLoading />;

@@ -1,7 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { NewInvoiceLink } from "@/components/invoice/NewInvoiceLink";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Download, Pencil, Trash2, Receipt, Image as ImageIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  Pencil,
+  Trash2,
+  Receipt,
+  Share2,
+  Image as ImageIcon,
+} from "lucide-react";
 import { deleteInvoice, getInvoice, loadCompany } from "@/lib/storage";
 import { logClientError } from "@/lib/client-logger";
 import { downloadInvoicePdf } from "@/lib/pdf";
@@ -9,7 +17,17 @@ import InvoicePreview from "@/components/invoice/InvoicePreview";
 import { PaymentFormDialog } from "@/components/invoice/PaymentFormDialog";
 import { useOperations } from "@/hooks/use-operations";
 import { deriveInvoiceStatus, calculateInvoicePayments, formatINR } from "@/lib/invoice-calc";
-import type { CompanySettings, Invoice, Payment, Transaction } from "@/lib/types";
+import { isRevenueProject } from "@/lib/project-status";
+import { paymentSummary } from "@/lib/project-payments";
+import {
+  removeAccountTransactionFromProjects,
+  syncAccountTransactionToProjects,
+} from "@/lib/project-payment-sync";
+import {
+  downloadPaymentReceiptPdf,
+  sharePaymentReceiptPdf,
+} from "@/lib/payment-receipt-pdf";
+import type { CompanySettings, Invoice, Payment, Project, Transaction } from "@/lib/types";
 
 /** Reject path-like or absurd IDs before hitting storage / server. */
 function isPlausibleInvoiceId(raw: string): boolean {
@@ -27,7 +45,7 @@ function InvoiceNotFoundView() {
         This link may be wrong or the invoice was removed.
       </p>
       <Link
-        to="/documents/invoices"
+        to="/invoices"
         className="mt-4 inline-block text-sm text-primary hover:underline"
       >
         ← Back to invoices
@@ -99,7 +117,9 @@ function InvoicePage() {
     return () => window.removeEventListener("focus", refresh);
   }, []);
 
-  const invoicePayments = (ops.payments ?? []).filter((p) => p.invoiceId === id);
+  const invoicePayments = (ops.payments ?? [])
+    .filter((p) => p.invoiceId === id)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
 
   const derivedInvoice = invoice
     ? {
@@ -115,11 +135,32 @@ function InvoicePage() {
   const handleDelete = () => {
     if (!confirm("Delete this invoice?")) return;
     void deleteInvoice(invoice!.id)
-      .then(() => navigate({ to: "/documents/invoices" }))
+      .then(() => navigate({ to: "/invoices" }))
       .catch((e) => logClientError("invoicePage.delete", e));
   };
 
+  /**
+   * The client's project this invoice collects against. With several revenue
+   * projects for the same client, the one with the largest outstanding wins.
+   */
+  const resolveRelatedProject = (inv: Invoice): Project | undefined => {
+    const name = inv.clientName.trim().toLowerCase();
+    const candidates = ops.projects.filter(
+      (project) =>
+        isRevenueProject(project.status) &&
+        ((inv.clientId != null && project.clientId === inv.clientId) ||
+          project.client.trim().toLowerCase() === name),
+    );
+    if (candidates.length <= 1) return candidates[0];
+    return candidates.reduce((best, current) =>
+      (paymentSummary(current).pending ?? 0) > (paymentSummary(best).pending ?? 0)
+        ? current
+        : best,
+    );
+  };
+
   const handleSavePayment = (payment: Payment) => {
+    if (!invoice) return;
     const nextPayments = [...(ops.payments ?? []), payment];
     const now = Date.now();
     const linkedClientId =
@@ -128,6 +169,7 @@ function InvoicePage() {
         (client) =>
           client.companyName.trim().toLowerCase() === invoice.clientName.trim().toLowerCase(),
       )?.id;
+    const relatedProject = resolveRelatedProject(invoice);
     const transaction: Transaction = {
       id: `invoice-payment-${payment.id}`,
       type: payment.amount >= 0 ? "client_payment" : "refund",
@@ -140,6 +182,7 @@ function InvoicePage() {
       category: payment.amount >= 0 ? "Client Income" : "Refund",
       paymentMethod: payment.method,
       relatedClientId: linkedClientId,
+      relatedProjectId: relatedProject?.id,
       relatedInvoiceId: invoice.id,
       notes:
         [payment.referenceNumber, payment.transactionId, payment.notes]
@@ -153,25 +196,58 @@ function InvoicePage() {
     const nextTransactions = existingTransactions.some((item) => item.id === transaction.id)
       ? existingTransactions
       : [transaction, ...existingTransactions];
-    persistOps({ ...ops, payments: nextPayments, transactions: nextTransactions });
+    // Same sync as the Accounts add-income flow: the project's received /
+    // outstanding update everywhere (projects table, dashboard, client pages).
+    const nextProjects = syncAccountTransactionToProjects(ops.projects, transaction);
+    persistOps({
+      ...ops,
+      payments: nextPayments,
+      transactions: nextTransactions,
+      projects: nextProjects,
+    });
   };
 
   const handleRemovePayment = (payId: string) => {
     if (!confirm("Delete this payment record?")) return;
+    const transactionId = `invoice-payment-${payId}`;
     persistOps({
       ...ops,
       payments: (ops.payments ?? []).filter((p) => p.id !== payId),
       transactions: (ops.transactions ?? []).filter(
-        (transaction) => transaction.id !== `invoice-payment-${payId}`,
+        (transaction) => transaction.id !== transactionId,
       ),
+      projects: removeAccountTransactionFromProjects(ops.projects, transactionId),
     });
+  };
+
+  const advancePayment: Payment | null =
+    invoice && invoice.advance > 0
+      ? {
+          id: `invoice-advance-${invoice.id}`,
+          invoiceId: invoice.id,
+          amount: invoice.advance,
+          date: invoice.paymentDate || invoice.date,
+          method: invoice.paymentMode || "other",
+          notes: "Advance recorded on the original invoice.",
+        }
+      : null;
+
+  const receiptOptions = (payment: Payment, isInvoiceAdvance = false) => {
+    if (!invoice || !company) return null;
+    return {
+      invoice,
+      payment,
+      invoicePayments,
+      company,
+      isInvoiceAdvance,
+    };
   };
 
   if (loadError) {
     return (
       <div className="py-16 text-center text-sm text-destructive">
         {loadError}
-        <Link to="/documents/invoices" className="mt-4 block text-primary hover:underline">
+        <Link to="/invoices" className="mt-4 block text-primary hover:underline">
           ← Back to invoices
         </Link>
       </div>
@@ -194,7 +270,7 @@ function InvoicePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
-          to="/documents/invoices"
+          to="/invoices"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Back to invoices
@@ -221,7 +297,7 @@ function InvoicePage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="invoice-preview-shell overflow-x-auto rounded-xl border border-border bg-white p-2">
+        <div className="invoice-preview-shell rounded-xl border border-border bg-zinc-100/90 p-2 dark:bg-zinc-950/40 sm:p-4">
           <InvoicePreview invoice={derivedInvoice!} company={company} />
         </div>
 
@@ -264,44 +340,121 @@ function InvoicePage() {
               </button>
             </div>
             <div className="divide-y divide-border text-xs">
-              {invoicePayments.length === 0 ? (
+              {!advancePayment && invoicePayments.length === 0 ? (
                 <div className="px-4 py-6 text-center text-muted-foreground">
                   No payments logged.
                 </div>
               ) : (
-                invoicePayments.map((pay) => (
-                  <div key={pay.id} className="p-3 space-y-1 hover:bg-muted/10">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-foreground">
-                        {pay.amount > 0 ? "+" : ""}
-                        {formatINR(pay.amount)}
-                      </span>
-                      <span className="text-muted-foreground uppercase">{pay.method}</span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground flex justify-between">
-                      <span>{pay.date}</span>
-                      {pay.transactionId && <span>Tx: {pay.transactionId}</span>}
-                    </div>
-                    {pay.notes && (
-                      <p className="text-[10px] text-muted-foreground mt-1">{pay.notes}</p>
-                    )}
-                    {pay.screenshotDataUrl && (
-                      <div className="flex items-center gap-1 text-[10px] text-primary mt-1">
-                        <ImageIcon className="h-3 w-3" />
-                        <span>Proof attached</span>
+                <>
+                  {advancePayment && (
+                    <div className="space-y-2 p-3 hover:bg-muted/10">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-semibold text-foreground">
+                            +{formatINR(advancePayment.amount)}
+                          </span>
+                          <p className="mt-0.5 text-[10px] text-muted-foreground">
+                            Initial advance · {advancePayment.date}
+                          </p>
+                        </div>
+                        <span className="text-muted-foreground uppercase">
+                          {advancePayment.method.replace(/_/g, " ")}
+                        </span>
                       </div>
-                    )}
-                    <div className="flex justify-end pt-1">
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePayment(pay.id)}
-                        className="text-[10px] text-destructive hover:underline"
-                      >
-                        Remove
-                      </button>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const options = receiptOptions(advancePayment, true);
+                            if (options) {
+                              void downloadPaymentReceiptPdf(options).catch((error) =>
+                                logClientError("invoicePage.downloadAdvanceReceipt", error),
+                              );
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 rounded border border-input px-2 py-1 font-medium text-foreground hover:bg-secondary"
+                        >
+                          <Download className="h-3 w-3" /> Receipt
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const options = receiptOptions(advancePayment, true);
+                            if (options) {
+                              void sharePaymentReceiptPdf(options).catch((error) =>
+                                logClientError("invoicePage.shareAdvanceReceipt", error),
+                              );
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 rounded border border-input px-2 py-1 font-medium text-foreground hover:bg-secondary"
+                        >
+                          <Share2 className="h-3 w-3" /> Share
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  )}
+                  {invoicePayments.map((pay) => (
+                    <div key={pay.id} className="space-y-2 p-3 hover:bg-muted/10">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground">
+                          {pay.amount > 0 ? "+" : ""}
+                          {formatINR(pay.amount)}
+                        </span>
+                        <span className="text-muted-foreground uppercase">
+                          {pay.method.replace(/_/g, " ")}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[10px] text-muted-foreground">
+                        <span>{pay.date}</span>
+                        {pay.transactionId && <span>Tx: {pay.transactionId}</span>}
+                      </div>
+                      {pay.notes && <p className="text-[10px] text-muted-foreground">{pay.notes}</p>}
+                      {pay.screenshotDataUrl && (
+                        <div className="flex items-center gap-1 text-[10px] text-primary">
+                          <ImageIcon className="h-3 w-3" />
+                          <span>Proof attached</span>
+                        </div>
+                      )}
+                      <div className="flex flex-wrap justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const options = receiptOptions(pay);
+                            if (options) {
+                              void downloadPaymentReceiptPdf(options).catch((error) =>
+                                logClientError("invoicePage.downloadPaymentReceipt", error),
+                              );
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 rounded border border-input px-2 py-1 font-medium text-foreground hover:bg-secondary"
+                        >
+                          <Download className="h-3 w-3" /> Receipt
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const options = receiptOptions(pay);
+                            if (options) {
+                              void sharePaymentReceiptPdf(options).catch((error) =>
+                                logClientError("invoicePage.sharePaymentReceipt", error),
+                              );
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 rounded border border-input px-2 py-1 font-medium text-foreground hover:bg-secondary"
+                        >
+                          <Share2 className="h-3 w-3" /> Share
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePayment(pay.id)}
+                          className="px-1 py-1 text-destructive hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </>
               )}
             </div>
           </div>

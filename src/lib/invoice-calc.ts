@@ -46,9 +46,10 @@ export function formatINRForPdf(n: number): string {
 }
 
 export function calculateInvoicePayments(inv: Invoice, payments: Payment[]) {
-  const { total } = computeTotals(inv);
+  const { total, advance } = computeTotals(inv);
   const invoicePayments = payments.filter((p) => p.invoiceId === inv.id);
-  const paidAmount = invoicePayments.reduce((s, p) => s + p.amount, 0);
+  // The advance on the invoice is money already received — count it as paid.
+  const paidAmount = advance + invoicePayments.reduce((s, p) => s + p.amount, 0);
   const outstandingBalance = Math.max(total - paidAmount, 0);
   const pendingAmount = outstandingBalance;
   return { paidAmount, outstandingBalance, pendingAmount };

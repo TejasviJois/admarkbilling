@@ -24,7 +24,9 @@ function InvoicesDashboard() {
   }, []);
 
   const totalRevenue = invoices.filter((i) => i.status !== "cancelled").reduce((s, i) => s + computeTotals(i).total, 0);
-  const totalCollected = invoices.reduce((s, i) => s + calculateInvoicePayments(i, payments).paidAmount, 0);
+  const totalCollected = invoices
+    .filter((i) => i.status !== "cancelled")
+    .reduce((s, i) => s + calculateInvoicePayments(i, payments).paidAmount, 0);
   const uniqueClients = new Set(invoices.map((i) => i.clientName.trim().toLowerCase())).size;
 
   const recent = invoices.slice(0, 5).map((inv) => ({

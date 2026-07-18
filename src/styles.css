@@ -176,15 +176,7 @@ html.light {
   -webkit-overflow-scrolling: touch;
 }
 
-@media (max-width: 639px) {
-  .invoice-preview-shell .invoice-receipt-surface {
-    border-radius: 0.5rem;
-  }
-
-  .invoice-preview-shell .invoice-line-items {
-    font-size: 0.75rem;
-  }
-}
+/* The preview is a fixed A4 page that scales as one unit — no responsive overrides. */
 
 @media print {
   .invoice-receipt-surface {

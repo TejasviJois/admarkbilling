@@ -13,6 +13,7 @@ import {
 import { normalizeAllProjectPayments } from "./project-payments";
 import { mergeAllProjectBilling } from "./project-billing";
 import { withDefaultClientHierarchy } from "./client-hierarchy";
+import { ensureClientsForLinkedProjects, repairProjectClientLinks } from "./client-links";
 import { logClientError } from "./client-logger";
 import { getOperationsFn, saveOperationsFn, EMPTY_OPERATIONS } from "@/server/operations-fns";
 import { getDataBackendStatus } from "@/server/invoice-fns";
@@ -244,7 +245,13 @@ function mergeWithDefaults(data: OperationsData): OperationsData {
   merged = repairBlxRealtyData(merged);
   merged = repairNidhiEstatesData(merged);
   merged = ensureHistoricalProjectPaymentLogs(merged);
+  // Bring back client records that projects still reference (e.g. MTM FAQ,
+  // Kapila FAQ) — must run before the hierarchy pass so they get re-parented
+  // under their relationship clients (Safewheels Group / Alliance Square).
+  merged = ensureClientsForLinkedProjects(merged);
   merged = withDefaultClientHierarchy(merged);
+  // Re-pin project→client links broken by client renames.
+  merged = repairProjectClientLinks(merged);
 
   // Seeds the handout repayment EMI (₹20k/month from 5 Aug 2026) when the
   // list is empty — the handout itself is a liability, never a past outflow.

@@ -144,7 +144,10 @@ export function buildInvoicePdf(
   doc.setFontSize(9);
   doc.text(`Date: ${formatDate(invoice.date)}`, M, headerTop + 50);
 
-  let cursorY = useLetterhead ? LETTERHEAD_HEADER_H + 16 : headerTop + 102;
+  // The header block ends at the date baseline — everything below is computed
+  // from it so the BILL TO block can never collide with the number/date lines.
+  const headerBottom = headerTop + 50;
+  let cursorY = headerBottom + 52;
 
   if (!useLetterhead) {
     doc.setFont("helvetica", "bold");
@@ -163,7 +166,7 @@ export function buildInvoicePdf(
     doc.line(M, cursorY, W - M, cursorY);
     cursorY += 30;
   } else {
-    cursorY += 8;
+    cursorY = headerBottom + 24;
   }
 
   const billBlockTop = cursorY;
@@ -234,7 +237,7 @@ export function buildInvoicePdf(
     metaY += 16;
   });
 
-  const tableTop = Math.max(clientDetailsStartY + clientLines.length * 14 + 28, metaY + 20);
+  const tableTop = Math.max(clientDetailsStartY + clientLines.length * 14 + 20, metaY + 14);
 
   autoTable(doc, {
     startY: tableTop,
@@ -247,7 +250,7 @@ export function buildInvoicePdf(
       formatINRForPdf(lineAmount(it)),
     ]),
     theme: "grid",
-    styles: { fontSize: 9.5, cellPadding: 10, lineColor: LINE, textColor: INK, fontStyle: "normal" },
+    styles: { fontSize: 9, cellPadding: 7, lineColor: LINE, textColor: INK, fontStyle: "normal" },
     headStyles: { fillColor: INK, textColor: [255, 255, 255], fontStyle: "bold" },
     columnStyles: {
       0: { cellWidth: 30, halign: "center", fontStyle: "bold" },
@@ -256,18 +259,26 @@ export function buildInvoicePdf(
       3: { cellWidth: 90, halign: "center", fontStyle: "bold" },
       4: { cellWidth: 100, halign: "right", fontStyle: "bold" },
     },
-    margin: { left: M, right: M, bottom: useLetterhead ? LETTERHEAD_FOOTER_H + 16 : 40 },
-    didDrawPage: (data) => {
+    margin: {
+      left: M,
+      right: M,
+      top: useLetterhead ? LETTERHEAD_HEADER_H + 16 : 40,
+      bottom: useLetterhead ? LETTERHEAD_FOOTER_H + 16 : 40,
+    },
+    // Paint the letterhead *before* rows are drawn on continuation pages,
+    // otherwise the full-page image covers the table content.
+    willDrawPage: (data) => {
       if (useLetterhead && letterheadDataUrl && data.pageNumber > 1) {
         paintLetterhead(doc, letterheadDataUrl, W, H);
       }
     },
     pageBreak: "auto",
+    rowPageBreak: "avoid",
   });
 
   const totals = computeTotals(invoice);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let ty = (doc as any).lastAutoTable.finalY + 22;
+  let ty = (doc as any).lastAutoTable.finalY + 16;
 
   const tx = W - M - 240;
   const rowTotals = (label: string, value: string) => {
@@ -276,7 +287,7 @@ export function buildInvoicePdf(
     doc.setTextColor(...INK);
     doc.text(label, tx, ty);
     doc.text(value, W - M, ty, { align: "right" });
-    ty += 15;
+    ty += 13;
   };
 
   rowTotals("Subtotal", formatINRForPdf(totals.subtotal));
@@ -285,15 +296,15 @@ export function buildInvoicePdf(
 
   doc.setDrawColor(150, 150, 150);
   doc.setLineWidth(1);
-  doc.line(tx, ty + 4, W - M, ty + 4);
+  doc.line(tx, ty + 2, W - M, ty + 2);
   doc.setLineWidth(0.2);
   doc.setDrawColor(...LINE);
-  ty += 18;
+  ty += 14;
 
   const payLabel = "Amount Payable";
   const payVal = formatINRForPdf(totals.payable);
   const boxPadX = 12;
-  const boxH = 38;
+  const boxH = 34;
   const boxTop = ty;
   const boxW = W - M - tx + boxPadX * 2;
   doc.setFillColor(...PAYABLE_BG);
@@ -306,24 +317,24 @@ export function buildInvoicePdf(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(...RED);
-  doc.text(payLabel, tx, boxTop + 15);
+  doc.text(payLabel, tx, boxTop + 14);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.setTextColor(...RED);
-  doc.text(payVal, W - M - 10, boxTop + 30, { align: "right" });
-  ty = boxTop + boxH + 14;
+  doc.text(payVal, W - M - 10, boxTop + 27, { align: "right" });
+  ty = boxTop + boxH + 10;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(...INK);
   const words = `Amount in words: ${rupeesInWords(totals.payable)}`;
   const wrapped = doc.splitTextToSize(words, W - 2 * M);
-  doc.text(wrapped, M, ty + 12);
-  ty += 12 + wrapped.length * 12;
+  doc.text(wrapped, M, ty + 10);
+  ty += 10 + wrapped.length * 11;
 
   if (invoice.remarks) {
-    ty += 12;
+    ty += 8;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(...INK);
@@ -332,8 +343,8 @@ export function buildInvoicePdf(
     doc.setFontSize(9.5);
     doc.setTextColor(...INK);
     const r = doc.splitTextToSize(invoice.remarks, W - 2 * M);
-    doc.text(r, M, ty + 16);
-    ty += 16 + r.length * 12;
+    doc.text(r, M, ty + 14);
+    ty += 14 + r.length * 11;
   }
 
   const bankLines = [
@@ -345,13 +356,16 @@ export function buildInvoicePdf(
     company.upi && `UPI: ${company.upi}`,
   ].filter(Boolean) as string[];
 
-  const bankPad = 14;
-  const bankLineGap = 13;
-  const bankBoxH = 26 + bankLines.length * bankLineGap + bankPad;
-  const sigBlockH = company.signatureDataUrl ? 96 : 72;
-  const footerBlockH = Math.max(bankBoxH, sigBlockH) + 24;
+  const bankPad = 12;
+  const bankLineGap = 12;
+  const bankBoxH = 24 + bankLines.length * bankLineGap + 10;
+  // Signature column: optional image, then rule + two label lines.
+  const sigImageH = company.signatureDataUrl ? 48 : 0;
+  const sigRuleOffset = sigImageH > 0 ? sigImageH + 6 : 44;
+  const sigBlockH = sigRuleOffset + 27;
+  const footerBlockH = Math.max(bankBoxH, sigBlockH) + 8;
 
-  let footerTop = ty + 32;
+  let footerTop = ty + 16;
   if (footerTop + footerBlockH > contentBottom) {
     doc.addPage();
     if (useLetterhead && letterheadDataUrl) {
@@ -359,10 +373,11 @@ export function buildInvoicePdf(
     }
     footerTop = useLetterhead ? LETTERHEAD_HEADER_H + 16 : M + 40;
   } else {
+    // Pin the footer block to the bottom of the content area, like the preview.
     footerTop = Math.max(footerTop, contentBottom - footerBlockH);
   }
 
-  const bankBoxY = footerTop + 14;
+  const bankBoxY = footerTop + 8;
   const bankBoxW = W * 0.48;
 
   if (!useLetterhead) {
@@ -377,30 +392,38 @@ export function buildInvoicePdf(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(...RED);
-  doc.text("BANK DETAILS", M + bankPad, bankBoxY + 20);
+  doc.text("BANK DETAILS", M + bankPad, bankBoxY + 18);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9.5);
   doc.setTextColor(...INK);
-  bankLines.forEach((l, i) => doc.text(l, M + bankPad, bankBoxY + 36 + i * bankLineGap));
+  bankLines.forEach((l, i) => doc.text(l, M + bankPad, bankBoxY + 33 + i * bankLineGap));
 
   const sigX = W - M - 180;
-  const sigY = bankBoxY + 8;
+  const sigY = bankBoxY + 4;
   if (company.signatureDataUrl) {
     try {
       const fmt = jsPdfImageFormatFromDataUrl(company.signatureDataUrl);
-      doc.addImage(company.signatureDataUrl, fmt, sigX, sigY, 160, 50);
+      doc.addImage(company.signatureDataUrl, fmt, sigX, sigY, 160, sigImageH);
     } catch {
       /* ignore */
     }
   }
+  const sigLineY = sigY + sigRuleOffset;
   doc.setDrawColor(...INK);
-  doc.line(sigX, sigY + 70, W - M, sigY + 70);
+  doc.line(sigX, sigLineY, W - M, sigLineY);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(...INK);
-  doc.text(`For ${company.name}`, W - M, sigY + 84, { align: "right" });
-  doc.text(company.authorizedName || "Authorized Signatory", W - M, sigY + 96, { align: "right" });
+  doc.text(`For ${company.name}`, W - M, sigLineY + 13, { align: "right" });
+  doc.text(company.authorizedName || "Authorized Signatory", W - M, sigLineY + 25, { align: "right" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(95, 95, 95);
+  doc.text("This is a computer generated invoice.", W / 2, footerTop - 5, {
+    align: "center",
+  });
 
   if (!useLetterhead) {
     doc.setFillColor(...RED);

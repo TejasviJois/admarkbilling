@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Save, Trash2, Eye } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ArrowLeft, Plus, Save, Trash2, Eye } from "lucide-react";
 import { logClientError } from "@/lib/client-logger";
 import { upsertInvoice } from "@/lib/storage";
 import { nextInvoiceNumberFromList } from "@/lib/invoice-number";
@@ -169,6 +170,12 @@ export default function InvoiceForm({ onSaved }: Props) {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
+          <Link
+            to="/invoices"
+            className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to invoices
+          </Link>
           <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
             Step 1 — Details
           </p>
@@ -478,12 +485,10 @@ export default function InvoiceForm({ onSaved }: Props) {
               Same layout as the PDF — updates as you edit.
             </DialogDescription>
           </DialogHeader>
-          <div className="invoice-preview-shell overflow-x-auto rounded-lg bg-zinc-100/90 p-1.5 dark:bg-zinc-950/40 sm:p-4">
-            <div className="mx-auto w-full min-w-0 max-w-[210mm] shadow-md ring-1 ring-black/10">
-              <Suspense fallback={<LoadingDog message="Loading preview…" />}>
-                <InvoicePreview invoice={draft} company={company} />
-              </Suspense>
-            </div>
+          <div className="invoice-preview-shell rounded-lg bg-zinc-100/90 p-1.5 dark:bg-zinc-950/40 sm:p-4">
+            <Suspense fallback={<LoadingDog message="Loading preview…" />}>
+              <InvoicePreview invoice={draft} company={company} />
+            </Suspense>
           </div>
         </DialogContent>
       </Dialog>
