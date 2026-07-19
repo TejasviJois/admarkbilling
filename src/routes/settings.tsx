@@ -523,19 +523,13 @@ function SettingsPage() {
                 onLogoClear={() => set("logoDataUrl", undefined)}
                 onFieldChange={set}
               />
+              {/* Logo upload lives in the profile hero above — only the signature stamp here. */}
               <SettingsSection
                 id="brand-panel"
                 title="Invoice Visuals"
                 description="Upload elements stamped on generated PDFs."
               >
                 <div className="grid gap-4 mt-4">
-                  <SettingsImageField
-                    label="Official Logo Image"
-                    value={c.logoDataUrl}
-                    emptyPreviewSrc={DEFAULT_PUBLIC_LOGO_URL}
-                    onChange={handleImage("logoDataUrl")}
-                    onClear={() => set("logoDataUrl", undefined)}
-                  />
                   <SettingsImageField
                     label="Signature Authorized Stamp"
                     value={c.signatureDataUrl}

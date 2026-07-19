@@ -6,7 +6,6 @@ import {
   CalendarCheck,
   CalendarClock,
   CheckCircle2,
-  ChevronDown,
   Clock3,
   Pencil,
   Plus,
@@ -38,7 +37,6 @@ import {
 import { useCompany } from "@/hooks/use-company";
 import { useOperations } from "@/hooks/use-operations";
 import {
-  addMonthsToKey,
   fixedMonthlyDueDate,
   fixedMonthlyKindLabel,
   fixedMonthlyMonthsRemaining,
@@ -297,60 +295,66 @@ function MonthlyPaymentsPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <section className="space-y-3">
-            <div>
-              <h2 className="text-lg font-bold text-foreground">Payment schedules</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Every recurring outflow and its remaining term.
-              </p>
-            </div>
-            {items.map((item) => {
-              const status = fixedMonthlyStatus(item);
-              const remaining = fixedMonthlyMonthsRemaining(item);
-              const paidCount = fixedMonthlyPaidCount(item);
-              return (
-                <article
-                  key={item.id}
-                  className="rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/30"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold text-foreground">{item.label}</h3>
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${statusClasses(status)}`}
-                        >
-                          {fixedMonthlyStatusLabel(item)}
-                        </span>
+        <div className="space-y-6">
+          <CurrentMonthChecklist
+            items={items}
+            today={today}
+            onToggle={togglePaidMonth}
+            members={company.companyMembers ?? []}
+            transactions={ops.transactions ?? []}
+            onRecordPayroll={(item, month) => setPayrollTarget({ item, month })}
+          />
+
+          <details className="group rounded-xl border border-border bg-card shadow-sm">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:content-none">
+              <div>
+                <h2 className="font-semibold text-foreground">Manage payment schedules</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Edit amounts, due dates, status, and remaining installments.
+                </p>
+              </div>
+              <span className="shrink-0 text-xs font-semibold text-primary">
+                {items.length} schedules
+              </span>
+            </summary>
+            <div className="grid gap-3 border-t border-border p-4 md:grid-cols-2">
+              {items.map((item) => {
+                const status = fixedMonthlyStatus(item);
+                const remaining = fixedMonthlyMonthsRemaining(item);
+                const paidCount = fixedMonthlyPaidCount(item);
+                return (
+                  <article key={item.id} className="rounded-lg border border-border bg-background p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold text-foreground">{item.label}</h3>
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${statusClasses(status)}`}
+                          >
+                            {fixedMonthlyStatusLabel(item)}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {fixedMonthlyKindLabel(item.kind)}
+                          {item.payee ? ` · ${item.payee}` : ""}
+                        </p>
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {fixedMonthlyKindLabel(item.kind)}
-                        {item.payee ? ` · pay to ${item.payee}` : ""} · starts {item.startDate}
+                      <p className="shrink-0 font-bold tabular-nums text-rose-500">
+                        {formatFinancialINR(item.amountPerMonth)}/mo
                       </p>
                     </div>
-                    <p className="shrink-0 font-bold tabular-nums text-rose-500">
-                      {formatFinancialINR(item.amountPerMonth)}/mo
-                    </p>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                    <p className="rounded-md bg-muted/30 px-2.5 py-2 text-muted-foreground">
-                      Paid: <span className="font-semibold text-foreground">{paidCount}</span>
-                    </p>
-                    <p className="rounded-md bg-muted/30 px-2.5 py-2 text-muted-foreground">
-                      Left:{" "}
-                      <span className="font-semibold text-foreground">
-                        {remaining == null ? "Ongoing" : remaining}
+                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>Starts {item.startDate}</span>
+                      <span>
+                        Paid {paidCount}
+                        {remaining == null ? "" : ` · ${remaining} left`}
                       </span>
-                    </p>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                      <Bell className="h-3.5 w-3.5" /> Due day{" "}
-                      {item.reminderDay ?? (Number(item.startDate.slice(8, 10)) || 1)} · alert a day
-                      before
-                    </span>
-                    <div className="flex gap-1">
+                      <span className="inline-flex items-center gap-1">
+                        <Bell className="h-3.5 w-3.5" /> Day{" "}
+                        {item.reminderDay ?? (Number(item.startDate.slice(8, 10)) || 1)}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex justify-end gap-1 border-t border-border pt-2">
                       {status !== "completed" && (
                         <Button
                           size="sm"
@@ -367,20 +371,11 @@ function MonthlyPaymentsPage() {
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
-                  </div>
-                </article>
-              );
-            })}
-          </section>
-
-          <CurrentMonthChecklist
-            items={items}
-            today={today}
-            onToggle={togglePaidMonth}
-            members={company.companyMembers ?? []}
-            transactions={ops.transactions ?? []}
-            onRecordPayroll={(item, month) => setPayrollTarget({ item, month })}
-          />
+                  </article>
+                );
+              })}
+            </div>
+          </details>
         </div>
       )}
 
@@ -436,15 +431,12 @@ function CurrentMonthChecklist({
   onRecordPayroll: (item: FixedMonthlyExpense, month: string) => void;
 }) {
   const currentMonth = monthKeyFromDate(today);
-  const nextMonth = addMonthsToKey(currentMonth, 1);
-  const [showUpcoming, setShowUpcoming] = useState(false);
 
   const inMonth = (item: FixedMonthlyExpense, month: string) =>
-    fixedMonthlyScheduleMonths(item, today, 1).includes(month) &&
+    fixedMonthlyScheduleMonths(item, today, 0).includes(month) &&
     (fixedMonthlyStatus(item) === "active" || (item.paidMonths ?? []).includes(month));
 
   const thisMonthItems = items.filter((item) => inMonth(item, currentMonth));
-  const nextMonthItems = items.filter((item) => inMonth(item, nextMonth));
 
   const pendingTotal = thisMonthItems
     .filter((item) => !(item.paidMonths ?? []).includes(currentMonth))
@@ -461,7 +453,7 @@ function CurrentMonthChecklist({
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            This month&rsquo;s checklist
+            Payments due this month
           </p>
           <h2 className="mt-1 text-lg font-bold text-foreground">{monthLabel(currentMonth)}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -493,42 +485,6 @@ function CurrentMonthChecklist({
           ))}
         </div>
       )}
-
-      {nextMonthItems.length > 0 && (
-        <>
-          <button
-            type="button"
-            onClick={() => setShowUpcoming((visible) => !visible)}
-            aria-expanded={showUpcoming}
-            className="flex w-full items-center justify-between border-t border-border bg-muted/20 px-5 py-2.5 text-left transition-colors hover:bg-muted/40"
-          >
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Coming up in {monthLabel(nextMonth)} ({nextMonthItems.length})
-            </span>
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${
-                showUpcoming ? "rotate-180" : ""
-              }`}
-            />
-          </button>
-          {showUpcoming && (
-            <div className="divide-y divide-border">
-              {nextMonthItems.map((item) => (
-                <ChecklistRow
-                  key={item.id}
-                  item={item}
-                  month={nextMonth}
-                  onToggle={() => onToggle(item, nextMonth)}
-                  member={members.find((member) => member.id === item.teamMemberId)}
-                  salaryPaid={salaryBasePaid(transactions, item.id, nextMonth)}
-                  onRecordPayroll={() => onRecordPayroll(item, nextMonth)}
-                  muted
-                />
-              ))}
-            </div>
-          )}
-        </>
-      )}
     </section>
   );
 }
@@ -540,7 +496,6 @@ function ChecklistRow({
   member,
   salaryPaid,
   onRecordPayroll,
-  muted,
 }: {
   item: FixedMonthlyExpense;
   month: string;
@@ -549,7 +504,6 @@ function ChecklistRow({
   /** Base salary already recorded for this month (salaries can be paid in parts). */
   salaryPaid: number;
   onRecordPayroll: () => void;
-  muted?: boolean;
 }) {
   const checked = (item.paidMonths ?? []).includes(month);
   const dueDate = fixedMonthlyDueDate(item, month);
@@ -559,11 +513,7 @@ function ChecklistRow({
   const salaryRemaining = Math.max(item.amountPerMonth - salaryPaid, 0);
 
   return (
-    <div
-      className={`flex items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/20 ${
-        muted ? "opacity-70" : ""
-      }`}
-    >
+    <div className="flex items-center gap-3 px-5 py-4 transition-colors hover:bg-muted/20">
       {isSalary ? (
         <span
           className={`flex h-4 w-4 items-center justify-center rounded-full border text-[10px] ${

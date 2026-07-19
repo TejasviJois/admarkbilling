@@ -16,6 +16,7 @@ import {
 import { useOperations } from "@/hooks/use-operations";
 import { computeFinancialSummary } from "@/lib/financial";
 import { formatINRWhole } from "@/lib/invoice-calc";
+import { sumActiveMrr } from "@/lib/project-billing";
 import { estimatedPending, paymentSummary } from "@/lib/project-payments";
 import { isRevenueProject } from "@/lib/project-status";
 import {
@@ -70,6 +71,8 @@ function ExecutiveDashboard() {
     const outstandingReceivables = projects
       .filter((project) => isRevenueProject(project.status))
       .reduce((sum, project) => sum + estimatedPending(project), 0);
+
+    const activeMrr = sumActiveMrr(projects);
 
     // 2. Active Projects
     const activeProjectsCount = projects.filter((p) => p.status === "active").length;
@@ -140,6 +143,7 @@ function ExecutiveDashboard() {
       expenses,
       revenueBooked,
       outstandingReceivables,
+      activeMrr,
       activeProjectsCount,
       recentPayments,
       monthlyChartData,
@@ -267,7 +271,7 @@ function ExecutiveDashboard() {
       </section>
 
       {/* Row 1: Premium Financial KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Cash Balance */}
         <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between text-muted-foreground">
@@ -337,6 +341,23 @@ function ExecutiveDashboard() {
             Outstanding client balances
           </div>
         </div>
+
+        {/* Active MRR */}
+        <Link
+          to="/accounts/retainers"
+          className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:border-primary/30 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-xs font-semibold uppercase tracking-wider">Active MRR</span>
+            <TrendingUp className="h-5 w-5 text-amber-500" />
+          </div>
+          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
+            {formatINRWhole(dashboardData.activeMrr)}
+          </p>
+          <div className="mt-2 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 font-semibold">
+            Started retainers / month
+          </div>
+        </Link>
       </div>
 
       {/* Row 2: Secondary Grid (Desktop First: Left Content, Middle Ops, Right Feeds) */}

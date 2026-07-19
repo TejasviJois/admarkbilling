@@ -8,14 +8,14 @@ import { logClientError } from "@/lib/client-logger";
 import { loginFn } from "@/server/auth-fns";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (raw: Record<string, unknown>) => ({
-    redirect:
-      typeof raw.redirect === "string" &&
-      raw.redirect.startsWith("/") &&
-      !raw.redirect.startsWith("//")
-        ? raw.redirect
-        : undefined,
-  }),
+  validateSearch: (raw: Record<string, unknown>) => {
+    // Keep only a clean same-origin pathname — query strings or hashes here
+    // would be treated as a route path after login and render a 404.
+    const value = typeof raw.redirect === "string" ? raw.redirect.split(/[?#]/)[0] : "";
+    return {
+      redirect: value.startsWith("/") && !value.startsWith("//") ? value : undefined,
+    };
+  },
   beforeLoad: async ({ search }) => {
     const { ok } = await getAuthStatusCached();
     if (ok) {

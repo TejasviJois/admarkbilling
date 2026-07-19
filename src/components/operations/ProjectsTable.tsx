@@ -57,14 +57,9 @@ export function ProjectsTable({
       rows={projects.map((p) => {
         const { target, pending } = paymentSummary(p);
         const projectCell = (
-          <Link
-            key={`project-${p.id}`}
-            to="/projects/$id"
-            params={{ id: p.id }}
-            className="font-bold text-primary hover:underline"
-          >
+          <span key={`project-${p.id}`} className="font-bold text-primary">
             {p.name?.trim() || projectClientLabel(p)}
-          </Link>
+          </span>
         );
 
         const cells: React.ReactNode[] = [

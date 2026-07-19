@@ -1,16 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { FileText, Plus, Search, TrendingUp, Users } from "lucide-react";
+import { FileText, Plus, Search } from "lucide-react";
 import { NewInvoiceLink } from "@/components/invoice/NewInvoiceLink";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useOperations } from "@/hooks/use-operations";
 import { prefetchInvoiceEditor, preloadNewInvoiceRoute } from "@/lib/prefetch-invoice-editor";
-import {
-  computeTotals,
-  formatINR,
-  calculateInvoicePayments,
-  deriveInvoiceStatus,
-} from "@/lib/invoice-calc";
+import { computeTotals, formatINR, deriveInvoiceStatus } from "@/lib/invoice-calc";
 import { statusBadgeClassDark, statusIndicatorEmoji } from "@/lib/invoice-status";
 import type { Invoice } from "@/lib/types";
 
@@ -27,14 +22,6 @@ function InvoicesDashboard() {
   useEffect(() => {
     preloadNewInvoiceRoute();
   }, []);
-
-  const totalRevenue = invoices
-    .filter((i) => i.status !== "cancelled")
-    .reduce((s, i) => s + computeTotals(i).total, 0);
-  const totalCollected = invoices
-    .filter((i) => i.status !== "cancelled")
-    .reduce((s, i) => s + calculateInvoicePayments(i, payments).paidAmount, 0);
-  const uniqueClients = new Set(invoices.map((i) => i.clientName.trim().toLowerCase())).size;
 
   const recent = invoices.slice(0, 5).map((inv) => ({
     ...inv,
@@ -79,27 +66,24 @@ function InvoicesDashboard() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          icon={<FileText className="h-5 w-5" />}
-          label="Invoices"
-          value={String(invoices.length)}
-        />
-        <StatCard
-          icon={<TrendingUp className="h-5 w-5" />}
-          label="Billed total"
-          value={formatINR(totalRevenue)}
-        />
-        <StatCard
-          icon={<TrendingUp className="h-5 w-5" />}
-          label="Collected"
-          value={formatINR(totalCollected)}
-        />
-        <StatCard
-          icon={<Users className="h-5 w-5" />}
-          label="Clients"
-          value={String(uniqueClients)}
-        />
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-5 shadow-sm">
+        <div className="flex items-center gap-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <FileText className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Total invoices</p>
+            <p className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+              {invoices.length}
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/documents/invoices"
+          className="text-sm font-medium text-primary hover:underline underline-offset-4"
+        >
+          Browse all invoices
+        </Link>
       </section>
 
       <section>
@@ -214,20 +198,6 @@ function InvoicesDashboard() {
           </>
         )}
       </section>
-    </div>
-  );
-}
-
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-sm font-medium text-muted-foreground">{label}</span>
-        <span className="shrink-0 text-primary/75 [&_svg]:opacity-95">{icon}</span>
-      </div>
-      <p className="mt-3 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-        {value}
-      </p>
     </div>
   );
 }

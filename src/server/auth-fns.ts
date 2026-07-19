@@ -7,7 +7,7 @@ import {
   writeSessionCookie,
   rateLimitIp,
 } from "./app-session";
-import { appendActivityLog } from "@/lib/activity-log-storage";
+import { appendServerAuditLog } from "./activity-log-core";
 
 export { normalizeUsername } from "./app-auth-credentials";
 
@@ -42,7 +42,7 @@ export const loginFn = createServerFn({ method: "POST" })
       validatePasswordStrength(data.password);
     } catch (strengthErr) {
       // Record failed login audit log due to weak password
-      await appendActivityLog({
+      await appendServerAuditLog({
         entity: "security",
         action: "failed_login",
         entityId: "login_system",
@@ -54,7 +54,7 @@ export const loginFn = createServerFn({ method: "POST" })
 
     if (!credentialsValid(data.username, data.password)) {
       // Security Audit Log: Failed Login
-      await appendActivityLog({
+      await appendServerAuditLog({
         entity: "security",
         action: "failed_login",
         entityId: "login_system",
@@ -68,7 +68,7 @@ export const loginFn = createServerFn({ method: "POST" })
     writeSessionCookie(token);
 
     // Security Audit Log: Successful Login
-    await appendActivityLog({
+    await appendServerAuditLog({
       entity: "security",
       action: "login",
       entityId: "login_system",
@@ -83,7 +83,7 @@ export const logoutFn = createServerFn({ method: "POST" }).handler(async () => {
   eraseSessionCookie();
 
   // Security Audit Log: Sign Out
-  await appendActivityLog({
+  await appendServerAuditLog({
     entity: "security",
     action: "logout",
     entityId: "login_system",

@@ -15,7 +15,8 @@ function ProjectsPage() {
   const { ops, persist, loading } = useOperations();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
-  const [statusFilter, setStatusFilter] = useState<ProjectStatus | "all">("all");
+  // Land on Ongoing by default — click the card again to see all statuses.
+  const [statusFilter, setStatusFilter] = useState<ProjectStatus | "all">("active");
 
   const openAdd = () => {
     setEditing(null);

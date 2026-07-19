@@ -5,7 +5,7 @@ import sharp from "sharp";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
-const source = path.join(root, "public/admark-default-logo.png");
+const source = path.join(root, "public/admark-logo-2026.png");
 const publicDir = path.join(root, "public");
 
 if (!fs.existsSync(source)) {
@@ -13,14 +13,17 @@ if (!fs.existsSync(source)) {
   process.exit(1);
 }
 
-const meta = await sharp(source).metadata();
-const cropHeight = Math.round(meta.height * 0.58);
+// Trim the uniform dark background down to the logo content (mark + wordmark),
+// then keep only the top portion where the "AD" mark sits.
+const trimmed = await sharp(source).trim({ threshold: 25 }).toBuffer();
+const tmeta = await sharp(trimmed).metadata();
 
-const icon = sharp(source).extract({
+const markHeight = Math.round(tmeta.height * 0.66);
+const icon = sharp(trimmed).extract({
   left: 0,
   top: 0,
-  width: meta.width,
-  height: cropHeight,
+  width: tmeta.width,
+  height: markHeight,
 });
 
 const outputs = [
@@ -31,11 +34,20 @@ const outputs = [
 
 for (const { file, size } of outputs) {
   const out = path.join(publicDir, file);
+  // Small padding so the mark isn't glued to the icon edge.
+  const inner = Math.round(size * 0.86);
   await icon
     .clone()
-    .resize(size, size, {
+    .resize(inner, inner, {
       fit: "contain",
-      background: { r: 0, g: 0, b: 0, alpha: 1 },
+      background: { r: 8, g: 9, b: 18, alpha: 1 },
+    })
+    .extend({
+      top: Math.floor((size - inner) / 2),
+      bottom: Math.ceil((size - inner) / 2),
+      left: Math.floor((size - inner) / 2),
+      right: Math.ceil((size - inner) / 2),
+      background: { r: 8, g: 9, b: 18, alpha: 1 },
     })
     .png()
     .toFile(out);

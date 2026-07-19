@@ -94,10 +94,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     if (location.pathname === "/login") return;
     const { ok } = await getAuthStatusCached();
     if (!ok) {
-      const path = location.pathname + (location.searchStr || "");
+      // Pathname only — query strings (e.g. WhatsApp/utm tracking params) are
+      // not route paths, and navigating to them after login rendered a 404.
       throw redirect({
         to: "/login",
-        search: { redirect: path || "/" },
+        search: { redirect: location.pathname || "/" },
       });
     }
     prefetchAppData(context.queryClient);

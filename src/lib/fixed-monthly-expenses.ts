@@ -80,7 +80,15 @@ export function fixedMonthlyDueDate(item: FixedMonthlyExpense, monthKey: string)
   const [year, month] = monthKey.split("-").map(Number);
   const requestedDay = item.reminderDay ?? (Number(item.startDate.slice(8, 10)) || 1);
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  return `${monthKey}-${String(Math.min(Math.max(requestedDay, 1), lastDay)).padStart(2, "0")}`;
+  const requestedDate = `${monthKey}-${String(
+    Math.min(Math.max(requestedDay, 1), lastDay),
+  ).padStart(2, "0")}`;
+
+  // The first payment cannot be due before the schedule itself starts.
+  // Later months continue to use the configured reminder day.
+  return monthKey === monthKeyFromDate(item.startDate) && requestedDate < item.startDate
+    ? item.startDate
+    : requestedDate;
 }
 
 /**
