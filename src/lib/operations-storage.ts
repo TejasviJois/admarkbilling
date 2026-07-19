@@ -314,7 +314,7 @@ export async function saveOperations(
   const task = async (): Promise<OperationsData> => {
     // Pin the version for this task so a concurrent load cannot advance the
     // token underneath an already-queued mutation.
-    const expectedVersion = conflictVersion ?? operationsVersion;
+    let expectedVersion = conflictVersion ?? operationsVersion;
     if (conflictVersion) {
       operationsVersion = conflictVersion;
       blockedConflict = null;
@@ -322,7 +322,11 @@ export async function saveOperations(
       throw blockedConflict;
     }
     if (!expectedVersion) {
-      throw new Error("Cannot safely save before the current server version is loaded.");
+      // First save raced ahead of the initial load — fetch the current server
+      // version now. The CAS check below still rejects genuinely stale writes.
+      const remote = await getOperationsFn();
+      operationsVersion = remote.version;
+      expectedVersion = remote.version;
     }
 
     try {

@@ -38,6 +38,9 @@ export function useOperations() {
 
   const ops = query.data ?? EMPTY;
   const loading = query.isLoading && !query.data;
+  // True only after the first real load — placeholder cache data renders the UI
+  // instantly but must not drive automatic background saves.
+  const ready = query.data != null && !query.isPlaceholderData;
 
   const persist = (next: OperationsData, options: OperationsPersistOptions = {}): Promise<void> => {
     const run = async () => {
@@ -126,7 +129,7 @@ export function useOperations() {
     return queued;
   };
 
-  return { ops, persist, loading, isFetching: query.isFetching };
+  return { ops, persist, loading, ready, isFetching: query.isFetching };
 }
 
 export function fallbackOperations(): OperationsData {

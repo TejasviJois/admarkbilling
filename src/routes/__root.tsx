@@ -46,13 +46,24 @@ import { getDataBackendStatus } from "@/server/invoice-fns";
 import { logoutFn } from "@/server/auth-fns";
 
 function NotFoundComponent() {
+  const router = useRouter();
+
+  // Stale bookmarks / phone home-screen URLs land on paths that no longer
+  // exist — bounce straight to the dashboard instead of a dead-end 404.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void router.navigate({ to: "/", replace: true });
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [router]);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist.
+          This page doesn't exist — taking you to the dashboard.
         </p>
         <div className="mt-6">
           <Link
@@ -114,9 +125,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
     ],
     links: [
-      { rel: "icon", href: "/favicon.png", type: "image/png", sizes: "48x48" },
-      { rel: "icon", href: "/favicon-32.png", type: "image/png", sizes: "32x32" },
-      { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
+      // ?v= busts stale browser caches whenever the icon artwork changes.
+      { rel: "icon", href: "/favicon.png?v=2026a", type: "image/png", sizes: "48x48" },
+      { rel: "icon", href: "/favicon-32.png?v=2026a", type: "image/png", sizes: "32x32" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png?v=2026a", sizes: "180x180" },
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
@@ -376,7 +388,7 @@ function AppShell() {
   const [expandedNavGroups, setExpandedNavGroups] = useState<NavGroupId[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const { ops, persist } = useOperations();
+  const { ops, persist, ready: opsReady } = useOperations();
   const { invoices } = useInvoices();
   const { docs } = useDocuments();
   const { company } = useCompany();
@@ -442,8 +454,11 @@ function AppShell() {
   }, [expandedNavGroups]);
 
   // Central Notification Sync — debounced so it never races user entity saves.
+  // Waits for the first real server load (opsReady); syncing against cached
+  // placeholder data fired saves before the CAS version existed and spammed
+  // "Cannot safely save before the current server version is loaded."
   useEffect(() => {
-    if (!ops || !invoices || !docs || serverDb === null) return;
+    if (!opsReady || !ops || !invoices || !docs || serverDb === null) return;
     const timer = window.setTimeout(() => {
       if (operationsWritesInFlight()) return;
       const synced = syncSystemNotifications(ops, invoices, docs.agreements ?? [], serverDb);
@@ -454,7 +469,7 @@ function AppShell() {
       }
     }, 750);
     return () => window.clearTimeout(timer);
-  }, [ops, invoices, docs, serverDb, persist, reminderClock]);
+  }, [opsReady, ops, invoices, docs, serverDb, persist, reminderClock]);
 
   useEffect(() => {
     setMobileMenuOpen(false);
