@@ -11,12 +11,13 @@
  *
  * The legacy public tables are read-only inputs and are never altered.
  */
-import { createHash, createDecipheriv } from "node:crypto";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import ws from "ws";
+import { decrypt } from "../shared/encryption-core.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const apply = process.argv.includes("--apply");
@@ -45,22 +46,6 @@ function stableUuid(scope, legacyId) {
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
   const hex = bytes.toString("hex");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
-function decrypt(value) {
-  if (typeof value !== "string" || !value.includes(":")) return value;
-  try {
-    const [ivHex, ciphertext] = value.split(":");
-    if (!/^[0-9a-f]{32}$/i.test(ivHex) || !/^[0-9a-f]+$/i.test(ciphertext)) return value;
-    const secret =
-      process.env.APP_SESSION_SECRET ||
-      "admark-dev-only-session-secret-change-with-APP_SESSION_SECRET";
-    const encryptionKey = createHash("sha256").update(secret).digest();
-    const decipher = createDecipheriv("aes-256-cbc", encryptionKey, Buffer.from(ivHex, "hex"));
-    return decipher.update(ciphertext, "hex", "utf8") + decipher.final("utf8");
-  } catch {
-    return value;
-  }
 }
 
 const array = (value) => (Array.isArray(value) ? value : []);

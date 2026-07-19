@@ -83,27 +83,45 @@ export async function loadInvoices(): Promise<Invoice[]> {
   return listInvoicesFn();
 }
 
-export async function upsertInvoice(inv: Invoice) {
+export async function upsertInvoice(inv: Invoice): Promise<Invoice> {
   const existing = await getInvoice(inv.id);
+
+  if (!(await serverApiEnabled())) {
+    const { reassignInvoiceNumberOnConflict } = await import("./invoice-number");
+    const all = loadInvoicesLocal();
+    const peers = all.filter((i) => i.id !== inv.id);
+    const numberTaken = peers.some((i) => i.number === inv.number);
+    const saved: Invoice = numberTaken
+      ? { ...inv, number: reassignInvoiceNumberOnConflict(inv, peers) }
+      : inv;
+    const idx = all.findIndex((i) => i.id === saved.id);
+    if (idx >= 0) all[idx] = saved;
+    else all.unshift(saved);
+    saveInvoicesLocal(all);
+    await recordActivity({
+      entity: "invoice",
+      action: existing ? "updated" : "created",
+      entityId: saved.id,
+      entityName: saved.number,
+      summary: existing
+        ? `Updated invoice ${saved.number} for ${saved.clientName}`
+        : `Created invoice ${saved.number} for ${saved.clientName}`,
+    });
+    return saved;
+  }
+
+  const result = await upsertInvoiceFn({ data: inv });
+  const saved = result.invoice ?? inv;
   await recordActivity({
     entity: "invoice",
     action: existing ? "updated" : "created",
-    entityId: inv.id,
-    entityName: inv.number,
+    entityId: saved.id,
+    entityName: saved.number,
     summary: existing
-      ? `Updated invoice ${inv.number} for ${inv.clientName}`
-      : `Created invoice ${inv.number} for ${inv.clientName}`,
+      ? `Updated invoice ${saved.number} for ${saved.clientName}`
+      : `Created invoice ${saved.number} for ${saved.clientName}`,
   });
-
-  if (!(await serverApiEnabled())) {
-    const all = loadInvoicesLocal();
-    const idx = all.findIndex((i) => i.id === inv.id);
-    if (idx >= 0) all[idx] = inv;
-    else all.unshift(inv);
-    saveInvoicesLocal(all);
-    return;
-  }
-  await upsertInvoiceFn({ data: inv });
+  return saved;
 }
 
 export async function deleteInvoice(id: string) {

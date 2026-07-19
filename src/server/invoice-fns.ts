@@ -27,8 +27,13 @@ import {
   encryptCompanySettings,
   decryptCompanySettings,
 } from "@/lib/encryption";
+import {
+  isInvoiceNumberUniqueViolation,
+  reassignInvoiceNumberOnConflict,
+} from "@/lib/invoice-number";
 
 const DEFAULT_ORG_ID = "org-admark-digitals";
+const INVOICE_NUMBER_RETRY_ATTEMPTS = 8;
 
 function parseInvoicePayload(payload: unknown): Invoice | null {
   if (!payload || typeof payload !== "object") return null;
@@ -97,19 +102,46 @@ export const upsertInvoiceFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await assertAppSession();
     const sb = requireServerSupabase();
-    const encrypted = encryptInvoice(data); // Encrypt on save
-    const payloadWithTenant = { ...encrypted, organizationId: DEFAULT_ORG_ID };
-    const { error } = await sb.from("invoices").upsert({
-      id: data.id,
-      payload: payloadWithTenant,
-      created_at: new Date(data.createdAt).toISOString(),
-    });
-    if (error) throw error;
-    if (relationalReadsEnabled() || relationalDualWritesEnabled()) {
-      await upsertRelationalInvoice(data);
+    let candidate: Invoice = data;
+
+    for (let attempt = 0; attempt < INVOICE_NUMBER_RETRY_ATTEMPTS; attempt++) {
+      const encrypted = encryptInvoice(candidate); // Encrypt on save
+      const payloadWithTenant = { ...encrypted, organizationId: DEFAULT_ORG_ID };
+      const { error } = await sb.from("invoices").upsert({
+        id: candidate.id,
+        payload: payloadWithTenant,
+        created_at: new Date(candidate.createdAt).toISOString(),
+      });
+
+      if (!error) {
+        if (relationalReadsEnabled() || relationalDualWritesEnabled()) {
+          await upsertRelationalInvoice(candidate);
+        }
+        cacheDel(CACHE_KEYS.invoices);
+        return { ok: true as const, invoice: candidate };
+      }
+
+      if (!isInvoiceNumberUniqueViolation(error) || attempt === INVOICE_NUMBER_RETRY_ATTEMPTS - 1) {
+        throw error;
+      }
+
+      // Another writer took this number — reload peers and retry with next sequence.
+      const { data: rows, error: listError } = await sb.from("invoices").select("id, payload");
+      if (listError) throw listError;
+      const existing = (rows ?? [])
+        .map((row) => {
+          const inv = parseInvoicePayload(row.payload);
+          return inv ? { id: inv.id, number: inv.number } : null;
+        })
+        .filter((row): row is { id: string; number: string } => Boolean(row));
+      const nextNumber = reassignInvoiceNumberOnConflict(candidate, existing);
+      if (nextNumber === candidate.number) {
+        throw error;
+      }
+      candidate = { ...candidate, number: nextNumber };
     }
-    cacheDel(CACHE_KEYS.invoices);
-    return { ok: true as const };
+
+    throw new Error("Could not assign a unique invoice number");
   });
 
 export const deleteInvoiceFn = createServerFn({ method: "POST" })

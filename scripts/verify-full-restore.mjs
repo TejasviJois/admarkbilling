@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync, writeFileSync } from "fs";
-import crypto from "crypto";
+import { decrypt } from "../shared/encryption-core.mjs";
 
 const env = Object.fromEntries(
   readFileSync(".env", "utf8")
@@ -11,24 +11,7 @@ const env = Object.fromEntries(
       return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
     }),
 );
-const secret =
-  env.APP_SESSION_SECRET ||
-  "admark-dev-only-session-secret-change-with-APP_SESSION_SECRET";
-
-function decrypt(encryptedText) {
-  if (!encryptedText || !String(encryptedText).includes(":")) return encryptedText;
-  try {
-    const key = crypto.createHash("sha256").update(secret).digest();
-    const parts = String(encryptedText).split(":");
-    const iv = Buffer.from(parts[0], "hex");
-    const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
-    let d = decipher.update(parts[1], "hex", "utf8");
-    d += decipher.final("utf8");
-    return d;
-  } catch {
-    return encryptedText;
-  }
-}
+if (env.APP_SESSION_SECRET) process.env.APP_SESSION_SECRET = env.APP_SESSION_SECRET;
 
 function decryptOps(ops) {
   return {

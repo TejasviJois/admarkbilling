@@ -1,12 +1,12 @@
 /* One-time import from the supplied Directory Contact Import Template PDF.
    Adds contacts only — never leads, clients, projects, or transactions.
    Duplicate person+company pairs are skipped. A backup is written first. */
-import crypto from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import ws from "ws";
+import { encrypt } from "../shared/encryption-core.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -73,19 +73,6 @@ function normalize(value) {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function encrypt(value) {
-  if (!value) return undefined;
-  const secret =
-    process.env.APP_SESSION_SECRET ||
-    "admark-dev-only-session-secret-change-with-APP_SESSION_SECRET";
-  const key = crypto.createHash("sha256").update(secret).digest();
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
-  let encrypted = cipher.update(value, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  return `${iv.toString("hex")}:${encrypted}`;
-}
-
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!supabaseUrl || !serviceRoleKey) throw new Error("Supabase credentials are missing.");
@@ -126,7 +113,7 @@ for (const [personName, companyName, phone, contactVia] of rawContacts) {
     id: `contact-${crypto.randomUUID().slice(0, 8)}`,
     personName,
     companyName: companyName || undefined,
-    phone: encrypt(phone),
+    phone: phone ? encrypt(phone) : undefined,
     contactVia: contactVia || undefined,
     createdAt: now,
   });

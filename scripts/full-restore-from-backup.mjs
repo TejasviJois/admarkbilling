@@ -1,10 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { resolve } from "path";
-import crypto from "crypto";
+import { decrypt, encrypt } from "../shared/encryption-core.mjs";
 
 const ORG = "org-admark-digitals";
-const ALGORITHM = "aes-256-cbc";
 const BACKUP_PATH =
   "C:/Users/Tejasvi Jois/Desktop/admark_agency_os_backup_2026-07-18.json";
 
@@ -19,43 +18,6 @@ const env = Object.fromEntries(
 );
 process.env.APP_SESSION_SECRET =
   env.APP_SESSION_SECRET || process.env.APP_SESSION_SECRET;
-
-function getKey() {
-  const secret =
-    process.env.APP_SESSION_SECRET ||
-    "admark-dev-only-session-secret-change-with-APP_SESSION_SECRET";
-  return crypto.createHash("sha256").update(secret).digest();
-}
-
-function encrypt(text) {
-  if (!text) return text;
-  try {
-    const key = getKey();
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-    let encrypted = cipher.update(text, "utf8", "hex");
-    encrypted += cipher.final("hex");
-    return iv.toString("hex") + ":" + encrypted;
-  } catch {
-    return text;
-  }
-}
-
-function decrypt(encryptedText) {
-  if (!encryptedText || !String(encryptedText).includes(":")) return encryptedText;
-  try {
-    const key = getKey();
-    const parts = String(encryptedText).split(":");
-    const iv = Buffer.from(parts[0], "hex");
-    const encrypted = parts[1];
-    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-    let decrypted = decipher.update(encrypted, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
-  } catch {
-    return encryptedText;
-  }
-}
 
 function encryptOps(ops) {
   const clients = ops.clients?.map((cl) => ({

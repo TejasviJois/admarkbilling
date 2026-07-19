@@ -1,44 +1,24 @@
-import crypto from "crypto";
 import type { CompanySettings, OperationsData, Invoice } from "./types";
+import {
+  decrypt as coreDecrypt,
+  encrypt as coreEncrypt,
+  resolveEncryptionSecret,
+} from "../../shared/encryption-core.mjs";
 
-const ALGORITHM = "aes-256-cbc";
-
-function getEncryptionKey(): Buffer {
-  const secret =
-    process.env.APP_SESSION_SECRET ||
-    "admark-dev-only-session-secret-change-with-APP_SESSION_SECRET";
-  return crypto.createHash("sha256").update(secret).digest();
-}
+export {
+  ALGORITHM,
+  DEV_FALLBACK_SECRET,
+  MIN_SECRET_LENGTH,
+  deriveEncryptionKey,
+  resolveEncryptionSecret,
+} from "../../shared/encryption-core.mjs";
 
 export function encrypt(text: string): string {
-  if (!text) return text;
-  try {
-    const key = getEncryptionKey();
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-    let encrypted = cipher.update(text, "utf8", "hex");
-    encrypted += cipher.final("hex");
-    return iv.toString("hex") + ":" + encrypted;
-  } catch (err) {
-    console.error("Encryption error:", err);
-    return text;
-  }
+  return coreEncrypt(text);
 }
 
 export function decrypt(encryptedText: string): string {
-  if (!encryptedText || !encryptedText.includes(":")) return encryptedText;
-  try {
-    const key = getEncryptionKey();
-    const parts = encryptedText.split(":");
-    const iv = Buffer.from(parts[0], "hex");
-    const encrypted = parts[1];
-    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-    let decrypted = decipher.update(encrypted, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
-  } catch (err) {
-    return encryptedText;
-  }
+  return coreDecrypt(encryptedText);
 }
 
 // Company Settings transforms

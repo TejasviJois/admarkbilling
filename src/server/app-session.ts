@@ -1,4 +1,5 @@
 import { deleteCookie, getCookie, setCookie, getRequest } from "@tanstack/react-start/server";
+import { resolveEncryptionSecret } from "../../shared/encryption-secret.mjs";
 
 export const APP_SESSION_COOKIE = "admark_gate";
 const COOKIE_PAYLOAD = "admark-billing-gate-v1";
@@ -40,16 +41,8 @@ export function rateLimitIp(): void {
 }
 
 function sessionSecret(): string {
-  const secret = process.env.APP_SESSION_SECRET?.trim();
-  if (process.env.NODE_ENV === "production") {
-    if (!secret) {
-      throw new Error(
-        "APP_SESSION_SECRET must be set in production (Vercel → Environment Variables).",
-      );
-    }
-    return secret;
-  }
-  return secret || "admark-dev-only-session-secret-change-with-APP_SESSION_SECRET";
+  // Same policy as client-data encryption — one fallback, one production gate.
+  return resolveEncryptionSecret();
 }
 
 function timingSafeEqual(a: string, b: string): boolean {

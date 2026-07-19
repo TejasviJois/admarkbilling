@@ -150,15 +150,19 @@ export default function InvoiceForm({ onSaved }: Props) {
     const relatedProject = resolveRelatedProject(ops.projects, baseInvoice);
     const inv: Invoice = { ...baseInvoice, projectId: relatedProject?.id };
     try {
-      await upsertInvoice(inv);
-      const nextList = [inv, ...invoices.filter((i) => i.id !== inv.id)];
+      const saved = await upsertInvoice(inv);
+      const nextList = [saved, ...invoices.filter((i) => i.id !== saved.id)];
       queryClient.setQueryData(queryKeys.invoices, nextList);
       writeClientCache("invoices", nextList);
       // The advance is money actually received — post it to the Accounts
       // ledger and sync the linked project's received/outstanding, exactly
       // like a payment logged from Accounts.
-      if ((Number(inv.advance) || 0) > 0) {
-        const transaction = buildInvoiceAdvanceTransaction(inv, relatedProject?.id, inv.clientId);
+      if ((Number(saved.advance) || 0) > 0) {
+        const transaction = buildInvoiceAdvanceTransaction(
+          saved,
+          relatedProject?.id,
+          saved.clientId,
+        );
         persistOps({
           ...ops,
           transactions: [
@@ -168,8 +172,8 @@ export default function InvoiceForm({ onSaved }: Props) {
           projects: syncAccountTransactionToProjects(ops.projects, transaction),
         });
       }
-      then?.(inv);
-      onSaved?.(inv);
+      then?.(saved);
+      onSaved?.(saved);
       setNumber(nextInvoiceNumberFromList(nextList, date));
     } catch (e) {
       logClientError("invoiceForm.persist", e);

@@ -49,3 +49,28 @@ export async function nextInvoiceNumber(date: Date | string = new Date()): Promi
   const invoices = await loadInvoices();
   return nextInvoiceNumberFromList(invoices, date);
 }
+
+/** PostgREST / Postgres unique_violation (23505), including our invoice-number index. */
+export function isInvoiceNumberUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const err = error as { code?: string; message?: string; details?: string };
+  if (err.code !== "23505") return false;
+  const haystack = `${err.message ?? ""} ${err.details ?? ""}`.toLowerCase();
+  // Match our index name, or the expression unique-key detail PostgREST returns.
+  return (
+    haystack.includes("invoices_payload_number_uidx") ||
+    (haystack.includes("payload") && haystack.includes("number"))
+  );
+}
+
+/**
+ * After a number collision, pick the next FY sequence from peers (excluding this id).
+ * Used by the server upsert retry loop so concurrent creates never stick as duplicates.
+ */
+export function reassignInvoiceNumberOnConflict(
+  invoice: { id: string; number: string; date: string },
+  existing: { id: string; number: string }[],
+): string {
+  const peers = existing.filter((row) => row.id !== invoice.id);
+  return nextInvoiceNumberFromList(peers, invoice.date);
+}
