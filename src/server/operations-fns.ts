@@ -31,6 +31,9 @@ import { externalizeOperationsData } from "./payload-files";
 import { relinkOrphanedPaymentProofs } from "./relink-payment-proofs";
 import { encryptOperationsData, decryptOperationsData } from "@/lib/encryption";
 import {
+  applyProductionBillingRepairs,
+} from "@/lib/ground-zero";
+import {
   applyOperationsMutation,
   type OperationsEntityKey,
   type OperationsMutation,
@@ -144,7 +147,8 @@ function parseScheduleEvent(raw: unknown): ScheduleEvent | null {
   return {
     id: event.id,
     title: event.title,
-    type: event.type === "call" ? "call" : "meeting",
+    type:
+      event.type === "call" ? "call" : event.type === "reminder" ? "reminder" : "meeting",
     date: event.date,
     startTime: event.startTime,
     durationMinutes:
@@ -256,6 +260,10 @@ function parseLead(raw: unknown): Lead | null {
     assignedSalesperson: l.assignedSalesperson,
     convertedClientId: typeof l.convertedClientId === "string" ? l.convertedClientId : undefined,
     createdAt: l.createdAt ?? new Date().toISOString().slice(0, 10),
+    archivedAt:
+      typeof l.archivedAt === "string" && /^\d{4}-\d{2}-\d{2}/.test(l.archivedAt.trim())
+        ? l.archivedAt.trim().slice(0, 10)
+        : undefined,
   };
 }
 
@@ -518,7 +526,11 @@ function parseProject(raw: unknown): Project | null {
   };
 }
 
-function parseOperationsPayload(payload: unknown): OperationsData {
+function parseOperationsPayload(
+  payload: unknown,
+  options: { applyBillingRepairs?: boolean } = {},
+): OperationsData {
+  const applyBillingRepairs = options.applyBillingRepairs !== false;
   if (!payload || typeof payload !== "object") return EMPTY_OPERATIONS;
   const raw = payload as Partial<OperationsData>;
   const fixedMonthlyExpenses = Array.isArray(raw.fixedMonthlyExpenses)
@@ -566,7 +578,7 @@ function parseOperationsPayload(payload: unknown): OperationsData {
   const notifications = Array.isArray(raw.notifications)
     ? raw.notifications.map(parseNotification).filter((n): n is AppNotification => n != null)
     : undefined;
-  const parsed = {
+  const parsed = injectTenantIntoOperations({
     projects: Array.isArray(raw.projects)
       ? raw.projects.map(parseProject).filter((p): p is Project => p != null)
       : [],
@@ -586,13 +598,51 @@ function parseOperationsPayload(payload: unknown): OperationsData {
     valuationSettings,
     valuationSnapshots,
     valuationAudit,
+    dismissedNotificationIds: Array.isArray(raw.dismissedNotificationIds)
+      ? raw.dismissedNotificationIds.filter((id): id is string => typeof id === "string")
+      : undefined,
     migrationApplied: raw.migrationApplied === true,
     migrationDate: typeof raw.migrationDate === "string" ? raw.migrationDate : undefined,
     groundZeroApplied: raw.groundZeroApplied === true,
     blxRepairApplied: raw.blxRepairApplied === true,
     neRepairApplied: raw.neRepairApplied === true,
+    kapilaRetainerRepairApplied: raw.kapilaRetainerRepairApplied === true,
+    rentManagementContractRepairApplied: raw.rentManagementContractRepairApplied === true,
+  });
+  return applyBillingRepairs ? applyProductionBillingRepairs(parsed) : parsed;
+}
+
+function withPersistedBillingRepairs(
+  raw: OperationsData,
+  finalized: OperationsData,
+  mutation: OperationsMutation,
+): OperationsMutation {
+  const needsPersist =
+    !raw.kapilaRetainerRepairApplied || !raw.rentManagementContractRepairApplied;
+  if (!needsPersist) return mutation;
+
+  const next: OperationsMutation = {
+    upserts: { ...mutation.upserts },
+    deletes: { ...mutation.deletes },
+    sets: {
+      ...mutation.sets,
+      kapilaRetainerRepairApplied: true,
+      rentManagementContractRepairApplied: true,
+    },
   };
-  return injectTenantIntoOperations(parsed);
+
+  const rawById = new Map(raw.projects.map((project) => [project.id, project]));
+  const changedProjects = finalized.projects.filter(
+    (project) => JSON.stringify(project) !== JSON.stringify(rawById.get(project.id)),
+  );
+  if (changedProjects.length > 0) {
+    const byId = new Map((next.upserts.projects ?? []).map((project) => [project.id, project]));
+    for (const project of changedProjects) {
+      byId.set(project.id, project as { id: string } & Record<string, unknown>);
+    }
+    next.upserts.projects = [...byId.values()];
+  }
+  return next;
 }
 
 export const getOperationsFn = createServerFn({ method: "GET" }).handler(
@@ -693,11 +743,16 @@ export const saveOperationsFn = createServerFn({ method: "POST" })
     if (currentError) throw currentError;
     if (!currentRow?.payload) throw new Error("operations_data/default is missing.");
 
-    const current = decryptOperationsData(parseOperationsPayload(currentRow.payload));
+    const raw = decryptOperationsData(
+      parseOperationsPayload(currentRow.payload, { applyBillingRepairs: false }),
+    );
+    const current = applyProductionBillingRepairs(raw);
     const merged = applyOperationsMutation(current, data.mutation);
-    const externalized = await externalizeOperationsData(sb, merged);
+    const finalized = applyProductionBillingRepairs(merged);
+    const externalized = await externalizeOperationsData(sb, finalized);
     const encrypted = encryptOperationsData(externalized);
-    const mutation = preparedMutation(data.mutation, encrypted);
+    let mutation = preparedMutation(data.mutation, encrypted);
+    mutation = withPersistedBillingRepairs(raw, encrypted, mutation);
     if (
       Object.keys(mutation.upserts).length === 0 &&
       Object.keys(mutation.deletes).length === 0 &&

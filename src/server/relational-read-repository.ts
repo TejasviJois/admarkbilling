@@ -8,6 +8,8 @@
  * created after the migration. These adapters never write data.
  */
 import type { PostgrestError } from "@supabase/supabase-js";
+import { applyProductionBillingRepairs } from "@/lib/ground-zero";
+import { decodeLeadNotesFromStorage } from "@/lib/lead-stats";
 import type {
   ActivityAction,
   ActivityEntity,
@@ -647,6 +649,9 @@ interface LegacyMigrationState {
   groundZeroApplied: boolean;
   blxRepairApplied: boolean;
   neRepairApplied: boolean;
+  kapilaRetainerRepairApplied: boolean;
+  rentManagementContractRepairApplied: boolean;
+  dismissedNotificationIds?: string[];
 }
 
 function parseLegacyFinancialBaseline(raw: unknown): FinancialBaseline | undefined {
@@ -730,6 +735,11 @@ function parseLegacyMigrationState(raw: unknown): LegacyMigrationState {
     groundZeroApplied: state.groundZeroApplied === true,
     blxRepairApplied: state.blxRepairApplied === true,
     neRepairApplied: state.neRepairApplied === true,
+    kapilaRetainerRepairApplied: state.kapilaRetainerRepairApplied === true,
+    rentManagementContractRepairApplied: state.rentManagementContractRepairApplied === true,
+    dismissedNotificationIds: Array.isArray(state.dismissedNotificationIds)
+      ? state.dismissedNotificationIds.filter((id): id is string => typeof id === "string")
+      : undefined,
   };
 }
 
@@ -1030,6 +1040,7 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
       });
       continue;
     }
+    const decodedNotes = decodeLeadNotesFromStorage(row.notes);
     leads.push({
       id: legacyId,
       organizationId: org.legacyId,
@@ -1037,7 +1048,8 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
       contactPerson: orUndefined(row.contact_person),
       email: orUndefined(row.email),
       phone: orUndefined(row.phone),
-      notes: orUndefined(row.notes),
+      notes: decodedNotes.notes,
+      archivedAt: decodedNotes.archivedAt,
       status: pickOne(row.status, LEAD_STATUSES, "new_lead"),
       source: orUndefined(row.source),
       expectedRevenue: asNumber(row.expected_revenue),
@@ -1186,7 +1198,12 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
   const scheduleEvents: ScheduleEvent[] = calendarRows.map((row) => ({
     id: legacyIdOf(row),
     title: row.title,
-    type: row.calendar_type === "call" ? "call" : "meeting",
+    type:
+      row.calendar_type === "call"
+        ? "call"
+        : row.calendar_type === "reminder"
+          ? "reminder"
+          : "meeting",
     date: row.event_date,
     startTime: row.start_time.slice(0, 5),
     durationMinutes: asNumber(row.duration_minutes) ?? 30,
@@ -1248,7 +1265,7 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
       };
     });
 
-  return {
+  return applyProductionBillingRepairs({
     projects,
     partnerships,
     expenses,
@@ -1266,12 +1283,16 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
     valuationSettings: preferences.valuationSettings,
     valuationSnapshots,
     valuationAudit,
+    dismissedNotificationIds: preferences.migrationState.dismissedNotificationIds,
     migrationApplied: preferences.migrationState.migrationApplied,
     migrationDate: preferences.migrationState.migrationDate,
     groundZeroApplied: preferences.migrationState.groundZeroApplied,
     blxRepairApplied: preferences.migrationState.blxRepairApplied,
     neRepairApplied: preferences.migrationState.neRepairApplied,
-  };
+    kapilaRetainerRepairApplied: preferences.migrationState.kapilaRetainerRepairApplied,
+    rentManagementContractRepairApplied:
+      preferences.migrationState.rentManagementContractRepairApplied,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1354,6 +1375,7 @@ export async function loadRelationalCompany(): Promise<CompanySettings> {
     paymentMode: orUndefined(settingsRow?.default_payment_mode),
     paymentProofUploadsEnabled: featureToggles.paymentProofUploadsEnabled === true,
     companyValuationEnabled: featureToggles.companyValuationEnabled === true,
+    projectAssignmentsEnabled: featureToggles.projectAssignmentsEnabled === true,
   });
   return normalizeCompanySettings(raw);
 }

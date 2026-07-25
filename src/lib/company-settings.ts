@@ -43,5 +43,6 @@ export function normalizeCompanySettings(
   }
   merged.paymentProofUploadsEnabled = raw?.paymentProofUploadsEnabled === true;
   merged.companyValuationEnabled = raw?.companyValuationEnabled === true;
+  merged.projectAssignmentsEnabled = raw?.projectAssignmentsEnabled === true;
   return merged;
 }

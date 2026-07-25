@@ -14,6 +14,8 @@
     "test": "vitest run",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "verify:accounts": "npx tsx scripts/verify-accounts.ts",
+    "db:persist-billing-repairs": "npx tsx scripts/persist-billing-repairs.ts",
     "db:migrate:dry-run": "node scripts/migrate-json-to-relational.mjs",
     "db:migrate:apply": "node scripts/migrate-json-to-relational.mjs --apply",
     "db:migrate:validate": "node scripts/validate-relational-migration.mjs",

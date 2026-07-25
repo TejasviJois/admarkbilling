@@ -13,6 +13,7 @@ import { Route as ValuationRouteImport } from './routes/valuation'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as PartnershipsRouteImport } from './routes/partnerships'
 import { Route as NotificationsRouteImport } from './routes/notifications'
@@ -73,6 +74,11 @@ const TeamRoute = TeamRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RemindersRoute = RemindersRouteImport.update({
+  id: '/reminders',
+  path: '/reminders',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsRoute = ProjectsRouteImport.update({
@@ -303,6 +309,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsRoute
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/reminders': typeof RemindersRoute
   '/settings': typeof SettingsRoute
   '/team': typeof TeamRoute
   '/transactions': typeof TransactionsRoute
@@ -348,6 +355,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsRoute
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/reminders': typeof RemindersRoute
   '/settings': typeof SettingsRoute
   '/team': typeof TeamRoute
   '/transactions': typeof TransactionsRoute
@@ -396,6 +404,7 @@ export interface FileRoutesById {
   '/notifications': typeof NotificationsRoute
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/reminders': typeof RemindersRoute
   '/settings': typeof SettingsRoute
   '/team': typeof TeamRoute
   '/transactions': typeof TransactionsRoute
@@ -445,6 +454,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/partnerships'
     | '/projects'
+    | '/reminders'
     | '/settings'
     | '/team'
     | '/transactions'
@@ -490,6 +500,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/partnerships'
     | '/projects'
+    | '/reminders'
     | '/settings'
     | '/team'
     | '/transactions'
@@ -537,6 +548,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/partnerships'
     | '/projects'
+    | '/reminders'
     | '/settings'
     | '/team'
     | '/transactions'
@@ -585,6 +597,7 @@ export interface RootRouteChildren {
   NotificationsRoute: typeof NotificationsRoute
   PartnershipsRoute: typeof PartnershipsRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
+  RemindersRoute: typeof RemindersRoute
   SettingsRoute: typeof SettingsRoute
   TeamRoute: typeof TeamRoute
   TransactionsRoute: typeof TransactionsRoute
@@ -638,6 +651,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reminders': {
+      id: '/reminders'
+      path: '/reminders'
+      fullPath: '/reminders'
+      preLoaderRoute: typeof RemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects': {
@@ -989,6 +1009,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsRoute: NotificationsRoute,
   PartnershipsRoute: PartnershipsRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
+  RemindersRoute: RemindersRoute,
   SettingsRoute: SettingsRoute,
   TeamRoute: TeamRoute,
   TransactionsRoute: TransactionsRoute,

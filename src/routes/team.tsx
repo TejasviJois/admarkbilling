@@ -1,14 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-  ArrowRight,
-  BriefcaseBusiness,
-  CalendarClock,
-  IndianRupee,
-  Pencil,
-  Plus,
-  Users,
-} from "lucide-react";
+import { IndianRupee, Pencil, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,8 +27,6 @@ import { useCompany } from "@/hooks/use-company";
 import { useOperations } from "@/hooks/use-operations";
 import { saveCompany } from "@/lib/storage";
 import { formatINRWhole } from "@/lib/invoice-calc";
-import { monthKeyFromDate } from "@/lib/fixed-monthly-expenses";
-import { projectAssignedMemberIds } from "@/lib/project-status";
 import type { CompanyMember, FixedMonthlyExpense, TeamMemberType } from "@/lib/types";
 
 export const Route = createFileRoute("/team")({ component: TeamPage });
@@ -64,7 +54,18 @@ function TeamPage() {
       ),
     [company.companyMembers],
   );
-  const currentMonth = monthKeyFromDate(new Date().toISOString().slice(0, 10));
+
+  const payrollByMember = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const transaction of ops.transactions ?? []) {
+      if (!transaction.relatedTeamMemberId || !transaction.payrollMonth) continue;
+      totals.set(
+        transaction.relatedTeamMemberId,
+        (totals.get(transaction.relatedTeamMemberId) ?? 0) + transaction.amount,
+      );
+    }
+    return totals;
+  }, [ops.transactions]);
 
   const saveMember = async (member: CompanyMember) => {
     setSaving(true);
@@ -123,16 +124,14 @@ function TeamPage() {
     (sum, member) => sum + (member.baseMonthlySalary ?? 0),
     0,
   );
-  const payrollTransactions = (ops.transactions ?? []).filter(
-    (transaction) => transaction.payrollMonth === currentMonth,
-  );
+  const totalPaidToDate = [...payrollByMember.values()].reduce((sum, amount) => sum + amount, 0);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <OperationsPageHeader
           title="Team"
-          description="Manage the people working at Admark, assign project ownership, and track salary and bonus payments."
+          description="Members, salary schedules, and how much each person has been paid to date."
         />
         <Button
           onClick={() => {
@@ -145,51 +144,23 @@ function TeamPage() {
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-3">
         <Stat label="Active team" value={String(activeMembers.length)} icon={Users} />
-        <Stat
-          label="Assigned ongoing projects"
-          value={String(
-            ops.projects.filter(
-              (project) =>
-                project.status === "active" && projectAssignedMemberIds(project).length > 0,
-            ).length,
-          )}
-          icon={BriefcaseBusiness}
-        />
         <Stat label="Monthly base payroll" value={formatINRWhole(monthlyBase)} icon={IndianRupee} />
-        <Stat
-          label={`Paid in ${currentMonth}`}
-          value={formatINRWhole(
-            payrollTransactions.reduce((sum, transaction) => sum + transaction.amount, 0),
-          )}
-          icon={CalendarClock}
-        />
+        <Stat label="Paid to date" value={formatINRWhole(totalPaidToDate)} icon={IndianRupee} />
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button asChild className="gap-2">
-          <Link to="/team/assignments">
-            <BriefcaseBusiness className="h-4 w-4" /> Project Assignments
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Button>
-        <Button asChild variant="outline" className="gap-2">
-          <Link to="/accounts/monthly-payments">
-            <CalendarClock className="h-4 w-4" /> Payroll & Fixed Costs
-          </Link>
-        </Button>
-      </div>
+      {company.projectAssignmentsEnabled === true && (
+        <div className="flex flex-wrap gap-2">
+          <Button asChild className="gap-2">
+            <Link to="/team/assignments">Open Project Assignments</Link>
+          </Button>
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {members.map((member) => {
-          const ongoing = ops.projects.filter(
-            (project) =>
-              project.status === "active" && projectAssignedMemberIds(project).includes(member.id),
-          );
-          const paidThisMonth = payrollTransactions
-            .filter((transaction) => transaction.relatedTeamMemberId === member.id)
-            .reduce((sum, transaction) => sum + transaction.amount, 0);
+          const paidToDate = payrollByMember.get(member.id) ?? 0;
           return (
             <article
               key={member.id}
@@ -229,12 +200,21 @@ function TeamPage() {
               </div>
               <dl className="grid grid-cols-2 gap-px border-t border-border bg-border">
                 <MemberStat label="Salary / mo" value={formatSalary(member.baseMonthlySalary)} />
-                <MemberStat label="Bonus limit" value={formatSalary(member.monthlyBonusCap)} />
-                <MemberStat label="Ongoing projects" value={String(ongoing.length)} />
                 <MemberStat
-                  label="Paid this month"
-                  value={formatINRWhole(paidThisMonth)}
-                  highlight={paidThisMonth > 0}
+                  label="Paid since"
+                  value={
+                    member.salaryStartDate
+                      ? formatDate(member.salaryStartDate)
+                      : member.joinDate
+                        ? formatDate(member.joinDate)
+                        : "—"
+                  }
+                />
+                <MemberStat
+                  label="Paid to date"
+                  value={formatINRWhole(paidToDate)}
+                  highlight={paidToDate > 0}
+                  className="col-span-2"
                 />
               </dl>
             </article>
@@ -303,6 +283,10 @@ function TeamMemberDialog({
     const bonusCap = form.bonusCap ? Number(form.bonusCap) : undefined;
     const dueDay = Number(form.salaryDueDay);
     if ((baseSalary != null && baseSalary < 0) || (bonusCap != null && bonusCap < 0)) return;
+    if (baseSalary != null && baseSalary > 0 && !form.salaryStartDate) {
+      alert("Set Salary starts when a monthly salary amount is entered.");
+      return;
+    }
     void onSave({
       ...(member ?? {}),
       id: member?.id ?? `member-${crypto.randomUUID().slice(0, 8)}`,
@@ -326,8 +310,8 @@ function TeamMemberDialog({
         <DialogHeader>
           <DialogTitle>{member ? "Edit Team Member" : "Add Team Member"}</DialogTitle>
           <DialogDescription>
-            Configure the person, project role, and guaranteed monthly payroll. Bonuses remain
-            optional each month.
+            Set the person and when salary payments start. Paid-to-date accumulates from payroll
+            records over time.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -402,7 +386,14 @@ function TeamMemberDialog({
               onChange={(event) => setForm({ ...form, joinDate: event.target.value })}
             />
           </Field>
-          <div />
+          <Field label="Salary starts *" id="team-salary-start">
+            <Input
+              id="team-salary-start"
+              type="date"
+              value={form.salaryStartDate}
+              onChange={(event) => setForm({ ...form, salaryStartDate: event.target.value })}
+            />
+          </Field>
           <Field label="Fixed salary / month (₹)" id="team-base-salary">
             <Input
               id="team-base-salary"
@@ -423,14 +414,6 @@ function TeamMemberDialog({
               placeholder="0"
             />
           </Field>
-          <Field label="Salary starts" id="team-salary-start">
-            <Input
-              id="team-salary-start"
-              type="date"
-              value={form.salaryStartDate}
-              onChange={(event) => setForm({ ...form, salaryStartDate: event.target.value })}
-            />
-          </Field>
           <Field label="Salary due day" id="team-salary-due">
             <Input
               id="team-salary-due"
@@ -443,15 +426,15 @@ function TeamMemberDialog({
           </Field>
         </div>
         <p className="text-xs text-muted-foreground">
-          A fixed salary schedule is created only after a salary amount and start date are set. The
-          bonus limit is guidance; each month starts with a ₹0 bonus.
+          Set salary amount and start date to create the recurring payroll schedule. Paid-to-date
+          grows whenever salary/bonus payouts are recorded for this member.
         </p>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={saving || !form.name.trim()}>
-            {saving ? "Saving…" : "Save Team Member"}
+          <Button type="button" disabled={saving || !form.name.trim()} onClick={submit}>
+            {saving ? "Saving…" : member ? "Save" : "Add member"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -459,22 +442,40 @@ function TeamMemberDialog({
   );
 }
 
-function formatSalary(amount?: number): string {
-  return amount && amount > 0 ? formatINRWhole(amount) : "—";
+function Stat({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon: typeof Users;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex items-center justify-between text-muted-foreground">
+        <span className="text-[11px] font-semibold uppercase tracking-wider">{label}</span>
+        <Icon className="h-4 w-4" />
+      </div>
+      <p className="mt-2 text-xl font-bold tabular-nums text-foreground">{value}</p>
+    </div>
+  );
 }
 
 function MemberStat({
   label,
   value,
   highlight,
+  className,
 }: {
   label: string;
   value: string;
   highlight?: boolean;
+  className?: string;
 }) {
   return (
-    <div className="bg-card px-4 py-2.5">
-      <dt className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+    <div className={`bg-card px-4 py-2.5 ${className ?? ""}`}>
+      <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </dt>
       <dd
@@ -490,19 +491,17 @@ function MemberStat({
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  return parts.length > 1
-    ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
-    : (parts[0]?.slice(0, 2).toUpperCase() ?? "?");
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
 }
 
-function Stat({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Users }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-center justify-between text-muted-foreground">
-        <p className="text-xs font-bold uppercase tracking-wide">{label}</p>
-        <Icon className="h-4 w-4 text-primary" />
-      </div>
-      <p className="mt-3 text-xl font-bold tabular-nums text-foreground">{value}</p>
-    </div>
-  );
+function formatSalary(amount: number | undefined): string {
+  return amount != null && amount > 0 ? formatINRWhole(amount) : "—";
+}
+
+function formatDate(iso: string): string {
+  const date = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }

@@ -52,10 +52,11 @@ export const DEFAULT_PROJECTS: Project[] = [
     "Kapila Management Software",
     "Dashboard",
     "active",
-    "₹10,000/month",
+    "₹10,000/month (ongoing)",
     undefined,
     {
       monthlyAmount: 10_000,
+      monthlyStartDate: "2026-07-08",
     },
   ),
   p("proj-a7-gtech", "A7 Gtech - 2 Hostings", "Per Project", "active", "₹12,425 - Total", "Done"),

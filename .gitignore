@@ -25,6 +25,9 @@ dist-ssr
 # Local data backups from one-time cleanup scripts
 backups/
 
+# Local portal password override (Settings → Change password)
+.data/
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

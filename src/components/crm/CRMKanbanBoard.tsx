@@ -146,6 +146,7 @@ export function CRMKanbanBoard({
                             type="button"
                             onClick={() => onEdit(lead)}
                             className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            aria-label={`Edit ${lead.company}`}
                           >
                             <Edit2 className="h-3 w-3" />
                           </button>
@@ -153,6 +154,8 @@ export function CRMKanbanBoard({
                             type="button"
                             onClick={() => onRemove(lead.id)}
                             className="rounded p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500"
+                            aria-label={`Remove ${lead.company} from pipeline`}
+                            title="Remove from pipeline (keeps history)"
                           >
                             <Trash2 className="h-3 w-3" />
                           </button>

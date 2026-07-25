@@ -47,6 +47,7 @@ export const DEFAULT_COMPANY: CompanySettings = {
   paymentMode: "Bank Transfer / UPI",
   paymentProofUploadsEnabled: false,
   companyValuationEnabled: false,
+  projectAssignmentsEnabled: false,
   companyMembers: [
     {
       id: "member-harshith",

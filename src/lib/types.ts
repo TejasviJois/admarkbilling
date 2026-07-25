@@ -54,6 +54,8 @@ export interface CompanySettings {
   paymentProofUploadsEnabled?: boolean;
   /** Feature flag for the unfinished Company Valuation module. */
   companyValuationEnabled?: boolean;
+  /** Feature flag for Project Assignments (/team/assignments). Off until you need it. */
+  projectAssignmentsEnabled?: boolean;
 }
 
 /** Saved with company settings — file as data URL and/or a trusted https link only. */
@@ -232,9 +234,15 @@ export interface Lead {
   /** Client created/activated when this lead was Won. */
   convertedClientId?: string;
   createdAt?: string;
+  /**
+   * Soft-removed from the Kanban board. Archived deals stay in `ops.leads` so
+   * win/lost history and average deal size keep counting them. Projects are never
+   * deleted when a lead is archived.
+   */
+  archivedAt?: string;
 }
 
-/** Directory contact — a saved person, not yet a lead. Moving to Leads removes it from the directory. */
+/** Directory contact — a saved person. Promoting to Leads keeps them here for repeat deals. */
 export interface Contact {
   id: string;
   organizationId?: string;
@@ -317,7 +325,7 @@ export interface AppNotification {
   actionLabel?: string;
 }
 
-export type ScheduleEventType = "meeting" | "call";
+export type ScheduleEventType = "meeting" | "call" | "reminder";
 export type ScheduleEventStatus = "scheduled" | "completed" | "cancelled";
 
 export interface ScheduleEvent {
@@ -466,6 +474,8 @@ export interface OperationsData {
   transactions?: Transaction[];
   founders?: Founder[];
   notifications?: AppNotification[];
+  /** Notification ids the user cleared — sync must not resurrect them. */
+  dismissedNotificationIds?: string[];
   scheduleEvents?: ScheduleEvent[];
   valuationSettings?: ValuationSettings;
   valuationSnapshots?: ValuationSnapshot[];
@@ -478,6 +488,10 @@ export interface OperationsData {
   blxRepairApplied?: boolean;
   /** One-time repair: merged the legacy "k h kiran" project with Nidhi Estates. */
   neRepairApplied?: boolean;
+  /** One-time repair: restored Kapila retainer identity + historical ₹10k received. */
+  kapilaRetainerRepairApplied?: boolean;
+  /** One-time repair: aligned Rent Management contract billing to the locked ₹80k total. */
+  rentManagementContractRepairApplied?: boolean;
 }
 
 export type TransactionType =
@@ -661,7 +675,8 @@ export type ActivityAction =
   | "payment_removed"
   | "login"
   | "logout"
-  | "failed_login";
+  | "failed_login"
+  | "password_change";
 
 export interface ActivityLogEntry {
   id: string;

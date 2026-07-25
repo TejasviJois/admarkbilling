@@ -121,7 +121,7 @@ assert(ops.leads[0].convertedClientId === ops.clients[0].id, "Lead stores conver
 assert(ops.projects[0].notes === preservedNotes, "Won preserves notes");
 assert(ops.projects[0].milestones?.[0]?.id === "m1", "Won preserves milestones");
 
-// 6. Matching priority: leadId wins over name
+// 6. Matching is leadId-only — orphan same-name project must not be stolen
 const stray = {
   id: "proj-stray",
   client: "Acme Corp",
@@ -133,7 +133,43 @@ const withStray = {
   projects: [stray, ...ops.projects],
 };
 const matched = findProjectForLead(withStray.projects, ops.leads[0], ops.clients[0].id);
-assert(matched?.id === projectId, "leadId match beats company-name fallback");
+assert(matched?.id === projectId, "leadId match is the only match");
+assert(
+  findProjectForLead([stray], { ...wonLead, id: "lead-other" }, ops.clients[0].id) == null,
+  "company-name orphan must not match a different lead",
+);
+
+// 6b. Second Won deal for same company → new project under existing client
+const secondLead = {
+  id: "lead-acme-2",
+  company: "Acme Corp",
+  contactPerson: "Ada Lovelace",
+  status: "won",
+  expectedRevenue: 50000,
+  convertedClientId: ops.clients[0].id,
+  createdAt: "2026-07-19",
+};
+const secondOps = syncLeadLifecycle(
+  { ...withStray, leads: [...withStray.leads, secondLead] },
+  secondLead,
+);
+assert(secondOps.clients.length === 1, "Second Won reuses existing client");
+assert(
+  secondOps.projects.filter((p) => p.leadId === secondLead.id).length === 1,
+  "Second Won creates a project for the new lead",
+);
+assert(
+  secondOps.projects.find((p) => p.leadId === secondLead.id)?.id === `proj-lead-${secondLead.id}`,
+  "Second project id is deterministic per lead",
+);
+assert(
+  secondOps.projects.find((p) => p.leadId === secondLead.id)?.clientId === ops.clients[0].id,
+  "Second project attaches to existing client",
+);
+assert(
+  secondOps.projects.find((p) => p.id === "proj-stray")?.leadId == null,
+  "Existing orphan project must stay untouched",
+);
 
 // 7. Lost → cancelled, no duplicate
 const lostLead = {
@@ -151,12 +187,24 @@ assert(lostOps.projects[0].id === lostProjectId, "Lost reuses the same project")
 assert(lostOps.projects[0].status === "cancelled", "Lost moves project to Not interested");
 assert(lostOps.clients.length === 0, "Lost must not create a client");
 
+// 8. Archived lead must not create or mutate projects
+const archivedLead = {
+  id: "lead-archived-open",
+  company: "Archive Co",
+  status: "meeting_scheduled",
+  archivedAt: "2026-07-25",
+  createdAt: "2026-07-18",
+};
+const archivedOps = syncLeadLifecycle({ ...emptyOps(), leads: [archivedLead] }, archivedLead);
+assert(archivedOps.projects.length === 0, "Archived lead must not create a project");
+
 console.log("PASS lead lifecycle verification");
 console.log(
   JSON.stringify(
     {
       discussionProjectId: projectId,
       wonClientId: ops.clients[0].id,
+      secondProjectId: `proj-lead-${secondLead.id}`,
       lostProjectStatus: lostOps.projects[0].status,
     },
     null,

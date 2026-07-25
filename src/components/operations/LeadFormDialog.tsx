@@ -20,7 +20,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/operations/operations-ui";
 import { LEAD_STATUSES, leadStatusLabel } from "@/lib/lead-utils";
 import { DEFAULT_COMPANY } from "@/lib/constants";
-import type { Lead, LeadStatus } from "@/lib/types";
+import { toLocalISODate } from "@/lib/date-range-filter";
+import type { Client, Lead, LeadStatus } from "@/lib/types";
 
 const EMPTY_FORM = {
   company: "",
@@ -34,22 +35,32 @@ const EMPTY_FORM = {
   assignedSalesperson: "",
   status: "new_lead" as LeadStatus,
   notes: "",
+  clientMode: "new" as "new" | "existing",
+  existingClientId: "",
 };
+
+const NONE_SALESPERSON = "__unassigned__";
 
 export function LeadFormDialog({
   open,
   onOpenChange,
   lead,
+  clients = [],
   onSave,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lead: Lead | null;
+  clients?: Client[];
   onSave: (lead: Lead) => void;
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const isEdit = Boolean(lead);
   const members = DEFAULT_COMPANY.companyMembers ?? [];
+  const activeClients = clients
+    .filter((client) => client.status !== "inactive")
+    .slice()
+    .sort((a, b) => a.companyName.localeCompare(b.companyName));
 
   useEffect(() => {
     if (!open) return;
@@ -66,21 +77,52 @@ export function LeadFormDialog({
         assignedSalesperson: lead.assignedSalesperson ?? "",
         status: lead.status,
         notes: lead.notes ?? "",
+        clientMode: lead.convertedClientId ? "existing" : "new",
+        existingClientId: lead.convertedClientId ?? "",
       });
     } else {
+      const in30 = new Date();
+      in30.setDate(in30.getDate() + 30);
       setForm({
         ...EMPTY_FORM,
-        expectedClosingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .slice(0, 10), // default +30 days
+        expectedClosingDate: toLocalISODate(in30),
       });
     }
   }, [open, lead]);
 
+  const applyExistingClient = (clientId: string) => {
+    const client = clients.find((entry) => entry.id === clientId);
+    if (!client) {
+      setForm((f) => ({ ...f, existingClientId: clientId }));
+      return;
+    }
+    setForm((f) => ({
+      ...f,
+      existingClientId: clientId,
+      company: client.companyName,
+      contactPerson: client.contactPerson || "",
+      email: client.email || "",
+      phone: client.phone || "",
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (form.clientMode === "existing" && !form.existingClientId) {
+      alert("Select an existing client for this deal.");
+      return;
+    }
+
     if (!form.company.trim()) {
       alert("Company name is required.");
+      return;
+    }
+
+    if (form.source.trim().toLowerCase() === "directory") {
+      alert(
+        'Lead Source cannot be "Directory" — that label is reserved for the contact book. Use "Contacted" or another source.',
+      );
       return;
     }
 
@@ -100,6 +142,9 @@ export function LeadFormDialog({
       return;
     }
 
+    const linkedClientId =
+      form.clientMode === "existing" ? form.existingClientId.trim() || undefined : undefined;
+
     const saved: Lead = {
       ...(lead ?? {}),
       id: lead?.id ?? "lead-" + crypto.randomUUID().slice(0, 8),
@@ -114,7 +159,8 @@ export function LeadFormDialog({
       assignedSalesperson: form.assignedSalesperson || undefined,
       status: form.status,
       notes: form.notes.trim() || undefined,
-      createdAt: lead?.createdAt ?? new Date().toISOString().slice(0, 10),
+      convertedClientId: linkedClientId,
+      createdAt: lead?.createdAt ?? toLocalISODate(),
     };
 
     onSave(saved);
@@ -127,10 +173,66 @@ export function LeadFormDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Lead" : "Add Lead"}</DialogTitle>
           <DialogDescription>
-            Enter client information, expected deal size, closing timelines, and pipeline stages.
+            Choose whether this deal is for an existing client or a new company, then fill in the
+            pipeline details.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+            <p className="text-sm font-medium text-foreground">Is this an existing client?</p>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="client-mode"
+                  checked={form.clientMode === "new"}
+                  onChange={() =>
+                    setForm((f) => ({
+                      ...f,
+                      clientMode: "new",
+                      existingClientId: "",
+                    }))
+                  }
+                />
+                New client
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="client-mode"
+                  checked={form.clientMode === "existing"}
+                  onChange={() => setForm((f) => ({ ...f, clientMode: "existing" }))}
+                />
+                Existing client&apos;s project
+              </label>
+            </div>
+            {form.clientMode === "existing" && (
+              <Field label="Select client *" id="crm-existing-client">
+                <Select
+                  value={form.existingClientId || undefined}
+                  onValueChange={applyExistingClient}
+                >
+                  <SelectTrigger id="crm-existing-client">
+                    <SelectValue placeholder="Choose a client…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeClients.length === 0 ? (
+                      <SelectItem value="__none" disabled>
+                        No clients yet — create a new client deal first
+                      </SelectItem>
+                    ) : (
+                      activeClients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.companyName}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Company / Client Name *" id="crm-company">
               <Input
@@ -139,6 +241,7 @@ export function LeadFormDialog({
                 onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
                 placeholder="e.g. Acme Corp"
                 required
+                readOnly={form.clientMode === "existing"}
               />
             </Field>
 
@@ -209,13 +312,19 @@ export function LeadFormDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Assigned Sales Partner" id="crm-salesperson">
               <Select
-                value={form.assignedSalesperson}
-                onValueChange={(v) => setForm((f) => ({ ...f, assignedSalesperson: v }))}
+                value={form.assignedSalesperson || NONE_SALESPERSON}
+                onValueChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    assignedSalesperson: v === NONE_SALESPERSON ? "" : v,
+                  }))
+                }
               >
                 <SelectTrigger id="crm-salesperson">
                   <SelectValue placeholder="Select partner..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={NONE_SALESPERSON}>Unassigned</SelectItem>
                   {members.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.name}

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, DollarSign, Percent, BarChart3, TrendingUp, HelpCircle } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LeadFormDialog } from "@/components/operations/LeadFormDialog";
 import { CRMKanbanBoard } from "@/components/crm/CRMKanbanBoard";
@@ -8,6 +8,13 @@ import { OperationsLoading, OperationsPageHeader } from "@/components/operations
 import { useOperations } from "@/hooks/use-operations";
 import { formatINRWhole } from "@/lib/invoice-calc";
 import { syncLeadLifecycle } from "@/lib/lead-conversion";
+import { toLocalISODate } from "@/lib/date-range-filter";
+import {
+  archiveLead,
+  computeLeadCrmStats,
+  isLeadArchived,
+  visibleLeadsForBoard,
+} from "@/lib/lead-stats";
 import type { Lead, LeadStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/leads")({ component: LeadsPage });
@@ -18,45 +25,8 @@ function LeadsPage() {
   const [editing, setEditing] = useState<Lead | null>(null);
 
   const leads = ops.leads ?? [];
-
-  // CRM Calculations
-  const stats = useMemo(() => {
-    // 1. Pipeline Value: Sum of expected revenue of active deals (exclude won, lost)
-    const activeDeals = leads.filter((l) => l.status !== "won" && l.status !== "lost");
-    const pipelineValue = activeDeals.reduce((sum, l) => sum + (l.expectedRevenue || 0), 0);
-
-    // 2. Expected Revenue: Weighted sum of expected revenue * (probability / 100) for active deals
-    const expectedRevenue = activeDeals.reduce((sum, l) => {
-      const prob = l.probability != null ? l.probability : 50; // default to 50%
-      return sum + (l.expectedRevenue || 0) * (prob / 100);
-    }, 0);
-
-    // 3. Conversion Rate / Win Rate: Won / (Won + Lost) * 100
-    const wonCount = leads.filter((l) => l.status === "won").length;
-    const lostCount = leads.filter((l) => l.status === "lost").length;
-    const closedCount = wonCount + lostCount;
-    const conversionRate = closedCount > 0 ? (wonCount / closedCount) * 100 : 0;
-
-    // 4. Lost Deals
-    const lostDeals = lostCount;
-
-    // 5. Average Deal Size: across all deals with an expected revenue
-    const revenueDeals = leads.filter((l) => l.expectedRevenue != null && l.expectedRevenue > 0);
-    const averageDealSize =
-      revenueDeals.length > 0
-        ? revenueDeals.reduce((sum, l) => sum + (l.expectedRevenue || 0), 0) / revenueDeals.length
-        : 0;
-
-    return {
-      pipelineValue,
-      expectedRevenue,
-      conversionRate,
-      lostDeals,
-      averageDealSize,
-      activeCount: activeDeals.length,
-      wonCount,
-    };
-  }, [leads]);
+  const boardLeads = useMemo(() => visibleLeadsForBoard(leads), [leads]);
+  const stats = useMemo(() => computeLeadCrmStats(leads), [leads]);
 
   const openAdd = () => {
     setEditing(null);
@@ -70,19 +40,34 @@ function LeadsPage() {
 
   const handleSave = (saved: Lead) => {
     const nextLeads = editing
-      ? leads.map((l) => (l.id === saved.id ? saved : l))
+      ? leads.map((l) =>
+          l.id === saved.id ? { ...saved, archivedAt: l.archivedAt ?? saved.archivedAt } : l,
+        )
       : [saved, ...leads];
-    persist(syncLeadLifecycle({ ...ops, leads: nextLeads }, saved));
+    const forLifecycle = nextLeads.find((l) => l.id === saved.id) ?? saved;
+    persist(syncLeadLifecycle({ ...ops, leads: nextLeads }, forLifecycle));
   };
 
   const handleRemove = (id: string) => {
-    if (!confirm("Are you sure you want to delete this CRM deal record?")) return;
-    persist({ ...ops, leads: leads.filter((l) => l.id !== id) }, { deleteIds: { leads: [id] } });
+    const lead = leads.find((l) => l.id === id);
+    if (!lead || isLeadArchived(lead)) return;
+    if (
+      !confirm(
+        "Remove from pipeline? This hides the deal here but keeps win/lost history. Projects are not changed.",
+      )
+    ) {
+      return;
+    }
+    const archived = archiveLead(lead, toLocalISODate());
+    persist({
+      ...ops,
+      leads: leads.map((l) => (l.id === id ? archived : l)),
+    });
   };
 
   const handleMoveStatus = (id: string, nextStatus: LeadStatus) => {
     const moved = leads.find((l) => l.id === id);
-    if (!moved) return;
+    if (!moved || isLeadArchived(moved)) return;
     const nextLead = { ...moved, status: nextStatus };
     const nextLeads = leads.map((l) => (l.id === id ? nextLead : l));
     persist(syncLeadLifecycle({ ...ops, leads: nextLeads }, nextLead));
@@ -162,7 +147,7 @@ function LeadsPage() {
       {/* Visual Kanban Board */}
       <div className="rounded-xl border border-border bg-card/40 p-4 shadow-sm">
         <CRMKanbanBoard
-          leads={leads}
+          leads={boardLeads}
           onEdit={openEdit}
           onRemove={handleRemove}
           onMoveStatus={handleMoveStatus}
@@ -173,6 +158,7 @@ function LeadsPage() {
         open={formOpen}
         onOpenChange={setFormOpen}
         lead={editing}
+        clients={ops.clients ?? []}
         onSave={handleSave}
       />
     </div>

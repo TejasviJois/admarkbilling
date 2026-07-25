@@ -186,14 +186,12 @@ export const GROUND_ZERO_CONTRACTS: GroundZeroContract[] = [
     match: ["kapila management", "kapila mgmt", "kms"],
     status: "active",
     billing: {
-      contractValue: 0,
       monthlyAmount: 10_000,
-      monthlyMonths: 12,
       monthlyStartDate: "2026-07-08",
     },
     historicalReceived: 10_000,
     historicalOutstanding: null,
-    note: "Monthly retainer started July 8th.",
+    note: "Monthly retainer started July 8th (ongoing).",
   },
 ];
 
@@ -555,6 +553,137 @@ export function repairNidhiEstatesData(data: OperationsData): OperationsData {
 }
 
 /**
+ * One-time: restore Kapila's ongoing ₹10k/month retainer after lead conversion
+ * replaced `proj-kapila-mgmt` without carrying historicalReceived / identity.
+ * Does not re-run once `kapilaRetainerRepairApplied` is set — later edits stick.
+ */
+export function ensureKapilaRetainerBilling(data: OperationsData): OperationsData {
+  if (data.kapilaRetainerRepairApplied) return data;
+  return {
+    ...repairKapilaRetainerBilling(data),
+    kapilaRetainerRepairApplied: true,
+  };
+}
+
+function isKapilaRetainerProject(project: Project, kms: GroundZeroContract): boolean {
+  if (project.id === "proj-kapila-faq") return false;
+  const label = normalizeLabel(project);
+  if (label.includes("kapila faq")) return false;
+
+  const billing = project.billing ?? {};
+  if (project.id === "proj-kapila-mgmt" || project.id === "proj-lead-lead-be258f6a") return true;
+  if (kms.match.some((needle) => label.includes(needle))) return true;
+  if (!label.includes("kapila")) return false;
+  return (
+    billing.monthlyAmount === 10_000 ||
+    /10,?000\s*\/?\s*month/i.test(project.revenueValue ?? "") ||
+    /kapila\s+erp/i.test(label)
+  );
+}
+
+function repairKapilaRetainerBilling(data: OperationsData): OperationsData {
+  const kms = GROUND_ZERO_CONTRACTS.find((contract) => contract.code === "KMS");
+  if (!kms) return data;
+
+  let changed = false;
+  const projects = data.projects.map((project) => {
+    if (!isKapilaRetainerProject(project, kms)) return project;
+
+    const billing = project.billing ?? {};
+    const nextBilling: ProjectBilling = {
+      monthlyAmount: billing.monthlyAmount ?? 10_000,
+      monthlyStartDate: billing.monthlyStartDate ?? kms.billing.monthlyStartDate ?? "2026-07-08",
+    };
+    // Drop fixed-term / zero-contract leftovers from the original Ground Zero row.
+    const historicalReceived = Math.max(project.historicalReceived ?? 0, kms.historicalReceived);
+    const nextName =
+      project.name && /kapila/i.test(project.name) ? project.name : kms.clientName;
+    const next: Project = {
+      ...project,
+      client: kms.clientName,
+      name: nextName,
+      status: project.status === "planning" ? "active" : project.status,
+      billing: nextBilling,
+      revenueValue: buildRevenueValueFromBilling(nextBilling),
+      historicalReceived,
+      historicalOutstanding: null,
+    };
+
+    if (
+      project.client === next.client &&
+      project.name === next.name &&
+      project.status === next.status &&
+      project.historicalReceived === next.historicalReceived &&
+      project.historicalOutstanding === next.historicalOutstanding &&
+      project.billing?.monthlyAmount === nextBilling.monthlyAmount &&
+      project.billing?.monthlyStartDate === nextBilling.monthlyStartDate &&
+      project.billing?.monthlyMonths == null &&
+      project.billing?.contractValue == null &&
+      project.revenueValue === next.revenueValue
+    ) {
+      return project;
+    }
+
+    changed = true;
+    return next;
+  });
+
+  return changed ? { ...data, projects } : data;
+}
+
+/**
+ * One-time: drop a stale understated contractValue on Rent Management so labels
+ * match the locked ₹80,000 Ground Zero total.
+ */
+export function ensureRentManagementContract(data: OperationsData): OperationsData {
+  if (data.rentManagementContractRepairApplied) return data;
+  return {
+    ...repairRentManagementContract(data),
+    rentManagementContractRepairApplied: true,
+  };
+}
+
+function repairRentManagementContract(data: OperationsData): OperationsData {
+  let changed = false;
+  const projects = data.projects.map((project) => {
+    const label = normalizeLabel(project);
+    const isRent =
+      project.id === "proj-safe-wheels" ||
+      label.includes("rent management") ||
+      (label.includes("safe wheels") &&
+        ((project.billing?.upfrontAmount ?? 0) >= 80_000 ||
+          project.historicalOutstanding === 80_000));
+    if (!isRent) return project;
+
+    const upfront = Math.max(project.billing?.upfrontAmount ?? 0, 80_000);
+    if (
+      project.billing?.contractValue == null &&
+      project.billing?.upfrontAmount === upfront &&
+      (project.historicalOutstanding ?? 80_000) === 80_000
+    ) {
+      return project;
+    }
+
+    const nextBilling: ProjectBilling = { upfrontAmount: upfront };
+    changed = true;
+    return {
+      ...project,
+      billing: nextBilling,
+      revenueValue: buildRevenueValueFromBilling(nextBilling),
+      historicalReceived: project.historicalReceived ?? 0,
+      historicalOutstanding: project.historicalOutstanding ?? 80_000,
+    };
+  });
+
+  return changed ? { ...data, projects } : data;
+}
+
+/** Apply all production billing backfills (one-shot each). */
+export function applyProductionBillingRepairs(data: OperationsData): OperationsData {
+  return ensureRentManagementContract(ensureKapilaRetainerBilling(data));
+}
+
+/**
  * Add one display-only Accounts ledger row for each imported client collection.
  * Idempotent: stable ids ensure loading the app never creates duplicates.
  */
@@ -577,7 +706,10 @@ export function ensureHistoricalProjectPaymentLogs(data: OperationsData): Operat
       historicalOutstanding: contract.historicalOutstanding,
       billing:
         contract.code === "KMS"
-          ? { ...(project.billing ?? {}), contractValue: 0 }
+          ? {
+              monthlyAmount: contract.billing.monthlyAmount,
+              monthlyStartDate: contract.billing.monthlyStartDate,
+            }
           : project.billing,
     };
   });

@@ -154,9 +154,7 @@ export function ProjectFormDialog({
         notes: project.notes ?? "",
         ...billingForm,
       });
-      setRecurringEnabled(
-        Boolean(billingForm.monthlyAmount.trim() || billingForm.maintenanceAmount.trim()),
-      );
+      setRecurringEnabled(Boolean(billingForm.monthlyAmount.trim()));
     } else {
       setForm({
         ...EMPTY_FORM,
@@ -185,12 +183,22 @@ export function ProjectFormDialog({
     // Ground Zero contract value and a permanently-closed retainer marker.
     const preserved = project?.billing;
     const billing: ProjectBilling | undefined =
-      built || preserved?.contractValue != null || preserved?.monthlyEndDate != null
+      built ||
+      preserved?.contractValue != null ||
+      preserved?.monthlyEndDate != null ||
+      preserved?.maintenanceAmount != null
         ? {
             ...(built ?? {}),
             ...(preserved?.contractValue != null ? { contractValue: preserved.contractValue } : {}),
             ...(preserved?.monthlyEndDate != null
               ? { monthlyEndDate: preserved.monthlyEndDate }
+              : {}),
+            // Maintenance is no longer editable here — keep any existing values.
+            ...(preserved?.maintenanceAmount != null
+              ? { maintenanceAmount: preserved.maintenanceAmount }
+              : {}),
+            ...(preserved?.maintenanceMonths != null
+              ? { maintenanceMonths: preserved.maintenanceMonths }
               : {}),
           }
         : undefined;
@@ -488,33 +496,6 @@ export function ProjectFormDialog({
                       type="date"
                       value={form.monthlyStartDate}
                       onChange={(e) => setForm((f) => ({ ...f, monthlyStartDate: e.target.value }))}
-                    />
-                  </Field>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Maintenance (₹/month)" id="dialog-maintenance-amount">
-                    <Input
-                      id="dialog-maintenance-amount"
-                      type="number"
-                      min={0}
-                      value={form.maintenanceAmount}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, maintenanceAmount: e.target.value }))
-                      }
-                      placeholder="Optional"
-                    />
-                  </Field>
-                  <Field label="Maintenance months" id="dialog-maintenance-months">
-                    <Input
-                      id="dialog-maintenance-months"
-                      type="number"
-                      min={0}
-                      value={form.maintenanceMonths}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, maintenanceMonths: e.target.value }))
-                      }
-                      placeholder="Optional"
                     />
                   </Field>
                 </div>

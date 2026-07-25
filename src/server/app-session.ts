@@ -69,7 +69,6 @@ async function signedGateToken(): Promise<string> {
 }
 
 export async function sessionCookieValid(): Promise<boolean> {
-  rateLimitIp(); // Rate limit session validations
   const cookie = getCookie(APP_SESSION_COOKIE);
   if (!cookie) return false;
   const expected = await signedGateToken();
@@ -77,7 +76,6 @@ export async function sessionCookieValid(): Promise<boolean> {
 }
 
 export async function assertAppSession(): Promise<void> {
-  rateLimitIp(); // Rate limit assertions
   if (!(await sessionCookieValid())) {
     throw new Error("Unauthorized access detected. Session expired.");
   }

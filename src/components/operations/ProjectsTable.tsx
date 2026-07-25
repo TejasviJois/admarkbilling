@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import type { Project } from "@/lib/types";
 import { formatINRWhole } from "@/lib/invoice-calc";
 import { paymentSummary } from "@/lib/project-payments";
+import { resolveProjectBilling } from "@/lib/project-billing";
 import {
   isRevenueProject,
   projectAssignedMemberIds,
@@ -18,6 +19,8 @@ export function ProjectsTable({
   onRemove,
   showActions = true,
   showOutstanding = true,
+  /** Show monthly retainer rate alongside contract value (retainer segments). */
+  emphasizeRetainer = false,
 }: {
   projects: Project[];
   onEdit?: (project: Project) => void;
@@ -25,6 +28,7 @@ export function ProjectsTable({
   showActions?: boolean;
   /** Outstanding only applies to revenue projects (done/ongoing) — hide it for pipeline views. */
   showOutstanding?: boolean;
+  emphasizeRetainer?: boolean;
 }) {
   const { company } = useCompany();
   const memberNames = (project: Project) => {
@@ -46,6 +50,7 @@ export function ProjectsTable({
     "Team",
     "Status",
     "Contract value",
+    ...(emphasizeRetainer ? ["Monthly retainer"] : []),
     ...(showOutstanding ? ["Outstanding"] : []),
     "Contact",
     ...(showActions ? ["Actions"] : []),
@@ -56,6 +61,7 @@ export function ProjectsTable({
       headers={headers}
       rows={projects.map((p) => {
         const { target, pending } = paymentSummary(p);
+        const billing = resolveProjectBilling(p);
         const projectCell = (
           <span key={`project-${p.id}`} className="font-bold text-primary">
             {p.name?.trim() || projectClientLabel(p)}
@@ -70,6 +76,11 @@ export function ProjectsTable({
           <ProjectStatusBadge key={`st-${p.id}`} status={p.status} />,
           target != null ? formatINRWhole(target) : "—",
         ];
+        if (emphasizeRetainer) {
+          cells.push(
+            billing.monthlyAmount ? `${formatINRWhole(billing.monthlyAmount)}/month` : "—",
+          );
+        }
         if (showOutstanding) {
           cells.push(isRevenueProject(p.status) && pending != null ? formatINRWhole(pending) : "—");
         }

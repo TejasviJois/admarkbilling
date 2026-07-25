@@ -1,15 +1,22 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { ArrowLeft, Check, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { ProjectStatusBadge } from "@/components/operations/ProjectsTable";
 import { useCompany } from "@/hooks/use-company";
 import { useOperations } from "@/hooks/use-operations";
+import { loadCompany } from "@/lib/storage";
 import { projectAssignedMemberIds } from "@/lib/project-status";
 import type { Project } from "@/lib/types";
 
 export const Route = createFileRoute("/team_/assignments")({
+  beforeLoad: async () => {
+    const company = await loadCompany();
+    if (company.projectAssignmentsEnabled !== true) {
+      throw redirect({ to: "/team" });
+    }
+  },
   component: TeamAssignmentsPage,
 });
 

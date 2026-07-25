@@ -15,6 +15,7 @@ import {
   type PeriodKey,
   projectRelevantDates,
 } from "@/lib/date-range-filter";
+import { projectHasOpenRetainer } from "@/lib/project-billing";
 import { projectClientLabel, projectStatusLabel } from "@/lib/project-status";
 import { EmptyRow } from "./operations-ui";
 import { ProjectsTable } from "./ProjectsTable";
@@ -26,6 +27,10 @@ const PROJECT_STATUSES: ProjectStatus[] = [
   "on_hold",
   "cancelled",
 ];
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export function ProjectsSection({
   ops,
@@ -46,6 +51,7 @@ export function ProjectsSection({
   const [internalStatus, setInternalStatus] = useState<ProjectStatus | "all">("all");
   const statusFilter = controlledStatus ?? internalStatus;
   const setStatusFilter = onStatusFilterChange ?? setInternalStatus;
+  const asOf = today();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -69,12 +75,27 @@ export function ProjectsSection({
     });
   }, [ops.projects, search, period, statusFilter]);
 
+  const segmented = useMemo(() => {
+    if (statusFilter !== "active" && statusFilter !== "completed") return null;
+    const withRetainer = filtered.filter((p) => projectHasOpenRetainer(p, asOf));
+    const withoutRetainer = filtered.filter((p) => !projectHasOpenRetainer(p, asOf));
+    return { withRetainer, withoutRetainer };
+  }, [filtered, statusFilter, asOf]);
+
   const removeProject = (id: string) => {
     persist(
       { ...ops, projects: ops.projects.filter((p) => p.id !== id) },
       { deleteIds: { projects: [id] } },
     );
   };
+
+  const showOutstanding =
+    statusFilter === "all" || statusFilter === "completed" || statusFilter === "active";
+
+  const emptyMessage =
+    statusFilter === "all"
+      ? "No projects match your search."
+      : `No ${projectStatusLabel(statusFilter).toLowerCase()} projects${search.trim() ? " match your search" : ""}.`;
 
   return (
     <section className="scroll-mt-24 rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
@@ -114,23 +135,100 @@ export function ProjectsSection({
       {ops.projects.length === 0 ? (
         <EmptyRow message="No projects logged yet." />
       ) : filtered.length === 0 ? (
-        <EmptyRow
-          message={
-            statusFilter === "all"
-              ? "No projects match your search."
-              : `No ${projectStatusLabel(statusFilter).toLowerCase()} projects${search.trim() ? " match your search" : ""}.`
-          }
-        />
+        <EmptyRow message={emptyMessage} />
+      ) : segmented ? (
+        <div className="space-y-8">
+          <ProjectSegment
+            title={
+              statusFilter === "active" ? "Without monthly retainers" : "Done — no active retainer"
+            }
+            description={
+              statusFilter === "active"
+                ? "One-time / contract work only — no monthly billing on these."
+                : "Project work is finished and monthly billing is not running."
+            }
+            projects={segmented.withoutRetainer}
+            emptyMessage={
+              statusFilter === "active"
+                ? "Every ongoing project currently has a monthly retainer."
+                : "Every done project still has an ongoing retainer."
+            }
+            onEdit={onEdit}
+            onRemove={removeProject}
+            showOutstanding={showOutstanding}
+          />
+          <ProjectSegment
+            title={statusFilter === "active" ? "With monthly retainers" : "Ongoing retainers"}
+            description={
+              statusFilter === "active"
+                ? "These projects include (or will include) a monthly retainer."
+                : "Project marked Done, but the monthly retainer is still active — manage billing here."
+            }
+            projects={segmented.withRetainer}
+            emptyMessage={
+              statusFilter === "active"
+                ? "No ongoing projects have a monthly retainer yet."
+                : "No done projects with an active monthly retainer."
+            }
+            onEdit={onEdit}
+            onRemove={removeProject}
+            showOutstanding={showOutstanding}
+            emphasizeRetainer
+          />
+        </div>
       ) : (
         <ProjectsTable
           projects={filtered}
           onEdit={onEdit}
           onRemove={removeProject}
-          showOutstanding={
-            statusFilter === "all" || statusFilter === "completed" || statusFilter === "active"
-          }
+          showOutstanding={showOutstanding}
         />
       )}
     </section>
+  );
+}
+
+function ProjectSegment({
+  title,
+  description,
+  projects,
+  emptyMessage,
+  onEdit,
+  onRemove,
+  showOutstanding,
+  emphasizeRetainer = false,
+}: {
+  title: string;
+  description: string;
+  projects: Project[];
+  emptyMessage: string;
+  onEdit: (project: Project) => void;
+  onRemove: (id: string) => void;
+  showOutstanding: boolean;
+  emphasizeRetainer?: boolean;
+}) {
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">
+            {title}
+            <span className="ml-2 tabular-nums text-muted-foreground">({projects.length})</span>
+          </h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      {projects.length === 0 ? (
+        <EmptyRow message={emptyMessage} />
+      ) : (
+        <ProjectsTable
+          projects={projects}
+          onEdit={onEdit}
+          onRemove={onRemove}
+          showOutstanding={showOutstanding}
+          emphasizeRetainer={emphasizeRetainer}
+        />
+      )}
+    </div>
   );
 }

@@ -18,7 +18,7 @@ import {
 } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
 import { leadFromContact } from "@/lib/lead-conversion";
-import type { Contact } from "@/lib/types";
+import type { Contact, Lead } from "@/lib/types";
 
 export const Route = createFileRoute("/directory")({ component: DirectoryPage });
 
@@ -28,6 +28,18 @@ const EMPTY_FORM = {
   phone: "",
   contactVia: "",
 };
+
+function normalizeName(value: string | undefined): string {
+  return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function openLeadMatchesContact(lead: Lead, contact: Contact): boolean {
+  if (lead.status === "won" || lead.status === "lost") return false;
+  const person = normalizeName(contact.personName);
+  const company = normalizeName(contact.companyName || contact.personName);
+  const leadNames = [lead.company, lead.name, lead.contactPerson].map(normalizeName).filter(Boolean);
+  return leadNames.some((name) => name === person || name === company);
+}
 
 function DirectoryPage() {
   const { ops, persist, loading } = useOperations();
@@ -66,15 +78,26 @@ function DirectoryPage() {
   };
 
   const moveToLeads = (contact: Contact) => {
-    if (!confirm(`Move ${contact.personName} to Leads? They will leave the directory.`)) return;
-    persist(
-      {
-        ...ops,
-        contacts: contacts.filter((c) => c.id !== contact.id),
-        leads: [leadFromContact(contact), ...(ops.leads ?? [])],
-      },
-      { deleteIds: { contacts: [contact.id] } },
-    );
+    const openDeals = (ops.leads ?? []).filter((lead) => openLeadMatchesContact(lead, contact));
+    if (openDeals.length > 0) {
+      if (
+        !confirm(
+          `${contact.personName} already has ${openDeals.length} open deal(s) in Leads. Add another deal anyway?`,
+        )
+      ) {
+        return;
+      }
+    } else if (
+      !confirm(
+        `Add ${contact.personName} to Leads? They stay in the directory so you can open more deals later.`,
+      )
+    ) {
+      return;
+    }
+    persist({
+      ...ops,
+      leads: [leadFromContact(contact), ...(ops.leads ?? [])],
+    });
   };
 
   const handleRemove = (contact: Contact) => {
@@ -91,7 +114,7 @@ function DirectoryPage() {
     <div className="space-y-6">
       <OperationsPageHeader
         title="Directory"
-        description="Your contact book. Once you contact someone, move them to Leads — the pipeline takes it from there."
+        description="Your contact book. Add someone to Leads when you start a deal — they stay here for future projects."
         action={
           <Button type="button" onClick={openAdd}>
             <Plus className="mr-2 h-4 w-4" />
@@ -154,7 +177,7 @@ function DirectoryPage() {
                           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-card px-2.5 text-xs font-medium text-foreground hover:bg-secondary"
                           title="Contacted — move to Leads"
                         >
-                          Move to leads
+                          Add to leads
                           <ArrowRight className="h-3.5 w-3.5" />
                         </button>
                         <button

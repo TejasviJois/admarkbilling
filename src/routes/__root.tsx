@@ -200,6 +200,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/projects", label: "Projects" },
       { to: "/partnerships", label: "Partnerships" },
       { to: "/calendar", label: "Calendar" },
+      { to: "/reminders", label: "Reminders" },
       { to: "/documents", label: "Documents" },
     ],
   },
@@ -506,6 +507,26 @@ function AppShell() {
     persist({ ...ops, notifications: updated });
   };
 
+  const handleClearNotifications = () => {
+    if (!ops) return;
+    if (notificationsList.length === 0) return;
+    if (!confirm("Clear all notifications? Cleared items will not come back.")) return;
+  const ids = notificationsList.map((item) => item.id);
+    const dismissed = new Set(ops.dismissedNotificationIds ?? []);
+    // System health alerts must be allowed to reappear if the condition returns.
+    for (const id of ids) {
+      if (!id.startsWith("system-")) dismissed.add(id);
+    }
+    void persist(
+      {
+        ...ops,
+        notifications: [],
+        dismissedNotificationIds: [...dismissed],
+      },
+      { deleteIds: { notifications: ids } },
+    );
+  };
+
   if (isLogin) {
     return (
       <div className="min-h-screen bg-background text-foreground">
@@ -600,16 +621,28 @@ function AppShell() {
                 side="right"
                 className="flex w-full max-w-[min(100vw,24rem)] flex-col sm:max-w-md"
               >
-                <SheetTitle className="text-left font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
+                <SheetTitle className="text-left font-bold text-foreground border-b border-border pb-3 flex items-center justify-between gap-2">
                   <span>Notifications</span>
-                  {unreadNotificationsCount > 0 && (
-                    <button
-                      onClick={handleMarkAllRead}
-                      className="text-xs font-semibold text-primary hover:underline"
-                    >
-                      Mark all read
-                    </button>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {unreadNotificationsCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleMarkAllRead}
+                        className="text-xs font-semibold text-primary hover:underline"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                    {notificationsList.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearNotifications}
+                        className="text-xs font-semibold text-muted-foreground hover:text-rose-500 hover:underline"
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
                 </SheetTitle>
 
                 <div className="flex-1 overflow-y-auto mt-4 space-y-3 pr-1">

@@ -568,7 +568,7 @@ create table if not exists admark.calendar (
   project_id uuid,
   team_member_id uuid,
   title text not null,
-  calendar_type text not null check (calendar_type in ('meeting', 'call')),
+  calendar_type text not null check (calendar_type in ('meeting', 'call', 'reminder')),
   event_date date not null,
   start_time time not null,
   duration_minutes integer not null check (duration_minutes > 0),

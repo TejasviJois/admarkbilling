@@ -47,7 +47,8 @@ export function leadFromClient(client: Client): Lead {
     phone: client.phone || undefined,
     notes: client.notes || undefined,
     status: "new_lead",
-    source: "Directory",
+    // Must not be "Directory" — relational reads treat that source as contacts, not pipeline leads.
+    source: "Contacted",
     createdAt: new Date().toISOString().slice(0, 10),
   };
 }
@@ -62,7 +63,8 @@ export function leadFromContact(contact: Contact): Lead {
     phone: contact.phone || undefined,
     notes: contact.contactVia ? `Contact via ${contact.contactVia}` : undefined,
     status: "new_lead",
-    source: "Directory",
+    // Must not be "Directory" — relational reads treat that source as contacts, not pipeline leads.
+    source: "Contacted",
     createdAt: new Date().toISOString().slice(0, 10),
   };
 }
@@ -85,32 +87,16 @@ function projectStatusForLead(status: LeadStatus): Project["status"] | null {
 }
 
 /**
- * Match priority for the one primary project belonging to a lead:
- * 1. Project.leadId
- * 2. Project.clientId (via converted/matching client)
- * 3. Same company name (fallback)
+ * Primary project for a lead is only the row already linked by leadId.
+ * Never attach by clientId/company name — repeat clients (Alliance Square, etc.)
+ * must get a new project per deal instead of stealing an existing one.
  */
 export function findProjectForLead(
   projects: Project[],
   lead: Lead,
-  clientId?: string,
+  _clientId?: string,
 ): Project | undefined {
-  const byLead = projects.find((project) => project.leadId === lead.id);
-  if (byLead) return byLead;
-
-  // Legacy attach only: never steal a project already owned by another lead.
-  if (clientId) {
-    const byClient = projects.find((project) => project.clientId === clientId && !project.leadId);
-    if (byClient) return byClient;
-  }
-
-  const company = normalize(leadDisplayName(lead));
-  if (!company) return undefined;
-  return projects.find(
-    (project) =>
-      !project.leadId &&
-      (normalize(project.client) === company || normalize(project.name) === company),
-  );
+  return projects.find((project) => project.leadId === lead.id);
 }
 
 /**
@@ -180,16 +166,21 @@ function buildDiscussionProject(lead: Lead, clientId?: string): Project {
  *
  * - New Lead / Contacted: no automatic project
  * - Meeting Scheduled / Proposal Sent / Negotiation: project stays In discussions (planning)
- * - Won: create/reactivate client, attach project, move to Ongoing (active)
+ * - Won: create/reactivate client, attach or create project by leadId, move to Ongoing (active)
  * - Lost: keep same project, move to Not interested (cancelled)
  *
- * Never recreates a matched project; only patches lifecycle-owned fields.
+ * Matching is leadId-only so repeat clients always get a new project per deal.
  */
 export function syncLeadLifecycle(ops: OperationsData, lead: Lead): OperationsData {
   let next: OperationsData = {
     ...ops,
     leads: (ops.leads ?? []).map((entry) => (entry.id === lead.id ? lead : entry)),
   };
+
+  // Archived deals are history-only — never create/update projects from them.
+  if (lead.archivedAt) {
+    return next;
+  }
 
   if (!needsDiscussionProject(lead.status)) {
     return next;
@@ -221,7 +212,7 @@ export function syncLeadLifecycle(ops: OperationsData, lead: Lead): OperationsDa
     // Only create when entering a stage that needs a project; never for New/Contacted.
     const created = buildDiscussionProject(
       { ...lead, convertedClientId: clientId ?? lead.convertedClientId },
-      lead.status === "won" ? clientId : undefined,
+      clientId,
     );
     created.status = targetStatus;
     if (lead.status === "won" && clientId) {

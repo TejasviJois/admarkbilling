@@ -243,6 +243,13 @@ export function recurringStatus(billing: ProjectBilling, asOfDate: string): Recu
   return "active";
 }
 
+/** True when the project still has a monthly retainer scheduled (active or not yet started). */
+export function projectHasOpenRetainer(project: Project, asOfDate?: string): boolean {
+  const asOf = asOfDate ?? new Date().toISOString().slice(0, 10);
+  const status = recurringStatus(resolveProjectBilling(project), asOf);
+  return status === "active" || status === "not_started";
+}
+
 export function formatBookedRevenueLabel(billing: ProjectBilling): string {
   if ((billing.upfrontAmount ?? 0) > 0 && (billing.maintenanceAmount ?? 0) > 0) {
     return `${formatINRWhole(billing.upfrontAmount!)} project`;
@@ -258,11 +265,24 @@ export function computeBookedRevenue(project: Project, asOfDate: string): number
   void asOfDate;
   if (!isRevenueProject(project.status)) return 0;
   const billing = resolveProjectBilling(project);
-  if (billing.contractValue) return billing.contractValue;
-  let total = billing.upfrontAmount ?? 0;
 
-  if (maintenanceCountsInBooked(billing)) {
-    total += billing.maintenanceAmount ?? 0;
+  // Prefer the Ground Zero locked total (received + outstanding) so Booked
+  // never understates Outstanding — e.g. Rent Management 80k vs a stale 70k
+  // contractValue left on the project after edits.
+  let oneTime = 0;
+  if (project.historicalOutstanding != null) {
+    const locked = (project.historicalReceived ?? 0) + project.historicalOutstanding;
+    if (locked > 0) oneTime = locked;
+  }
+  if (oneTime <= 0) {
+    if (billing.contractValue) {
+      oneTime = billing.contractValue;
+    } else {
+      oneTime = billing.upfrontAmount ?? 0;
+      if (maintenanceCountsInBooked(billing)) {
+        oneTime += billing.maintenanceAmount ?? 0;
+      }
+    }
   }
 
   if (billing.monthlyAmount) {
@@ -270,10 +290,10 @@ export function computeBookedRevenue(project: Project, asOfDate: string): number
     // future months out of Booked while making every received installment part
     // of Booked. For hybrid projects, only receipts above the already-booked
     // one-time amount add recurring revenue, preventing double counting.
-    return Math.max(total, totalReceived(project));
+    return Math.max(oneTime, totalReceived(project));
   }
 
-  if (total > 0) return total;
+  if (oneTime > 0) return oneTime;
   // Explicit form entries win over legacy revenueValue text — a typed 0 sticks.
   if (
     billing.contractValue === 0 ||
@@ -287,8 +307,7 @@ export function computeBookedRevenue(project: Project, asOfDate: string): number
   if (!text || /partner|discount|tbd|—/i.test(text)) return 0;
   if (/\/\s*month/i.test(text) && !billing.upfrontAmount) return 0;
 
-  const oneTime = parseFirstRupee(text);
-  return oneTime ?? 0;
+  return parseFirstRupee(text) ?? 0;
 }
 
 /** Full contract value including maintenance — for payment targets. */

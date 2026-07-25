@@ -26,6 +26,9 @@ export const OPERATIONS_SCALAR_KEYS = [
   "groundZeroApplied",
   "blxRepairApplied",
   "neRepairApplied",
+  "kapilaRetainerRepairApplied",
+  "rentManagementContractRepairApplied",
+  "dismissedNotificationIds",
 ] as const satisfies readonly (keyof OperationsData)[];
 
 export type OperationsEntityKey = (typeof OPERATIONS_ENTITY_KEYS)[number];

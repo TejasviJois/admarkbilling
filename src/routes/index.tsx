@@ -12,6 +12,8 @@ import {
   CalendarDays,
   Clock3,
   Phone,
+  BellRing,
+  Plus,
 } from "lucide-react";
 import { useOperations } from "@/hooks/use-operations";
 import { computeFinancialSummary } from "@/lib/financial";
@@ -180,6 +182,11 @@ function ExecutiveDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">
+          <Link to="/reminders" search={{ new: true }}>
+            <Button size="sm" variant="outline">
+              <Plus className="mr-1.5 h-4 w-4" /> Add Reminder
+            </Button>
+          </Link>
           <Link to="/invoices">
             <Button size="sm" variant="outline">
               <FileText className="mr-1.5 h-4 w-4" /> Invoices
@@ -196,7 +203,7 @@ function ExecutiveDashboard() {
         </div>
       </div>
 
-      {/* Meetings and calls reminder strip */}
+      {/* Meetings, calls, and follow-up reminders */}
       <section className="rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -204,36 +211,57 @@ function ExecutiveDashboard() {
               <CalendarDays className="h-5 w-5" />
             </span>
             <div>
-              <h2 className="text-sm font-bold text-foreground">Meetings & Calls</h2>
-              <p className="text-xs text-muted-foreground">Your next scheduled reminders</p>
+              <h2 className="text-sm font-bold text-foreground">Meetings, Calls & Reminders</h2>
+              <p className="text-xs text-muted-foreground">
+                Upcoming schedules and follow-ups (e.g. call a client after a date)
+              </p>
             </div>
           </div>
-          <Link to="/calendar">
-            <Button size="sm" variant="outline">
-              Open Calendar
-            </Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/reminders">
+              <Button size="sm" variant="outline">
+                Reminders
+              </Button>
+            </Link>
+            <Link to="/calendar">
+              <Button size="sm" variant="outline">
+                Open Calendar
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {upcomingSchedule.length === 0 ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-border bg-background/60 px-4 py-3">
-            <p className="text-xs text-muted-foreground">No upcoming meetings or calls.</p>
-            <Link
-              to="/calendar"
-              search={{ new: true }}
-              className="text-xs font-bold text-primary hover:underline"
-            >
-              Create a schedule
-            </Link>
+            <p className="text-xs text-muted-foreground">
+              No upcoming meetings, calls, or reminders.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                to="/reminders"
+                search={{ new: true }}
+                className="text-xs font-bold text-primary hover:underline"
+              >
+                Add a reminder
+              </Link>
+              <Link
+                to="/calendar"
+                search={{ new: true }}
+                className="text-xs font-bold text-primary hover:underline"
+              >
+                Create a schedule
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {upcomingSchedule.map((event) => {
               const reminderState = scheduleReminderState(event, new Date(reminderClock));
+              const href = event.type === "reminder" ? "/reminders" : "/calendar";
               return (
                 <Link
                   key={event.id}
-                  to="/calendar"
+                  to={href}
                   className={`rounded-lg border bg-card p-3 transition-colors hover:border-primary/50 ${
                     reminderState === "due"
                       ? "border-rose-500/50 ring-1 ring-rose-500/20"
@@ -246,16 +274,22 @@ function ExecutiveDashboard() {
                       <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
                         {event.type === "call" ? (
                           <Phone className="h-3 w-3" />
+                        ) : event.type === "reminder" ? (
+                          <BellRing className="h-3 w-3" />
                         ) : (
                           <CalendarDays className="h-3 w-3" />
                         )}
-                        {event.type === "call" ? "Call" : "Meeting"}
+                        {event.type === "call"
+                          ? "Call"
+                          : event.type === "reminder"
+                            ? "Reminder"
+                            : "Meeting"}
                         {event.contact ? ` · ${event.contact}` : ""}
                       </p>
                     </div>
                     {reminderState === "due" && (
                       <span className="shrink-0 rounded-full bg-rose-500/10 px-2 py-0.5 text-[9px] font-bold uppercase text-rose-600">
-                        Reminder
+                        Due
                       </span>
                     )}
                   </div>

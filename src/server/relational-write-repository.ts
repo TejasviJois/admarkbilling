@@ -23,6 +23,7 @@
  */
 import { createHash } from "node:crypto";
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
+import { encodeLeadNotesForStorage } from "@/lib/lead-stats";
 import type {
   ActivityLogEntry,
   CompanySettings,
@@ -794,7 +795,7 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
       expectedRevenue: numeric(lead.expectedRevenue),
       probability: numeric(lead.probability),
       expectedClosingDate: isoDate(lead.expectedClosingDate),
-      notes: text(lead.notes),
+      notes: encodeLeadNotesForStorage(lead.notes, lead.archivedAt),
       assignedSalesperson: text(lead.assignedSalesperson),
       convertedClientId: text(lead.convertedClientId),
       createdAt: isoTimestamp(lead.createdAt),
@@ -1438,7 +1439,8 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
       legacy_id: calendarIds.storedLegacyId(id, legacyId),
       client_id: clientIdByName.get(normalizeName(event.contact)) ?? null,
       title: text(event.title) ?? "Calendar item",
-      calendar_type: event.type === "call" ? "call" : "meeting",
+      calendar_type:
+        event.type === "call" ? "call" : event.type === "reminder" ? "reminder" : "meeting",
       event_date: isoDate(event.date) ?? today(),
       start_time: isoTime(event.startTime),
       duration_minutes: duration > 0 ? duration : 30,
@@ -1575,6 +1577,9 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
           groundZeroApplied: ops.groundZeroApplied === true,
           blxRepairApplied: ops.blxRepairApplied === true,
           neRepairApplied: ops.neRepairApplied === true,
+          kapilaRetainerRepairApplied: ops.kapilaRetainerRepairApplied === true,
+          rentManagementContractRepairApplied: ops.rentManagementContractRepairApplied === true,
+          dismissedNotificationIds: ops.dismissedNotificationIds ?? [],
         },
       },
     },
@@ -1738,6 +1743,7 @@ export async function saveRelationalCompany(data: CompanySettings): Promise<void
         ...existingToggles,
         paymentProofUploadsEnabled: settings.paymentProofUploadsEnabled === true,
         companyValuationEnabled: settings.companyValuationEnabled === true,
+        projectAssignmentsEnabled: settings.projectAssignmentsEnabled === true,
       },
     },
   );

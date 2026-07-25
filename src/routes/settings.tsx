@@ -37,13 +37,14 @@ import { loadCompany, normalizeCompanySettings, saveCompany, upsertInvoice } fro
 import { getDataBackendStatus } from "@/server/invoice-fns";
 import { getBackendHealthFn } from "@/server/backend-health-fns";
 import { pushLocalDataToCloud, hasLocalDataToSync } from "@/lib/sync-to-cloud";
-import { logoutFn } from "@/server/auth-fns";
+import { logoutFn, changePasswordFn } from "@/server/auth-fns";
 import { useOperations } from "@/hooks/use-operations";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useCompany } from "@/hooks/use-company";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 import type { CompanyMember, CompanySettings, Invoice } from "@/lib/types";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
@@ -79,6 +80,12 @@ function SettingsPage() {
   const [backendErrors, setBackendErrors] = useState<string[]>([]);
   const [syncingCloud, setSyncingCloud] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const latestRef = useRef<CompanySettings | null>(null);
   latestRef.current = c;
@@ -437,6 +444,34 @@ function SettingsPage() {
       .catch((e) => logClientError("settings.signOut", e));
   };
 
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      toast.error("Enter your current and new password.");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error("New password and confirmation do not match.");
+      return;
+    }
+    setChangingPassword(true);
+    void changePasswordFn({
+      data: {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      },
+    })
+      .then(() => {
+        toast.success("Password updated.");
+        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      })
+      .catch((err) => {
+        logClientError("settings.changePassword", err);
+        toast.error(err instanceof Error ? err.message : "Could not change password.");
+      })
+      .finally(() => setChangingPassword(false));
+  };
+
   const partners = (c.companyMembers ?? []).filter((member) => member.memberType === "founder");
   const logoPreview = companyLogoSrc(c) || DEFAULT_PUBLIC_LOGO_URL;
 
@@ -603,6 +638,21 @@ function SettingsPage() {
                   className="mt-0.5"
                 />
               </div>
+              <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-muted/10 p-4">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Project Assignments</p>
+                  <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                    Show Project Assignments on the Team page so you can map people to projects.
+                    Leave this off until you need that workflow.
+                  </p>
+                </div>
+                <Switch
+                  checked={c.projectAssignmentsEnabled === true}
+                  onCheckedChange={(checked) => set("projectAssignmentsEnabled", checked)}
+                  aria-label="Toggle Project Assignments"
+                  className="mt-0.5"
+                />
+              </div>
               <p className="text-xs text-muted-foreground">
                 Payment proof uploads:{" "}
                 <span className="font-semibold text-foreground">
@@ -611,6 +661,10 @@ function SettingsPage() {
                 {" · "}Company Valuation:{" "}
                 <span className="font-semibold text-foreground">
                   {c.companyValuationEnabled ? "Enabled" : "Disabled"}
+                </span>
+                {" · "}Project Assignments:{" "}
+                <span className="font-semibold text-foreground">
+                  {c.projectAssignmentsEnabled ? "Enabled" : "Disabled"}
                 </span>
                 . Use “Save Changes” after updating these rules.
               </p>
@@ -726,6 +780,40 @@ function SettingsPage() {
                   </span>
                 </div>
               </div>
+
+              <div className="space-y-4 rounded-lg border border-border p-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Change password</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Enter your current password, then choose a new one (8+ characters with upper,
+                    lower, and a number).
+                  </p>
+                </div>
+                <form onSubmit={handleChangePassword} className="space-y-3 max-w-md">
+                  <SettingsField
+                    label="Current password"
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(v) => setPasswordForm((f) => ({ ...f, currentPassword: v }))}
+                  />
+                  <SettingsField
+                    label="New password"
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(v) => setPasswordForm((f) => ({ ...f, newPassword: v }))}
+                  />
+                  <SettingsField
+                    label="Confirm new password"
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(v) => setPasswordForm((f) => ({ ...f, confirmPassword: v }))}
+                  />
+                  <Button type="submit" disabled={changingPassword}>
+                    {changingPassword ? "Updating…" : "Update password"}
+                  </Button>
+                </form>
+              </div>
+
               <div className="border-t border-border pt-4">
                 <button
                   type="button"

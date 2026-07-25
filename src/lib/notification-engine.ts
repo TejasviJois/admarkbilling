@@ -14,6 +14,7 @@ export function syncSystemNotifications(
   supabaseConfigured: boolean,
 ): AppNotification[] {
   const existing = ops.notifications ?? [];
+  const dismissed = new Set(ops.dismissedNotificationIds ?? []);
   const existingMap = new Map(existing.map((n) => [n.id, n]));
   const newList: AppNotification[] = [];
 
@@ -21,6 +22,7 @@ export function syncSystemNotifications(
   const todayTime = new Date(todayStr).getTime();
 
   function addOrPreserve(n: Omit<AppNotification, "read" | "timestamp">) {
+    if (dismissed.has(n.id)) return;
     const prev = existingMap.get(n.id);
     if (prev) {
       newList.push(prev);
@@ -197,22 +199,30 @@ export function syncSystemNotifications(
     }
   }
 
-  // 7. Backup Completed
+  // 7. Schedule reminders — keep due until completed (especially Reminder type)
   const now = Date.now();
   for (const event of ops.scheduleEvents ?? []) {
     if (event.status !== "scheduled") continue;
     const eventTime = scheduleEventDate(event).getTime();
     const minutesUntil = (eventTime - now) / 60_000;
-    const stillRelevant = minutesUntil >= -event.durationMinutes;
-    if (stillRelevant && minutesUntil <= event.reminderMinutes) {
+    const stillRelevant =
+      event.type === "reminder"
+        ? minutesUntil <= event.reminderMinutes
+        : minutesUntil >= -event.durationMinutes && minutesUntil <= event.reminderMinutes;
+    if (stillRelevant) {
       addOrPreserve({
         id: `schedule-reminder-${event.id}`,
-        title: `${event.type === "call" ? "Call" : "Meeting"} reminder`,
+        title: `${event.type === "call" ? "Call" : event.type === "reminder" ? "Reminder" : "Meeting"} reminder`,
         message: `${event.title} — ${formatScheduleDateTime(event)}.`,
         priority: minutesUntil <= 10 ? "high" : "medium",
         relatedModule: "calendar",
-        actionUrl: "/calendar",
-        actionLabel: event.meetingUrl ? "Open schedule" : "View calendar",
+        actionUrl: event.type === "reminder" ? "/reminders" : "/calendar",
+        actionLabel:
+          event.type === "reminder"
+            ? "Open reminders"
+            : event.meetingUrl
+              ? "Open schedule"
+              : "View calendar",
       });
     }
   }
@@ -266,6 +276,13 @@ export function syncSystemNotifications(
 
   // Notification generation may run from a stale browser snapshot. Preserve
   // unmatched server-backed notifications; only an explicit user action may delete.
+  // Skip ids the user already cleared.
   const generatedIds = new Set(newList.map((notification) => notification.id));
-  return [...newList, ...existing.filter((notification) => !generatedIds.has(notification.id))];
+  return [
+    ...newList,
+    ...existing.filter(
+      (notification) =>
+        !generatedIds.has(notification.id) && !dismissed.has(notification.id),
+    ),
+  ];
 }

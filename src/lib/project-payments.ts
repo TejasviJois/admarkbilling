@@ -258,6 +258,14 @@ export function estimatedPending(project: Project): number {
  * An explicit contractValue of 0 means "no contract — recurring only".
  */
 function contractTargetFromProject(project: Project): number | null {
+  // Ground Zero locks received + outstanding at migration. Prefer that total so
+  // Contract value never understates Outstanding (e.g. Rent Management 80k vs 70k).
+  if (project.historicalOutstanding != null) {
+    const locked =
+      (project.historicalReceived ?? 0) + project.historicalOutstanding;
+    if (locked > 0) return locked;
+  }
+
   const b = project.billing ?? {};
   if (b.contractValue != null) return b.contractValue > 0 ? b.contractValue : null;
   // Explicit form entries win over legacy revenueValue text — a typed 0 sticks.

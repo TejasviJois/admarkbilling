@@ -262,8 +262,13 @@ function RetainerSection({
                   params={{ id: row.project.id }}
                   className="font-semibold text-primary hover:underline"
                 >
-                  {row.client}
+                  {row.project.name?.trim() || row.client}
                 </Link>
+                {row.project.name?.trim() &&
+                  row.client.trim() &&
+                  row.project.name.trim() !== row.client.trim() && (
+                    <span className="ml-2 text-xs text-muted-foreground">{row.client}</span>
+                  )}
                 {row.project.projectType && (
                   <span className="ml-2 text-xs text-muted-foreground">
                     {row.project.projectType}
