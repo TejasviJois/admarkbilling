@@ -31,12 +31,10 @@ export const Route = createFileRoute("/")({ component: ExecutiveDashboard });
 
 function ExecutiveDashboard() {
   const { ops, loading: opsLoading } = useOperations();
-  const [mounted, setMounted] = useState(false);
   const [hasRendered, setHasRendered] = useState(false);
   const [reminderClock, setReminderClock] = useState(() => Date.now());
 
   useEffect(() => {
-    setMounted(true);
     const timer = window.setInterval(() => setReminderClock(Date.now()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
@@ -44,8 +42,8 @@ function ExecutiveDashboard() {
   const loading = opsLoading;
 
   useEffect(() => {
-    if (mounted && !loading) setHasRendered(true);
-  }, [mounted, loading]);
+    if (!loading) setHasRendered(true);
+  }, [loading]);
   const upcomingSchedule = useMemo(() => {
     const now = new Date(reminderClock);
     return sortScheduleEvents(
@@ -134,7 +132,7 @@ function ExecutiveDashboard() {
 
   // Never remount the whole dashboard for background refetches/prefetches.
   // Remounting under the cursor re-fires intent preload and causes a click-blocking loop.
-  if ((!mounted || loading || !dashboardData) && !hasRendered) {
+  if ((loading || !dashboardData) && !hasRendered) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center text-sm text-muted-foreground">
         <Activity className="mr-2 h-5 w-5 animate-spin text-primary" />

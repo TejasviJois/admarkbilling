@@ -1,6 +1,6 @@
 import type { ActivityLogEntry, DocumentsData, Invoice } from "@/lib/types";
 import { syncAllToCloudFn } from "@/server/sync-fns";
-import { getDataBackendStatus } from "@/server/invoice-fns";
+import { isServerApiConfigured } from "@/lib/backend-status-cache";
 import { DEFAULT_COMPANY } from "./constants";
 import { normalizeCompanySettings } from "./company-settings";
 import { DEFAULT_FINANCIAL_BASELINE } from "./default-financial-baseline";
@@ -30,8 +30,7 @@ function readJson<T>(key: string, fallback: T): T {
 }
 
 export async function pushLocalDataToCloud(): Promise<{ synced: string[] }> {
-  const status = await getDataBackendStatus();
-  if (!status.configured) {
+  if (!(await isServerApiConfigured())) {
     throw new Error("Supabase is not configured on the server. Add env vars and redeploy.");
   }
 

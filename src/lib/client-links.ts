@@ -15,7 +15,7 @@ const MIN_PREFIX_LENGTH = 6;
 /**
  * Recreate client records that projects still reference but that vanished from
  * the client list (deleted or lost during renames). Keeps the original id so
- * the project link — and the client-hierarchy parenting rules — work again.
+ * the project link stays valid.
  */
 export function ensureClientsForLinkedProjects(data: OperationsData): OperationsData {
   const clients = data.clients ?? [];

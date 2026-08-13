@@ -116,6 +116,9 @@ export default defineConfig({
     tailwindcss(),
     tanstackStart({
       server: { entry: "server" },
+      // Split route components into async chunks so `/` does not pay for
+      // valuation/invoice/recharts/jspdf on first paint.
+      autoCodeSplitting: true,
     }),
     nitro({
       preset: "vercel",

@@ -1,8 +1,6 @@
-import { getDataBackendStatus } from "@/server/invoice-fns";
+import { isServerApiConfigured } from "@/lib/backend-status-cache";
 import { uploadFileFn } from "@/server/storage-fns";
 import { logClientError } from "@/lib/client-logger";
-
-let backendConfigured: boolean | null = null;
 
 const EXT_MIME: Record<string, string> = {
   pdf: "application/pdf",
@@ -30,15 +28,7 @@ function withMimeType(dataUrl: string, mimeType: string): string {
 }
 
 async function remoteEnabled(): Promise<boolean> {
-  if (backendConfigured !== null) return backendConfigured;
-  try {
-    const status = await getDataBackendStatus();
-    backendConfigured = status.configured;
-    return backendConfigured;
-  } catch {
-    backendConfigured = false;
-    return false;
-  }
+  return isServerApiConfigured();
 }
 
 /** When Supabase is configured, upload a data URL to Storage and return its public URL. */

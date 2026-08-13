@@ -35,6 +35,7 @@ import { loadActivityLogs, replaceActivityLogs } from "@/lib/activity-log-storag
 import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
 import { loadCompany, normalizeCompanySettings, saveCompany, upsertInvoice } from "@/lib/storage";
 import { getDataBackendStatus } from "@/server/invoice-fns";
+import { setServerApiConfigured } from "@/lib/backend-status-cache";
 import { getBackendHealthFn } from "@/server/backend-health-fns";
 import { pushLocalDataToCloud, hasLocalDataToSync } from "@/lib/sync-to-cloud";
 import { logoutFn, changePasswordFn } from "@/server/auth-fns";
@@ -113,13 +114,14 @@ function SettingsPage() {
       })
       .finally(() => setSyncing(false));
     void getDataBackendStatus()
-      .then((s) =>
+      .then((s) => {
+        setServerApiConfigured(s.configured);
         setBackendLabel(
           s.configured
             ? "Supabase Cloud — synced across devices"
             : "Browser localStorage — this device only",
-        ),
-      )
+        );
+      })
       .catch(() => setBackendLabel("Storage status unknown"));
     void getBackendHealthFn()
       .then((health) => {

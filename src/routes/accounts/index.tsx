@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   ArrowDownRight,
   ArrowLeftRight,
   ArrowUpRight,
-  CalendarClock,
   Pencil,
   Search,
   SlidersHorizontal,
@@ -179,11 +178,6 @@ function AccountsPage() {
         </Button>
         <Button variant="outline" onClick={() => openCreate("internal_transfer")} className="gap-2">
           <ArrowLeftRight className="h-4 w-4" /> Transfer Funds
-        </Button>
-        <Button asChild variant="outline" className="gap-2">
-          <Link to="/accounts/monthly-payments">
-            <CalendarClock className="h-4 w-4" /> Fixed Costs
-          </Link>
         </Button>
       </div>
 

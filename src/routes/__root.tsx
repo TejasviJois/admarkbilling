@@ -37,7 +37,7 @@ import { companyLogoSrc } from "@/lib/company-branding";
 import { getAuthStatusCached, clearAuthStatusCache } from "@/lib/auth-status-cache";
 import { prefetchAppData } from "@/lib/prefetch-app-data";
 import { useCompany } from "@/hooks/use-company";
-import { getDataBackendStatus } from "@/server/invoice-fns";
+import { isServerApiConfigured } from "@/lib/backend-status-cache";
 import { logoutFn } from "@/server/auth-fns";
 
 function NotFoundComponent() {
@@ -396,8 +396,8 @@ function AppShell() {
   const isLogin = path === "/login";
 
   useEffect(() => {
-    void getDataBackendStatus()
-      .then((s) => setServerDb(s.configured))
+    void isServerApiConfigured()
+      .then(setServerDb)
       .catch(() => setServerDb(false));
   }, []);
 

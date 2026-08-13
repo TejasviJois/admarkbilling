@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ClientFormDialog } from "@/components/operations/ClientFormDialog";
 import { ClientsTable } from "@/components/operations/ClientsTable";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
@@ -12,23 +13,28 @@ import type { Client } from "@/lib/types";
 
 export const Route = createFileRoute("/clients/")({ component: ClientsPage });
 
+type ProjectBadge = "active" | "completed" | "none";
+
+const BADGE_ORDER: Record<ProjectBadge, number> = {
+  active: 0,
+  completed: 1,
+  none: 2,
+};
+
 function ClientsPage() {
   const { ops, persist, loading } = useOperations();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
+  const [search, setSearch] = useState("");
 
   const clients = ops.clients ?? [];
-  const visibleClients = useMemo(() => {
-    return clients
-      .filter((client) => !client.parentClientId)
-      .sort((a, b) => a.companyName.localeCompare(b.companyName));
-  }, [clients]);
 
   // "Active" wins over "Completed"; clients with no revenue projects show "No Projects".
   const projectBadgeById = useMemo(() => {
     const normalized = (value: string) => value.trim().toLowerCase();
-    const map = new Map<string, "active" | "completed" | "none">();
-    for (const client of visibleClients) {
+    const map = new Map<string, ProjectBadge>();
+    const roots = clients.filter((client) => !client.parentClientId);
+    for (const client of roots) {
       const companyIds = new Set([
         client.id,
         ...clients.filter((child) => child.parentClientId === client.id).map((child) => child.id),
@@ -54,7 +60,31 @@ function ClientsPage() {
       );
     }
     return map;
-  }, [visibleClients, clients, ops.projects]);
+  }, [clients, ops.projects]);
+
+  const visibleClients = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return clients
+      .filter((client) => !client.parentClientId)
+      .filter((client) => {
+        if (!query) return true;
+        return [client.companyName, client.contactPerson, client.email, client.phone, client.status]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+      })
+      .sort((a, b) => {
+        const badgeA = projectBadgeById.get(a.id) ?? "none";
+        const badgeB = projectBadgeById.get(b.id) ?? "none";
+        const byBadge = BADGE_ORDER[badgeA] - BADGE_ORDER[badgeB];
+        if (byBadge !== 0) return byBadge;
+        const byClientStatus =
+          Number(a.status !== "active") - Number(b.status !== "active");
+        if (byClientStatus !== 0) return byClientStatus;
+        return a.companyName.localeCompare(b.companyName);
+      });
+  }, [clients, search, projectBadgeById]);
 
   const openAdd = () => {
     setEditing(null);
@@ -103,7 +133,7 @@ function ClientsPage() {
   if (loading) return <OperationsLoading />;
 
   return (
-    <div>
+    <div className="space-y-4">
       <OperationsPageHeader
         title="Clients"
         description="Centralized directory of companies, contacts, billing profiles, and client relationship logs."
@@ -113,6 +143,21 @@ function ClientsPage() {
           </Button>
         }
       />
+
+      <div className="relative max-w-md">
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden
+        />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search clients…"
+          className="pl-9"
+          aria-label="Search clients"
+        />
+      </div>
+
       <ClientFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
@@ -126,6 +171,11 @@ function ClientsPage() {
         projectBadgeById={projectBadgeById}
         onEdit={openEdit}
         onRemove={handleRemove}
+        emptyMessage={
+          search.trim()
+            ? "No clients match your search."
+            : "No clients configured. Add your first client profile to get started."
+        }
       />
     </div>
   );

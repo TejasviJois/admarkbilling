@@ -9,13 +9,12 @@ import type {
 import { DEFAULT_PROJECTS, withDefaultProjects } from "@/lib/default-projects";
 import { DEFAULT_PARTNERSHIPS, withDefaultPartnerships } from "@/lib/default-partnerships";
 import { withDefaultFinancialBaseline } from "@/lib/default-financial-baseline";
-import { withDefaultFixedMonthlyExpenses } from "@/lib/default-fixed-monthly-expenses";
 import { withDefaultLeads } from "@/lib/default-leads";
 import { normalizeAllProjectPayments } from "./project-payments";
 import { mergeAllProjectBilling } from "./project-billing";
 import { logClientError } from "./client-logger";
 import { getOperationsFn, saveOperationsFn, EMPTY_OPERATIONS } from "@/server/operations-fns";
-import { getDataBackendStatus } from "@/server/invoice-fns";
+import { isServerApiConfigured } from "@/lib/backend-status-cache";
 import type { OperationsMutation, OperationsPersistOptions } from "./operations-mutations";
 
 const OPERATIONS_KEY = "admark.operations";
@@ -217,12 +216,10 @@ function mergeWithDefaults(data: OperationsData): OperationsData {
   };
 
   return withDefaultLeads(
-    withDefaultFixedMonthlyExpenses(
-      withDefaultFinancialBaseline({
-        ...merged,
-        projects: mergeAllProjectBilling(normalizeAllProjectPayments(merged.projects)),
-      }),
-    ),
+    withDefaultFinancialBaseline({
+      ...merged,
+      projects: mergeAllProjectBilling(normalizeAllProjectPayments(merged.projects)),
+    }),
   );
 }
 
@@ -242,7 +239,6 @@ function saveOperationsLocal(data: OperationsData) {
   localStorage.setItem(OPERATIONS_KEY, JSON.stringify(data));
 }
 
-let serverConfiguredCache: boolean | null = null;
 let operationsVersion: string | null = null;
 let writeQueue: Promise<unknown> = Promise.resolve();
 let blockedConflict: OperationsConflictError | null = null;
@@ -259,15 +255,7 @@ export class OperationsConflictError extends Error {
 }
 
 async function serverApiEnabled(): Promise<boolean> {
-  if (serverConfiguredCache !== null) return serverConfiguredCache;
-  try {
-    const s = await getDataBackendStatus();
-    serverConfiguredCache = s.configured;
-    return serverConfiguredCache;
-  } catch {
-    serverConfiguredCache = false;
-    return false;
-  }
+  return isServerApiConfigured();
 }
 
 let pendingWrites = 0;

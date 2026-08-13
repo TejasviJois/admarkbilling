@@ -1,7 +1,7 @@
 import type { Agreement, ArchiveDocument, DocumentsData } from "@/lib/types";
 import { logClientError } from "./client-logger";
 import { getDocumentsFn, saveDocumentsFn, EMPTY_DOCUMENTS } from "@/server/documents-fns";
-import { getDataBackendStatus } from "@/server/invoice-fns";
+import { isServerApiConfigured } from "@/lib/backend-status-cache";
 
 const DOCUMENTS_KEY = "admark.documents";
 type DocumentKey = "agreements" | "archiveDocuments";
@@ -83,8 +83,7 @@ function saveDocumentsLocal(data: DocumentsData) {
 export async function loadDocuments(): Promise<DocumentsData> {
   if (!isBrowser()) return EMPTY_DOCUMENTS;
   try {
-    const backend = await getDataBackendStatus();
-    if (backend.configured) {
+    if (await isServerApiConfigured()) {
       const remote = await getDocumentsFn();
       if (pendingWrites === 0) {
         documentsVersion = remote.version;
@@ -110,8 +109,8 @@ export async function saveDocuments(
   const normalized = normalizeDocuments(data);
   saveDocumentsLocal(normalized);
 
-  const backend = await getDataBackendStatus();
-  if (!backend.configured) {
+  const backendConfigured = await isServerApiConfigured();
+  if (!backendConfigured) {
     documentsSnapshot = normalized;
     return normalized;
   }

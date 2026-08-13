@@ -4,7 +4,6 @@ import {
   withDefaultFinancialBaseline,
 } from "./default-financial-baseline";
 import { sumPipelineBookedRevenue } from "./project-billing";
-import { sumActiveFixedMonthlyExpenses } from "./fixed-monthly-expenses";
 import { isFounderSalary } from "./founder-ledger";
 import type {
   ExpenseCategory,
@@ -85,7 +84,6 @@ export type FinancialSummary = {
   newExpenseCount: number;
   newRevenueAfterBaseline: number;
   verifiedPaymentTotal: number;
-  totalMonthlyFixedExpenses: number;
   activePipelineBooked: number;
 };
 
@@ -152,7 +150,6 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
   // received to date. Future recurring months remain in MRR/FMRR and are not
   // booked early. The frozen Ground Zero figure goes stale after project edits.
   const totalRevenueBooked = activePipelineBooked;
-  const totalMonthlyFixedExpenses = sumActiveFixedMonthlyExpenses(ops.fixedMonthlyExpenses);
 
   return {
     baseline,
@@ -168,7 +165,6 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
     newExpenseCount: expenses.length,
     newRevenueAfterBaseline,
     verifiedPaymentTotal: totalRevenueReceived,
-    totalMonthlyFixedExpenses,
     activePipelineBooked,
   };
 }

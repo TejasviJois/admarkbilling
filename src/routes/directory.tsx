@@ -157,10 +157,10 @@ function DirectoryPage() {
               ) : (
                 visibleContacts.map((contact) => (
                   <tr key={contact.id} className="hover:bg-muted/30">
-                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-foreground">
+                    <td className="max-w-[14rem] px-4 py-3 font-semibold text-foreground break-words">
                       {contact.personName}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                    <td className="max-w-[14rem] px-4 py-3 text-muted-foreground break-words">
                       {contact.companyName || "—"}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">

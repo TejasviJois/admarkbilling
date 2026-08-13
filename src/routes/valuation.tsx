@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { ValuationAssumptionsPanel } from "@/components/valuation/ValuationAssumptionsPanel";
-import { ValuationHistoryChart } from "@/components/valuation/ValuationHistoryChart";
+import { LazyValuationHistoryChart } from "@/components/valuation/LazyValuationHistoryChart";
 import { useOperations } from "@/hooks/use-operations";
 import { useInvoices } from "@/hooks/use-invoices";
 import { loadCompany } from "@/lib/storage";
@@ -34,11 +34,6 @@ import {
   VALUATION_METHOD_LABELS,
   valuationAssumptionsHash,
 } from "@/lib/valuation-engine";
-import {
-  exportValuationCsv,
-  exportValuationExcel,
-  exportValuationPdf,
-} from "@/lib/valuation-export";
 import type { ValuationAuditEntry, ValuationSettings, ValuationSnapshot } from "@/lib/types";
 
 export const Route = createFileRoute("/valuation")({
@@ -204,7 +199,11 @@ function CompanyValuationPage() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => exportValuationPdf(result, settings, snapshots)}
+              onClick={() =>
+                void import("@/lib/valuation-export").then((m) =>
+                  m.exportValuationPdf(result, settings, snapshots),
+                )
+              }
             >
               <Download className="mr-1.5 h-4 w-4" /> PDF
             </Button>
@@ -212,7 +211,11 @@ function CompanyValuationPage() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => exportValuationExcel(result, settings, snapshots)}
+              onClick={() =>
+                void import("@/lib/valuation-export").then((m) =>
+                  m.exportValuationExcel(result, settings, snapshots),
+                )
+              }
             >
               <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
             </Button>
@@ -220,7 +223,11 @@ function CompanyValuationPage() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => exportValuationCsv(result, settings, snapshots)}
+              onClick={() =>
+                void import("@/lib/valuation-export").then((m) =>
+                  m.exportValuationCsv(result, settings, snapshots),
+                )
+              }
             >
               CSV
             </Button>
@@ -592,7 +599,7 @@ function CompanyValuationPage() {
               </div>
             </div>
             <div className="mt-4">
-              <ValuationHistoryChart snapshots={snapshots} />
+              <LazyValuationHistoryChart snapshots={snapshots} />
             </div>
           </section>
 

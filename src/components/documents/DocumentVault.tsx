@@ -1,14 +1,16 @@
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { FileText, Plus, Search, Trash2, Upload, X } from "lucide-react";
+import { Download, ExternalLink, FileText, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import { FolderTile } from "@/components/documents/documents-ui";
 import { fileFromUpload } from "@/components/documents/proof-ui";
 import { Button } from "@/components/ui/button";
 import { useCompany } from "@/hooks/use-company";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -147,15 +149,17 @@ function DocumentPreviewDialog({
   onClose: () => void;
   onAssign?: (ids: string[]) => void;
 }) {
+  const isMobile = useIsMobile();
   const src = document ? previewSrc(document) : undefined;
   const image = document ? isImageDocument(document) : false;
   const pdf = document ? isPdfDocument(document) : false;
   const assigned = document?.assignedMemberIds ?? [];
   const names = members ? assigneeNames(assigned, members) : [];
+  const fileLabel = document?.fileName || "document";
 
   return (
     <Dialog open={document != null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[min(92vh,900px)] overflow-hidden sm:max-w-3xl">
+      <DialogContent className="max-h-[min(92vh,900px)] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="pr-6">{document?.title ?? "Document"}</DialogTitle>
           <DialogDescription>
@@ -188,6 +192,14 @@ function DocumentPreviewDialog({
               className="mx-auto max-h-[min(70vh,640px)] w-full object-contain"
             />
           </div>
+        ) : src && pdf && isMobile ? (
+          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-6 text-center">
+            <FileText className="mx-auto h-10 w-10 text-muted-foreground" aria-hidden />
+            <p className="text-sm text-muted-foreground">
+              Phone browsers can’t scroll PDFs inside this popup. Open it in a new tab to view every
+              page and download.
+            </p>
+          </div>
         ) : src && pdf ? (
           <iframe
             title={document?.title ?? "PDF preview"}
@@ -199,17 +211,28 @@ function DocumentPreviewDialog({
             <p className="text-sm text-muted-foreground">
               This file type can’t be previewed here. Download it to open.
             </p>
-            <a
-              href={src}
-              download={document?.fileName || "document"}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Download {document?.fileName || "file"}
-            </a>
           </div>
         ) : (
           <p className="py-8 text-center text-sm text-muted-foreground">No file attached.</p>
         )}
+        {src ? (
+          <DialogFooter className="gap-2 sm:gap-2">
+            {(pdf || !image) && (
+              <Button type="button" variant="outline" asChild>
+                <a href={src} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="mr-1.5 h-4 w-4" />
+                  Open in new tab
+                </a>
+              </Button>
+            )}
+            <Button type="button" variant="outline" asChild>
+              <a href={src} download={fileLabel}>
+                <Download className="mr-1.5 h-4 w-4" />
+                Download
+              </a>
+            </Button>
+          </DialogFooter>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

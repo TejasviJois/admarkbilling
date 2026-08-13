@@ -2,7 +2,7 @@ import { logClientError } from "./client-logger";
 import { createActivityLogEntry, trimActivityLogs, type LogDraft } from "./activity-log";
 import type { ActivityLogEntry } from "./types";
 import { getActivityLogsFn, saveActivityLogsFn } from "@/server/activity-log-fns";
-import { getDataBackendStatus } from "@/server/invoice-fns";
+import { isServerApiConfigured } from "@/lib/backend-status-cache";
 
 const ACTIVITY_LOGS_KEY = "admark.activity-logs";
 
@@ -27,7 +27,6 @@ function saveActivityLogsLocal(entries: ActivityLogEntry[]) {
   localStorage.setItem(ACTIVITY_LOGS_KEY, JSON.stringify(entries));
 }
 
-let serverConfiguredCache: boolean | null = null;
 let activityVersion: string | null = null;
 let activitySnapshot: ActivityLogEntry[] = [];
 let writeQueue: Promise<unknown> = Promise.resolve();
@@ -43,15 +42,7 @@ class ActivityLogsConflictError extends Error {
 }
 
 async function serverApiEnabled(): Promise<boolean> {
-  if (serverConfiguredCache !== null) return serverConfiguredCache;
-  try {
-    const s = await getDataBackendStatus();
-    serverConfiguredCache = s.configured;
-    return serverConfiguredCache;
-  } catch {
-    serverConfiguredCache = false;
-    return false;
-  }
+  return isServerApiConfigured();
 }
 
 export async function loadActivityLogs(): Promise<ActivityLogEntry[]> {

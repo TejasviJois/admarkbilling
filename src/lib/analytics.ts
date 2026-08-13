@@ -1,35 +1,12 @@
 import { formatINRWhole } from "./invoice-calc";
 import { projectClientLabel } from "./project-status";
-import {
-  projectBillingRows,
-  sumActiveMrr,
-  sumActivePipelineBooked,
-  sumFutureMonthlyPipeline,
-  sumPipelineBookedRevenue,
-} from "./project-billing";
+import { sumActiveMrr, sumFutureMonthlyPipeline } from "./project-billing";
 import { GROUND_ZERO_DATE } from "./ground-zero";
+import type { OperationsData, Payment, Project, Transaction } from "./types";
 import {
-  historicalReceived,
-  isVerifiedPayment,
-  resolvePaymentProof,
-  sumProjectPayments,
-  totalReceived,
-} from "./project-payments";
-import type {
-  OperationsData,
-  Payment,
-  Project,
-  ProjectPayment,
-  ExpenseCategory,
-  Transaction,
-} from "./types";
-import {
-  buildMoneyOutRows,
   computeFinancialSummary,
-  EXPENSE_CATEGORY_DESCRIPTIONS,
   EXPENSE_CATEGORY_SHORT_LABELS,
   normalizeCategory,
-  type FinancialSummary,
 } from "./financial";
 import {
   calendarMonthKey,
@@ -41,7 +18,6 @@ import {
   weekOverlapsCalendarMonth,
   type PeriodKey,
 } from "./date-range-filter";
-import { proratedFixedMonthlyForPeriod } from "./fixed-monthly-expenses";
 
 export type IncomeRow = {
   id: string;
@@ -53,45 +29,6 @@ export type IncomeRow = {
   hasProof: boolean;
   proofImageUrl?: string;
 };
-
-export type RevenueRow = {
-  project: Project;
-  client: string;
-  contract: number | null;
-  contractLabel: string;
-  received: number;
-  pending: number | null;
-  recurringStatus?: string;
-  monthlyStartDate?: string;
-};
-
-export function sumAllProjectIncome(projects: Project[]): number {
-  return projects.reduce((total, project) => total + sumProjectPayments(project.payments), 0);
-}
-
-/** Booked contract value — upfront + started fixed-term monthly only. Excludes unstarted retainers. */
-/** @deprecated Use sumPipelineBookedRevenue or financial.activePipelineBooked */
-export function sumOngoingProjectRevenue(projects: Project[]): number {
-  return sumPipelineBookedRevenue(projects);
-}
-
-export {
-  sumActiveMrr,
-  sumFutureMonthlyPipeline,
-  sumActivePipelineBooked,
-  sumPipelineBookedRevenue,
-  projectBillingRows,
-};
-
-export function allProjectPaymentsByMonth(payments: Payment[]): Map<string, number> {
-  const months = new Map<string, number>();
-  for (const payment of payments ?? []) {
-    const key = payment.date.slice(0, 7);
-    if (key.length !== 7) continue;
-    months.set(key, (months.get(key) ?? 0) + (payment.amount || 0));
-  }
-  return months;
-}
 
 export function flattenProjectIncome(payments: Payment[], projects: Project[]): IncomeRow[] {
   const rows: IncomeRow[] = [];
@@ -113,87 +50,6 @@ export function flattenProjectIncome(payments: Payment[], projects: Project[]): 
     });
   }
   return rows.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-}
-
-export function ongoingRevenueRows(projects: Project[]): RevenueRow[] {
-  return projectBillingRows(projects).map((row) => ({
-    project: row.project,
-    client: row.client,
-    contract: row.bookedRevenue > 0 ? row.bookedRevenue : null,
-    contractLabel: row.billingLabel,
-    received: row.received,
-    pending:
-      row.bookedRevenue > 0 && row.received < row.bookedRevenue
-        ? row.bookedRevenue - row.received
-        : null,
-    recurringStatus: row.recurringStatus,
-    monthlyStartDate: row.monthlyStartDate,
-  }));
-}
-
-export type CategoryAmountRow = {
-  key: string;
-  label: string;
-  amount: number;
-  hint?: string;
-};
-
-export function buildIncomeByClient(payments: Payment[], projects: Project[]): CategoryAmountRow[] {
-  const totals = new Map<string, number>();
-  for (const row of flattenProjectIncome(payments, projects)) {
-    totals.set(row.client, (totals.get(row.client) ?? 0) + row.amount);
-  }
-  return [...totals.entries()]
-    .map(([client, amount]) => ({ key: client, label: client, amount }))
-    .sort((a, b) => b.amount - a.amount || a.label.localeCompare(b.label));
-}
-
-export function buildIncomeSourceBreakdown(financial: FinancialSummary): CategoryAmountRow[] {
-  if (financial.verifiedPaymentTotal > 0) {
-    return [
-      {
-        key: "verified-payments",
-        label: "Verified project payments",
-        amount: financial.totalRevenueReceived,
-        hint: "Income with uploaded proof",
-      },
-    ];
-  }
-
-  const rows: CategoryAmountRow[] = [
-    {
-      key: "baseline",
-      label: "Baseline (through reconciliation)",
-      amount: financial.baseline.totalRevenueReceived,
-      hint: `As of ${financial.baseline.asOfDate}`,
-    },
-  ];
-  if (financial.newRevenueAfterBaseline > 0) {
-    rows.push({
-      key: "new-payments",
-      label: "New project payments",
-      amount: financial.newRevenueAfterBaseline,
-      hint: "Logged after baseline date",
-    });
-  }
-  return rows.filter((r) => r.amount > 0);
-}
-
-export function buildMoneyOutCategoryBreakdown(ops: OperationsData): CategoryAmountRow[] {
-  const financial = computeFinancialSummary(ops);
-  const moneyOut = buildMoneyOutRows(financial, ops.expenses).map((row) => ({
-    key: row.category,
-    label: row.label,
-    amount: row.amount,
-    hint: EXPENSE_CATEGORY_DESCRIPTIONS[row.category],
-    newEntryCount: row.newEntryCount,
-  }));
-
-  // Handouts are deliberately NOT listed here — they're company loans repaid
-  // via the monthly EMI tracked under Fixed Costs, not operating expenses.
-  const rows: CategoryAmountRow[] = moneyOut.map(({ newEntryCount: _n, ...row }) => row);
-
-  return rows.sort((a, b) => b.amount - a.amount);
 }
 
 export function buildMonthlyChart(ops: OperationsData, month?: string) {
@@ -262,7 +118,8 @@ export function cashFlowWeekDetails(
       });
     }
   }
-  const byAmount = (a: CashFlowLine, b: CashFlowLine) => b.amount - a.amount || a.name.localeCompare(b.name);
+  const byAmount = (a: CashFlowLine, b: CashFlowLine) =>
+    b.amount - a.amount || a.name.localeCompare(b.name);
   return {
     income: income.sort(byAmount),
     expenses: expenses.sort(byAmount),
@@ -292,20 +149,7 @@ export function ledgerCashflowForMonth(ops: OperationsData, month: string) {
   return { income, expenses };
 }
 
-export function periodProjectIncome(
-  payments: Payment[],
-  projects: Project[],
-  period: PeriodKey,
-): number {
-  return flattenProjectIncome(payments, projects)
-    .filter((row) => isWithinPeriod(row.date, period))
-    .reduce((sum, row) => sum + row.amount, 0);
-}
-
-/**
- * Money in for a period — only payments with uploaded proof count as income.
- */
-export function periodTotalIncome(ops: OperationsData, period: PeriodKey): number {
+function periodTotalIncome(ops: OperationsData, period: PeriodKey): number {
   if (period === "all") {
     return computeFinancialSummary(ops).totalRevenueReceived;
   }
@@ -314,15 +158,14 @@ export function periodTotalIncome(ops: OperationsData, period: PeriodKey): numbe
     .reduce((sum, row) => sum + row.amount, 0);
 }
 
-export function periodLoggedExpenses(ops: OperationsData, period: PeriodKey): number {
+function periodLoggedExpenses(ops: OperationsData, period: PeriodKey): number {
   return ops.expenses
     .filter((e) => !e.isBaseline && isWithinPeriod(e.date, period))
     .filter((e) => normalizeCategory(e.category) !== "handout")
     .reduce((sum, e) => sum + (e.amount || 0), 0);
 }
 
-/** Money out for a period — baseline totals when in window, logged expenses, and prorated retainers. */
-export function periodMoneyOutTotal(ops: OperationsData, period: PeriodKey): number {
+function periodMoneyOutTotal(ops: OperationsData, period: PeriodKey): number {
   const financial = computeFinancialSummary(ops);
   if (period === "all") return financial.totalExpense;
 
@@ -334,113 +177,7 @@ export function periodMoneyOutTotal(ops: OperationsData, period: PeriodKey): num
   }
 
   total += periodLoggedExpenses(ops, period);
-  total += proratedFixedMonthlyForPeriod(ops.fixedMonthlyExpenses, period);
   return total;
-}
-
-export function buildIncomeByClientForPeriod(
-  ops: OperationsData,
-  period: PeriodKey,
-  month?: string,
-): CategoryAmountRow[] {
-  const totals = new Map<string, number>();
-  const countedPaymentIds = new Set<string>();
-  const inScope = (date: string | undefined) =>
-    month ? isInCalendarMonth(date, month) : isWithinPeriod(date, period);
-  const includeHistorical = month
-    ? isInCalendarMonth(GROUND_ZERO_DATE, month)
-    : period === "all" || isWithinPeriod(GROUND_ZERO_DATE, period);
-
-  const add = (label: string, amount: number) => {
-    if (!amount) return;
-    totals.set(label, (totals.get(label) ?? 0) + amount);
-  };
-
-  for (const project of ops.projects ?? []) {
-    const label = projectMoneyInClientLabel(project, ops);
-    const livePayments = livePaymentsCountedTowardReceived(project);
-    if (!month && period === "all") {
-      add(label, totalReceived(project));
-      for (const payment of livePayments) countedPaymentIds.add(payment.id);
-      continue;
-    }
-    if (includeHistorical) add(label, historicalReceived(project));
-    for (const payment of livePayments) {
-      if (!inScope(payment.date)) continue;
-      add(label, payment.amount || 0);
-      countedPaymentIds.add(payment.id);
-    }
-  }
-
-  for (const transaction of ledgerTransactions(ops)) {
-    if (!isMoneyInTransaction(transaction)) continue;
-    if (!inScope(transaction.date)) continue;
-    if (countedPaymentIds.has(transaction.id)) continue;
-    add(incomeClientLabel(transaction, ops), moneyInAmount(transaction));
-  }
-
-  return [...totals.entries()]
-    .map(([client, amount]) => ({ key: client, label: client, amount }))
-    .filter((row) => row.amount !== 0)
-    .sort((a, b) => b.amount - a.amount || a.label.localeCompare(b.label));
-}
-
-export function buildIncomeSourceForPeriod(
-  financial: FinancialSummary,
-  periodIncome: number,
-  period: PeriodKey,
-): CategoryAmountRow[] {
-  if (period === "all") return buildIncomeSourceBreakdown(financial);
-  if (periodIncome <= 0) return [];
-  return [
-    {
-      key: "period-payments",
-      label: "Project payments",
-      amount: periodIncome,
-      hint: "In selected period",
-    },
-  ];
-}
-
-export function buildMoneyOutForPeriod(
-  ops: OperationsData,
-  period: PeriodKey,
-  month?: string,
-): CategoryAmountRow[] {
-  if (!month && period === "all") return buildMoneyOutCategoryBreakdown(ops);
-
-  const inScope = (date: string | undefined) =>
-    month ? isInCalendarMonth(date, month) : isWithinPeriod(date, period);
-
-  const totals = new Map<ExpenseCategory, number>();
-  for (const expense of ops.expenses) {
-    if (expense.isBaseline || !inScope(expense.date)) continue;
-    const category = normalizeCategory(expense.category);
-    if (!category || category === "handout") continue;
-    totals.set(category, (totals.get(category) ?? 0) + (expense.amount || 0));
-  }
-
-  const rows = [...totals.entries()]
-    .map(([category, amount]) => ({
-      key: category as string,
-      label: EXPENSE_CATEGORY_SHORT_LABELS[category],
-      amount,
-      hint: EXPENSE_CATEGORY_DESCRIPTIONS[category],
-    }))
-    .sort((a, b) => b.amount - a.amount);
-
-  const retainers = month ? 0 : proratedFixedMonthlyForPeriod(ops.fixedMonthlyExpenses, period);
-  if (retainers > 0) {
-    rows.push({
-      key: "monthly-retainers",
-      label: "Monthly retainers (est.)",
-      amount: retainers,
-      hint: "Prorated from active salary, EMI, rent, and subscriptions",
-    });
-    rows.sort((a, b) => b.amount - a.amount);
-  }
-
-  return rows;
 }
 
 export function buildMonthlyChartForPeriod(ops: OperationsData, period: PeriodKey, month?: string) {
@@ -451,7 +188,7 @@ export function buildMonthlyChartForPeriod(ops: OperationsData, period: PeriodKe
   return chart.filter((row) => row.sortKey >= bounds.start && row.sortKey <= bounds.end);
 }
 
-export function paymentProofCoverage(
+function paymentProofCoverage(
   payments: Payment[],
   projects: Project[],
   period: PeriodKey,
@@ -514,23 +251,6 @@ function moneyInAmount(transaction: Transaction): number {
   return transaction.type === "refund" ? -Math.abs(transaction.amount) : transaction.amount;
 }
 
-function livePaymentsCountedTowardReceived(project: Project): ProjectPayment[] {
-  const payments = project.payments ?? [];
-  if (project.historicalReceived == null) return payments;
-  return payments.filter((payment) => payment.recordedAfterMigration === true);
-}
-
-function projectMoneyInClientLabel(project: Project, ops: OperationsData): string {
-  const fromProject = projectClientLabel(project);
-  if (fromProject && fromProject !== "—") return fromProject;
-  if (project.clientId) {
-    const client = (ops.clients ?? []).find((item) => item.id === project.clientId);
-    const name = client?.companyName.trim();
-    if (name) return name;
-  }
-  return "Unknown Client";
-}
-
 function moneyOutLabel(transaction: Transaction): string {
   const fromDescription = transaction.description.split(/[:·–]/)[0]?.trim();
   if (fromDescription) return fromDescription;
@@ -572,10 +292,6 @@ function formatWeekLabel(weekStart: string) {
     return `${start.getDate()}–${endText}`;
   }
   return `${startText}–${endText}`;
-}
-
-export function paymentProofLabel(payment: ProjectPayment, project?: Project): string {
-  return isVerifiedPayment(payment, project) ? "Proof attached" : "No proof";
 }
 
 export { formatINRWhole };

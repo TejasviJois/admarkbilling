@@ -5,12 +5,15 @@ import type { LogDraft } from "./activity-log";
 import {
   deleteInvoiceFn,
   getCompanyFn,
-  getDataBackendStatus,
   getInvoiceFn,
   listInvoicesFn,
   saveCompanyFn,
   upsertInvoiceFn,
 } from "@/server/invoice-fns";
+import {
+  getServerApiConfiguredCached,
+  isServerApiConfigured,
+} from "@/lib/backend-status-cache";
 
 export { DEFAULT_COMPANY } from "./constants";
 export { normalizeCompanySettings } from "./company-settings";
@@ -54,28 +57,18 @@ function saveCompanyLocal(c: CompanySettings) {
   localStorage.setItem(COMPANY_KEY, JSON.stringify(c));
 }
 
-let serverConfiguredCache: boolean | null = null;
-
 async function recordActivity(draft: LogDraft) {
   const { appendActivityLog } = await import("./activity-log-storage");
   await appendActivityLog(draft);
 }
 
 async function serverApiEnabled(): Promise<boolean> {
-  if (serverConfiguredCache !== null) return serverConfiguredCache;
-  try {
-    const s = await getDataBackendStatus();
-    serverConfiguredCache = s.configured;
-    return serverConfiguredCache;
-  } catch {
-    serverConfiguredCache = false;
-    return false;
-  }
+  return isServerApiConfigured();
 }
 
 /** @deprecated Prefer checking getDataBackendStatus in UI — kept for quick sync reads if needed */
 export function usesRemoteDatabase(): boolean {
-  return serverConfiguredCache === true;
+  return getServerApiConfiguredCached() === true;
 }
 
 export async function loadInvoices(): Promise<Invoice[]> {

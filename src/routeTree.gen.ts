@@ -10,20 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ValuationRouteImport } from './routes/valuation'
-import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as PartnershipsRouteImport } from './routes/partnerships'
-import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as NewRouteImport } from './routes/new'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as InvoicesRouteImport } from './routes/invoices'
-import { Route as HistoryRouteImport } from './routes/history'
-import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as DirectoryRouteImport } from './routes/directory'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CalendarRouteImport } from './routes/calendar'
@@ -41,20 +37,12 @@ import { Route as DocumentsInvoicesRouteImport } from './routes/documents/invoic
 import { Route as DocumentsCompanyRouteImport } from './routes/documents/company'
 import { Route as DocumentsAgreementsRouteImport } from './routes/documents/agreements'
 import { Route as ClientsIdRouteImport } from './routes/clients.$id'
-import { Route as AnalyticsRevenueRouteImport } from './routes/analytics/revenue'
-import { Route as AnalyticsOngoingRouteImport } from './routes/analytics/ongoing'
-import { Route as AnalyticsIncomeRouteImport } from './routes/analytics/income'
-import { Route as AnalyticsExpensesRouteImport } from './routes/analytics/expenses'
-import { Route as AnalyticsBalanceRouteImport } from './routes/analytics/balance'
 import { Route as AccountsRetainersRouteImport } from './routes/accounts.retainers'
-import { Route as AccountsMonthlyPaymentsRouteImport } from './routes/accounts/monthly-payments'
 import { Route as AccountsBillingRouteImport } from './routes/accounts.billing'
-import { Route as DocumentsQuotationsIndexRouteImport } from './routes/documents/quotations/index'
 import { Route as DocumentsProposalsIndexRouteImport } from './routes/documents/proposals/index'
 import { Route as DocumentsPaymentsIndexRouteImport } from './routes/documents/payments/index'
 import { Route as DocumentsClientsIndexRouteImport } from './routes/documents/clients/index'
 import { Route as InvoiceIdEditRouteImport } from './routes/invoice_.$id.edit'
-import { Route as DocumentsQuotationsCompanyKeyRouteImport } from './routes/documents/quotations/$companyKey'
 import { Route as DocumentsProposalsCompanyKeyRouteImport } from './routes/documents/proposals/$companyKey'
 import { Route as DocumentsClientsIdRouteImport } from './routes/documents/clients/$id'
 import { Route as DocumentsPaymentsVendorsIndexRouteImport } from './routes/documents/payments/vendors/index'
@@ -67,11 +55,6 @@ import { Route as DocumentsPaymentsClientsClientKeyRouteImport } from './routes/
 const ValuationRoute = ValuationRouteImport.update({
   id: '/valuation',
   path: '/valuation',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TransactionsRoute = TransactionsRouteImport.update({
-  id: '/transactions',
-  path: '/transactions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TeamRoute = TeamRouteImport.update({
@@ -99,11 +82,6 @@ const PartnershipsRoute = PartnershipsRouteImport.update({
   path: '/partnerships',
   getParentRoute: () => rootRouteImport,
 } as any)
-const NotificationsRoute = NotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const NewRoute = NewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -127,16 +105,6 @@ const LeadsRoute = LeadsRouteImport.update({
 const InvoicesRoute = InvoicesRouteImport.update({
   id: '/invoices',
   path: '/invoices',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HistoryRoute = HistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ExpensesRoute = ExpensesRouteImport.update({
-  id: '/expenses',
-  path: '/expenses',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DirectoryRoute = DirectoryRouteImport.update({
@@ -224,39 +192,9 @@ const ClientsIdRoute = ClientsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ClientsRoute,
 } as any)
-const AnalyticsRevenueRoute = AnalyticsRevenueRouteImport.update({
-  id: '/analytics/revenue',
-  path: '/analytics/revenue',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AnalyticsOngoingRoute = AnalyticsOngoingRouteImport.update({
-  id: '/analytics/ongoing',
-  path: '/analytics/ongoing',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AnalyticsIncomeRoute = AnalyticsIncomeRouteImport.update({
-  id: '/analytics/income',
-  path: '/analytics/income',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AnalyticsExpensesRoute = AnalyticsExpensesRouteImport.update({
-  id: '/analytics/expenses',
-  path: '/analytics/expenses',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AnalyticsBalanceRoute = AnalyticsBalanceRouteImport.update({
-  id: '/analytics/balance',
-  path: '/analytics/balance',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AccountsRetainersRoute = AccountsRetainersRouteImport.update({
   id: '/retainers',
   path: '/retainers',
-  getParentRoute: () => AccountsRoute,
-} as any)
-const AccountsMonthlyPaymentsRoute = AccountsMonthlyPaymentsRouteImport.update({
-  id: '/monthly-payments',
-  path: '/monthly-payments',
   getParentRoute: () => AccountsRoute,
 } as any)
 const AccountsBillingRoute = AccountsBillingRouteImport.update({
@@ -264,12 +202,6 @@ const AccountsBillingRoute = AccountsBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => AccountsRoute,
 } as any)
-const DocumentsQuotationsIndexRoute =
-  DocumentsQuotationsIndexRouteImport.update({
-    id: '/documents/quotations/',
-    path: '/documents/quotations/',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const DocumentsProposalsIndexRoute = DocumentsProposalsIndexRouteImport.update({
   id: '/documents/proposals/',
   path: '/documents/proposals/',
@@ -290,12 +222,6 @@ const InvoiceIdEditRoute = InvoiceIdEditRouteImport.update({
   path: '/invoice/$id/edit',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DocumentsQuotationsCompanyKeyRoute =
-  DocumentsQuotationsCompanyKeyRouteImport.update({
-    id: '/documents/quotations/$companyKey',
-    path: '/documents/quotations/$companyKey',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const DocumentsProposalsCompanyKeyRoute =
   DocumentsProposalsCompanyKeyRouteImport.update({
     id: '/documents/proposals/$companyKey',
@@ -350,29 +276,19 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRouteWithChildren
   '/directory': typeof DirectoryRoute
-  '/expenses': typeof ExpensesRoute
-  '/history': typeof HistoryRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
-  '/notifications': typeof NotificationsRoute
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reminders': typeof RemindersRoute
   '/settings': typeof SettingsRoute
   '/team': typeof TeamRoute
-  '/transactions': typeof TransactionsRoute
   '/valuation': typeof ValuationRoute
   '/accounts/billing': typeof AccountsBillingRoute
-  '/accounts/monthly-payments': typeof AccountsMonthlyPaymentsRoute
   '/accounts/retainers': typeof AccountsRetainersRoute
-  '/analytics/balance': typeof AnalyticsBalanceRoute
-  '/analytics/expenses': typeof AnalyticsExpensesRoute
-  '/analytics/income': typeof AnalyticsIncomeRoute
-  '/analytics/ongoing': typeof AnalyticsOngoingRoute
-  '/analytics/revenue': typeof AnalyticsRevenueRoute
   '/clients/$id': typeof ClientsIdRoute
   '/documents/agreements': typeof DocumentsAgreementsRoute
   '/documents/company': typeof DocumentsCompanyRoute
@@ -387,12 +303,10 @@ export interface FileRoutesByFullPath {
   '/documents/': typeof DocumentsIndexRoute
   '/documents/clients/$id': typeof DocumentsClientsIdRoute
   '/documents/proposals/$companyKey': typeof DocumentsProposalsCompanyKeyRoute
-  '/documents/quotations/$companyKey': typeof DocumentsQuotationsCompanyKeyRoute
   '/invoice/$id/edit': typeof InvoiceIdEditRoute
   '/documents/clients/': typeof DocumentsClientsIndexRoute
   '/documents/payments/': typeof DocumentsPaymentsIndexRoute
   '/documents/proposals/': typeof DocumentsProposalsIndexRoute
-  '/documents/quotations/': typeof DocumentsQuotationsIndexRoute
   '/documents/payments/clients/$clientKey': typeof DocumentsPaymentsClientsClientKeyRoute
   '/documents/payments/partners/$partnershipId': typeof DocumentsPaymentsPartnersPartnershipIdRoute
   '/documents/payments/vendors/$vendorKey': typeof DocumentsPaymentsVendorsVendorKeyRoute
@@ -404,29 +318,19 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
   '/directory': typeof DirectoryRoute
-  '/expenses': typeof ExpensesRoute
-  '/history': typeof HistoryRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
-  '/notifications': typeof NotificationsRoute
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reminders': typeof RemindersRoute
   '/settings': typeof SettingsRoute
   '/team': typeof TeamRoute
-  '/transactions': typeof TransactionsRoute
   '/valuation': typeof ValuationRoute
   '/accounts/billing': typeof AccountsBillingRoute
-  '/accounts/monthly-payments': typeof AccountsMonthlyPaymentsRoute
   '/accounts/retainers': typeof AccountsRetainersRoute
-  '/analytics/balance': typeof AnalyticsBalanceRoute
-  '/analytics/expenses': typeof AnalyticsExpensesRoute
-  '/analytics/income': typeof AnalyticsIncomeRoute
-  '/analytics/ongoing': typeof AnalyticsOngoingRoute
-  '/analytics/revenue': typeof AnalyticsRevenueRoute
   '/clients/$id': typeof ClientsIdRoute
   '/documents/agreements': typeof DocumentsAgreementsRoute
   '/documents/company': typeof DocumentsCompanyRoute
@@ -441,12 +345,10 @@ export interface FileRoutesByTo {
   '/documents': typeof DocumentsIndexRoute
   '/documents/clients/$id': typeof DocumentsClientsIdRoute
   '/documents/proposals/$companyKey': typeof DocumentsProposalsCompanyKeyRoute
-  '/documents/quotations/$companyKey': typeof DocumentsQuotationsCompanyKeyRoute
   '/invoice/$id/edit': typeof InvoiceIdEditRoute
   '/documents/clients': typeof DocumentsClientsIndexRoute
   '/documents/payments': typeof DocumentsPaymentsIndexRoute
   '/documents/proposals': typeof DocumentsProposalsIndexRoute
-  '/documents/quotations': typeof DocumentsQuotationsIndexRoute
   '/documents/payments/clients/$clientKey': typeof DocumentsPaymentsClientsClientKeyRoute
   '/documents/payments/partners/$partnershipId': typeof DocumentsPaymentsPartnersPartnershipIdRoute
   '/documents/payments/vendors/$vendorKey': typeof DocumentsPaymentsVendorsVendorKeyRoute
@@ -461,29 +363,19 @@ export interface FileRoutesById {
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRouteWithChildren
   '/directory': typeof DirectoryRoute
-  '/expenses': typeof ExpensesRoute
-  '/history': typeof HistoryRoute
   '/invoices': typeof InvoicesRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
-  '/notifications': typeof NotificationsRoute
   '/partnerships': typeof PartnershipsRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reminders': typeof RemindersRoute
   '/settings': typeof SettingsRoute
   '/team': typeof TeamRoute
-  '/transactions': typeof TransactionsRoute
   '/valuation': typeof ValuationRoute
   '/accounts/billing': typeof AccountsBillingRoute
-  '/accounts/monthly-payments': typeof AccountsMonthlyPaymentsRoute
   '/accounts/retainers': typeof AccountsRetainersRoute
-  '/analytics/balance': typeof AnalyticsBalanceRoute
-  '/analytics/expenses': typeof AnalyticsExpensesRoute
-  '/analytics/income': typeof AnalyticsIncomeRoute
-  '/analytics/ongoing': typeof AnalyticsOngoingRoute
-  '/analytics/revenue': typeof AnalyticsRevenueRoute
   '/clients/$id': typeof ClientsIdRoute
   '/documents/agreements': typeof DocumentsAgreementsRoute
   '/documents/company': typeof DocumentsCompanyRoute
@@ -498,12 +390,10 @@ export interface FileRoutesById {
   '/documents/': typeof DocumentsIndexRoute
   '/documents/clients/$id': typeof DocumentsClientsIdRoute
   '/documents/proposals/$companyKey': typeof DocumentsProposalsCompanyKeyRoute
-  '/documents/quotations/$companyKey': typeof DocumentsQuotationsCompanyKeyRoute
   '/invoice_/$id/edit': typeof InvoiceIdEditRoute
   '/documents/clients/': typeof DocumentsClientsIndexRoute
   '/documents/payments/': typeof DocumentsPaymentsIndexRoute
   '/documents/proposals/': typeof DocumentsProposalsIndexRoute
-  '/documents/quotations/': typeof DocumentsQuotationsIndexRoute
   '/documents/payments/clients/$clientKey': typeof DocumentsPaymentsClientsClientKeyRoute
   '/documents/payments/partners/$partnershipId': typeof DocumentsPaymentsPartnersPartnershipIdRoute
   '/documents/payments/vendors/$vendorKey': typeof DocumentsPaymentsVendorsVendorKeyRoute
@@ -519,29 +409,19 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/clients'
     | '/directory'
-    | '/expenses'
-    | '/history'
     | '/invoices'
     | '/leads'
     | '/login'
     | '/logs'
     | '/new'
-    | '/notifications'
     | '/partnerships'
     | '/projects'
     | '/reminders'
     | '/settings'
     | '/team'
-    | '/transactions'
     | '/valuation'
     | '/accounts/billing'
-    | '/accounts/monthly-payments'
     | '/accounts/retainers'
-    | '/analytics/balance'
-    | '/analytics/expenses'
-    | '/analytics/income'
-    | '/analytics/ongoing'
-    | '/analytics/revenue'
     | '/clients/$id'
     | '/documents/agreements'
     | '/documents/company'
@@ -556,12 +436,10 @@ export interface FileRouteTypes {
     | '/documents/'
     | '/documents/clients/$id'
     | '/documents/proposals/$companyKey'
-    | '/documents/quotations/$companyKey'
     | '/invoice/$id/edit'
     | '/documents/clients/'
     | '/documents/payments/'
     | '/documents/proposals/'
-    | '/documents/quotations/'
     | '/documents/payments/clients/$clientKey'
     | '/documents/payments/partners/$partnershipId'
     | '/documents/payments/vendors/$vendorKey'
@@ -573,29 +451,19 @@ export interface FileRouteTypes {
     | '/'
     | '/calendar'
     | '/directory'
-    | '/expenses'
-    | '/history'
     | '/invoices'
     | '/leads'
     | '/login'
     | '/logs'
     | '/new'
-    | '/notifications'
     | '/partnerships'
     | '/projects'
     | '/reminders'
     | '/settings'
     | '/team'
-    | '/transactions'
     | '/valuation'
     | '/accounts/billing'
-    | '/accounts/monthly-payments'
     | '/accounts/retainers'
-    | '/analytics/balance'
-    | '/analytics/expenses'
-    | '/analytics/income'
-    | '/analytics/ongoing'
-    | '/analytics/revenue'
     | '/clients/$id'
     | '/documents/agreements'
     | '/documents/company'
@@ -610,12 +478,10 @@ export interface FileRouteTypes {
     | '/documents'
     | '/documents/clients/$id'
     | '/documents/proposals/$companyKey'
-    | '/documents/quotations/$companyKey'
     | '/invoice/$id/edit'
     | '/documents/clients'
     | '/documents/payments'
     | '/documents/proposals'
-    | '/documents/quotations'
     | '/documents/payments/clients/$clientKey'
     | '/documents/payments/partners/$partnershipId'
     | '/documents/payments/vendors/$vendorKey'
@@ -629,29 +495,19 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/clients'
     | '/directory'
-    | '/expenses'
-    | '/history'
     | '/invoices'
     | '/leads'
     | '/login'
     | '/logs'
     | '/new'
-    | '/notifications'
     | '/partnerships'
     | '/projects'
     | '/reminders'
     | '/settings'
     | '/team'
-    | '/transactions'
     | '/valuation'
     | '/accounts/billing'
-    | '/accounts/monthly-payments'
     | '/accounts/retainers'
-    | '/analytics/balance'
-    | '/analytics/expenses'
-    | '/analytics/income'
-    | '/analytics/ongoing'
-    | '/analytics/revenue'
     | '/clients/$id'
     | '/documents/agreements'
     | '/documents/company'
@@ -666,12 +522,10 @@ export interface FileRouteTypes {
     | '/documents/'
     | '/documents/clients/$id'
     | '/documents/proposals/$companyKey'
-    | '/documents/quotations/$companyKey'
     | '/invoice_/$id/edit'
     | '/documents/clients/'
     | '/documents/payments/'
     | '/documents/proposals/'
-    | '/documents/quotations/'
     | '/documents/payments/clients/$clientKey'
     | '/documents/payments/partners/$partnershipId'
     | '/documents/payments/vendors/$vendorKey'
@@ -686,26 +540,17 @@ export interface RootRouteChildren {
   CalendarRoute: typeof CalendarRoute
   ClientsRoute: typeof ClientsRouteWithChildren
   DirectoryRoute: typeof DirectoryRoute
-  ExpensesRoute: typeof ExpensesRoute
-  HistoryRoute: typeof HistoryRoute
   InvoicesRoute: typeof InvoicesRoute
   LeadsRoute: typeof LeadsRoute
   LoginRoute: typeof LoginRoute
   LogsRoute: typeof LogsRoute
   NewRoute: typeof NewRoute
-  NotificationsRoute: typeof NotificationsRoute
   PartnershipsRoute: typeof PartnershipsRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   RemindersRoute: typeof RemindersRoute
   SettingsRoute: typeof SettingsRoute
   TeamRoute: typeof TeamRoute
-  TransactionsRoute: typeof TransactionsRoute
   ValuationRoute: typeof ValuationRoute
-  AnalyticsBalanceRoute: typeof AnalyticsBalanceRoute
-  AnalyticsExpensesRoute: typeof AnalyticsExpensesRoute
-  AnalyticsIncomeRoute: typeof AnalyticsIncomeRoute
-  AnalyticsOngoingRoute: typeof AnalyticsOngoingRoute
-  AnalyticsRevenueRoute: typeof AnalyticsRevenueRoute
   DocumentsAgreementsRoute: typeof DocumentsAgreementsRoute
   DocumentsCompanyRoute: typeof DocumentsCompanyRoute
   DocumentsInvoicesRoute: typeof DocumentsInvoicesRoute
@@ -716,12 +561,10 @@ export interface RootRouteChildren {
   DocumentsIndexRoute: typeof DocumentsIndexRoute
   DocumentsClientsIdRoute: typeof DocumentsClientsIdRoute
   DocumentsProposalsCompanyKeyRoute: typeof DocumentsProposalsCompanyKeyRoute
-  DocumentsQuotationsCompanyKeyRoute: typeof DocumentsQuotationsCompanyKeyRoute
   InvoiceIdEditRoute: typeof InvoiceIdEditRoute
   DocumentsClientsIndexRoute: typeof DocumentsClientsIndexRoute
   DocumentsPaymentsIndexRoute: typeof DocumentsPaymentsIndexRoute
   DocumentsProposalsIndexRoute: typeof DocumentsProposalsIndexRoute
-  DocumentsQuotationsIndexRoute: typeof DocumentsQuotationsIndexRoute
   DocumentsPaymentsClientsClientKeyRoute: typeof DocumentsPaymentsClientsClientKeyRoute
   DocumentsPaymentsPartnersPartnershipIdRoute: typeof DocumentsPaymentsPartnersPartnershipIdRoute
   DocumentsPaymentsVendorsVendorKeyRoute: typeof DocumentsPaymentsVendorsVendorKeyRoute
@@ -737,13 +580,6 @@ declare module '@tanstack/react-router' {
       path: '/valuation'
       fullPath: '/valuation'
       preLoaderRoute: typeof ValuationRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/transactions': {
-      id: '/transactions'
-      path: '/transactions'
-      fullPath: '/transactions'
-      preLoaderRoute: typeof TransactionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/team': {
@@ -781,13 +617,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartnershipsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/notifications': {
-      id: '/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof NotificationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/new': {
       id: '/new'
       path: '/new'
@@ -821,20 +650,6 @@ declare module '@tanstack/react-router' {
       path: '/invoices'
       fullPath: '/invoices'
       preLoaderRoute: typeof InvoicesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/history': {
-      id: '/history'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof HistoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/expenses': {
-      id: '/expenses'
-      path: '/expenses'
-      fullPath: '/expenses'
-      preLoaderRoute: typeof ExpensesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/directory': {
@@ -956,53 +771,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientsIdRouteImport
       parentRoute: typeof ClientsRoute
     }
-    '/analytics/revenue': {
-      id: '/analytics/revenue'
-      path: '/analytics/revenue'
-      fullPath: '/analytics/revenue'
-      preLoaderRoute: typeof AnalyticsRevenueRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/analytics/ongoing': {
-      id: '/analytics/ongoing'
-      path: '/analytics/ongoing'
-      fullPath: '/analytics/ongoing'
-      preLoaderRoute: typeof AnalyticsOngoingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/analytics/income': {
-      id: '/analytics/income'
-      path: '/analytics/income'
-      fullPath: '/analytics/income'
-      preLoaderRoute: typeof AnalyticsIncomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/analytics/expenses': {
-      id: '/analytics/expenses'
-      path: '/analytics/expenses'
-      fullPath: '/analytics/expenses'
-      preLoaderRoute: typeof AnalyticsExpensesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/analytics/balance': {
-      id: '/analytics/balance'
-      path: '/analytics/balance'
-      fullPath: '/analytics/balance'
-      preLoaderRoute: typeof AnalyticsBalanceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/accounts/retainers': {
       id: '/accounts/retainers'
       path: '/retainers'
       fullPath: '/accounts/retainers'
       preLoaderRoute: typeof AccountsRetainersRouteImport
-      parentRoute: typeof AccountsRoute
-    }
-    '/accounts/monthly-payments': {
-      id: '/accounts/monthly-payments'
-      path: '/monthly-payments'
-      fullPath: '/accounts/monthly-payments'
-      preLoaderRoute: typeof AccountsMonthlyPaymentsRouteImport
       parentRoute: typeof AccountsRoute
     }
     '/accounts/billing': {
@@ -1011,13 +784,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/accounts/billing'
       preLoaderRoute: typeof AccountsBillingRouteImport
       parentRoute: typeof AccountsRoute
-    }
-    '/documents/quotations/': {
-      id: '/documents/quotations/'
-      path: '/documents/quotations'
-      fullPath: '/documents/quotations/'
-      preLoaderRoute: typeof DocumentsQuotationsIndexRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/documents/proposals/': {
       id: '/documents/proposals/'
@@ -1045,13 +811,6 @@ declare module '@tanstack/react-router' {
       path: '/invoice/$id/edit'
       fullPath: '/invoice/$id/edit'
       preLoaderRoute: typeof InvoiceIdEditRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/documents/quotations/$companyKey': {
-      id: '/documents/quotations/$companyKey'
-      path: '/documents/quotations/$companyKey'
-      fullPath: '/documents/quotations/$companyKey'
-      preLoaderRoute: typeof DocumentsQuotationsCompanyKeyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/documents/proposals/$companyKey': {
@@ -1115,14 +874,12 @@ declare module '@tanstack/react-router' {
 
 interface AccountsRouteChildren {
   AccountsBillingRoute: typeof AccountsBillingRoute
-  AccountsMonthlyPaymentsRoute: typeof AccountsMonthlyPaymentsRoute
   AccountsRetainersRoute: typeof AccountsRetainersRoute
   AccountsIndexRoute: typeof AccountsIndexRoute
 }
 
 const AccountsRouteChildren: AccountsRouteChildren = {
   AccountsBillingRoute: AccountsBillingRoute,
-  AccountsMonthlyPaymentsRoute: AccountsMonthlyPaymentsRoute,
   AccountsRetainersRoute: AccountsRetainersRoute,
   AccountsIndexRoute: AccountsIndexRoute,
 }
@@ -1162,26 +919,17 @@ const rootRouteChildren: RootRouteChildren = {
   CalendarRoute: CalendarRoute,
   ClientsRoute: ClientsRouteWithChildren,
   DirectoryRoute: DirectoryRoute,
-  ExpensesRoute: ExpensesRoute,
-  HistoryRoute: HistoryRoute,
   InvoicesRoute: InvoicesRoute,
   LeadsRoute: LeadsRoute,
   LoginRoute: LoginRoute,
   LogsRoute: LogsRoute,
   NewRoute: NewRoute,
-  NotificationsRoute: NotificationsRoute,
   PartnershipsRoute: PartnershipsRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   RemindersRoute: RemindersRoute,
   SettingsRoute: SettingsRoute,
   TeamRoute: TeamRoute,
-  TransactionsRoute: TransactionsRoute,
   ValuationRoute: ValuationRoute,
-  AnalyticsBalanceRoute: AnalyticsBalanceRoute,
-  AnalyticsExpensesRoute: AnalyticsExpensesRoute,
-  AnalyticsIncomeRoute: AnalyticsIncomeRoute,
-  AnalyticsOngoingRoute: AnalyticsOngoingRoute,
-  AnalyticsRevenueRoute: AnalyticsRevenueRoute,
   DocumentsAgreementsRoute: DocumentsAgreementsRoute,
   DocumentsCompanyRoute: DocumentsCompanyRoute,
   DocumentsInvoicesRoute: DocumentsInvoicesRoute,
@@ -1192,12 +940,10 @@ const rootRouteChildren: RootRouteChildren = {
   DocumentsIndexRoute: DocumentsIndexRoute,
   DocumentsClientsIdRoute: DocumentsClientsIdRoute,
   DocumentsProposalsCompanyKeyRoute: DocumentsProposalsCompanyKeyRoute,
-  DocumentsQuotationsCompanyKeyRoute: DocumentsQuotationsCompanyKeyRoute,
   InvoiceIdEditRoute: InvoiceIdEditRoute,
   DocumentsClientsIndexRoute: DocumentsClientsIndexRoute,
   DocumentsPaymentsIndexRoute: DocumentsPaymentsIndexRoute,
   DocumentsProposalsIndexRoute: DocumentsProposalsIndexRoute,
-  DocumentsQuotationsIndexRoute: DocumentsQuotationsIndexRoute,
   DocumentsPaymentsClientsClientKeyRoute:
     DocumentsPaymentsClientsClientKeyRoute,
   DocumentsPaymentsPartnersPartnershipIdRoute:
