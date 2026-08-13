@@ -7,8 +7,22 @@ import {
   sumFutureMonthlyPipeline,
   sumPipelineBookedRevenue,
 } from "./project-billing";
-import { isVerifiedPayment, resolvePaymentProof, sumProjectPayments } from "./project-payments";
-import type { OperationsData, Payment, Project, ProjectPayment, ExpenseCategory } from "./types";
+import { GROUND_ZERO_DATE } from "./ground-zero";
+import {
+  historicalReceived,
+  isVerifiedPayment,
+  resolvePaymentProof,
+  sumProjectPayments,
+  totalReceived,
+} from "./project-payments";
+import type {
+  OperationsData,
+  Payment,
+  Project,
+  ProjectPayment,
+  ExpenseCategory,
+  Transaction,
+} from "./types";
 import {
   buildMoneyOutRows,
   computeFinancialSummary,
@@ -17,7 +31,16 @@ import {
   normalizeCategory,
   type FinancialSummary,
 } from "./financial";
-import { isWithinPeriod, periodBounds, type PeriodKey } from "./date-range-filter";
+import {
+  calendarMonthKey,
+  isInCalendarMonth,
+  isWithinPeriod,
+  isoWeekStart,
+  monthsThrough,
+  periodBounds,
+  weekOverlapsCalendarMonth,
+  type PeriodKey,
+} from "./date-range-filter";
 import { proratedFixedMonthlyForPeriod } from "./fixed-monthly-expenses";
 
 export type IncomeRow = {
@@ -173,40 +196,100 @@ export function buildMoneyOutCategoryBreakdown(ops: OperationsData): CategoryAmo
   return rows.sort((a, b) => b.amount - a.amount);
 }
 
-export function buildMonthlyChart(ops: OperationsData) {
-  const months = new Map<
+export function buildMonthlyChart(ops: OperationsData, month?: string) {
+  const weeks = new Map<
     string,
     { month: string; income: number; expenses: number; net: number; sortKey: string }
   >();
 
-  const ensure = (key: string) => {
-    if (!months.has(key)) {
-      months.set(key, {
-        month: formatMonthLabel(key),
+  const ensure = (weekStart: string) => {
+    if (!weeks.has(weekStart)) {
+      weeks.set(weekStart, {
+        month: formatWeekLabel(weekStart),
         income: 0,
         expenses: 0,
         net: 0,
-        sortKey: key,
+        sortKey: weekStart,
       });
     }
-    return months.get(key)!;
+    return weeks.get(weekStart)!;
   };
 
-  for (const [key, amount] of allProjectPaymentsByMonth(ops.payments ?? [])) {
-    ensure(key).income += amount;
+  for (const transaction of ledgerTransactions(ops)) {
+    const weekStart = isoWeekStart(transaction.date);
+    if (!weekStart) continue;
+    if (month && !weekOverlapsCalendarMonth(weekStart, month)) continue;
+    const bucket = ensure(weekStart);
+    if (isMoneyInTransaction(transaction)) {
+      bucket.income += moneyInAmount(transaction);
+    } else if (isMoneyOutTransaction(transaction)) {
+      bucket.expenses += transaction.amount;
+    }
   }
 
-  for (const exp of ops.expenses) {
-    if (exp.isBaseline) continue;
-    const key = exp.date.slice(0, 7);
-    if (key.length === 7) ensure(key).expenses += exp.amount;
-  }
-
-  for (const entry of months.values()) {
+  for (const entry of weeks.values()) {
     entry.net = entry.income - entry.expenses;
   }
 
-  return [...months.values()].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  return [...weeks.values()].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+}
+
+export type CashFlowLine = {
+  name: string;
+  amount: number;
+  date: string;
+};
+
+export function cashFlowWeekDetails(
+  ops: OperationsData,
+  weekStart: string,
+): { income: CashFlowLine[]; expenses: CashFlowLine[] } {
+  const income: CashFlowLine[] = [];
+  const expenses: CashFlowLine[] = [];
+  for (const transaction of ledgerTransactions(ops)) {
+    if (isoWeekStart(transaction.date) !== weekStart) continue;
+    if (isMoneyInTransaction(transaction)) {
+      income.push({
+        name: incomeClientLabel(transaction, ops),
+        amount: moneyInAmount(transaction),
+        date: transaction.date,
+      });
+    } else if (isMoneyOutTransaction(transaction)) {
+      expenses.push({
+        name: moneyOutLabel(transaction),
+        amount: transaction.amount,
+        date: transaction.date,
+      });
+    }
+  }
+  const byAmount = (a: CashFlowLine, b: CashFlowLine) => b.amount - a.amount || a.name.localeCompare(b.name);
+  return {
+    income: income.sort(byAmount),
+    expenses: expenses.sort(byAmount),
+  };
+}
+
+/** Months with live (non-historical) ledger data after Ground Zero, through this month. */
+export function liveCashflowMonths(ops: OperationsData, asOf = calendarMonthKey()): string[] {
+  const end = /^\d{4}-\d{2}$/.test(asOf) ? asOf : calendarMonthKey(asOf);
+  let earliest: string | null = null;
+  for (const transaction of ledgerTransactions(ops)) {
+    if (transaction.date < GROUND_ZERO_DATE) continue;
+    const month = calendarMonthKey(transaction.date);
+    if (!earliest || month < earliest) earliest = month;
+  }
+  return monthsThrough(earliest ?? end, end);
+}
+
+export function ledgerCashflowForMonth(ops: OperationsData, month: string) {
+  let income = 0;
+  let expenses = 0;
+  for (const transaction of ledgerTransactions(ops)) {
+    if (!isInCalendarMonth(transaction.date, month)) continue;
+    if (isMoneyInTransaction(transaction)) income += moneyInAmount(transaction);
+    else if (isMoneyOutTransaction(transaction)) expenses += transaction.amount;
+  }
+  return { income, expenses };
 }
 
 export function periodProjectIncome(
@@ -256,17 +339,49 @@ export function periodMoneyOutTotal(ops: OperationsData, period: PeriodKey): num
 }
 
 export function buildIncomeByClientForPeriod(
-  payments: Payment[],
-  projects: Project[],
+  ops: OperationsData,
   period: PeriodKey,
+  month?: string,
 ): CategoryAmountRow[] {
   const totals = new Map<string, number>();
-  for (const row of flattenProjectIncome(payments, projects)) {
-    if (!isWithinPeriod(row.date, period)) continue;
-    totals.set(row.client, (totals.get(row.client) ?? 0) + row.amount);
+  const countedPaymentIds = new Set<string>();
+  const inScope = (date: string | undefined) =>
+    month ? isInCalendarMonth(date, month) : isWithinPeriod(date, period);
+  const includeHistorical = month
+    ? isInCalendarMonth(GROUND_ZERO_DATE, month)
+    : period === "all" || isWithinPeriod(GROUND_ZERO_DATE, period);
+
+  const add = (label: string, amount: number) => {
+    if (!amount) return;
+    totals.set(label, (totals.get(label) ?? 0) + amount);
+  };
+
+  for (const project of ops.projects ?? []) {
+    const label = projectMoneyInClientLabel(project, ops);
+    const livePayments = livePaymentsCountedTowardReceived(project);
+    if (!month && period === "all") {
+      add(label, totalReceived(project));
+      for (const payment of livePayments) countedPaymentIds.add(payment.id);
+      continue;
+    }
+    if (includeHistorical) add(label, historicalReceived(project));
+    for (const payment of livePayments) {
+      if (!inScope(payment.date)) continue;
+      add(label, payment.amount || 0);
+      countedPaymentIds.add(payment.id);
+    }
   }
+
+  for (const transaction of ledgerTransactions(ops)) {
+    if (!isMoneyInTransaction(transaction)) continue;
+    if (!inScope(transaction.date)) continue;
+    if (countedPaymentIds.has(transaction.id)) continue;
+    add(incomeClientLabel(transaction, ops), moneyInAmount(transaction));
+  }
+
   return [...totals.entries()]
     .map(([client, amount]) => ({ key: client, label: client, amount }))
+    .filter((row) => row.amount !== 0)
     .sort((a, b) => b.amount - a.amount || a.label.localeCompare(b.label));
 }
 
@@ -290,12 +405,16 @@ export function buildIncomeSourceForPeriod(
 export function buildMoneyOutForPeriod(
   ops: OperationsData,
   period: PeriodKey,
+  month?: string,
 ): CategoryAmountRow[] {
-  if (period === "all") return buildMoneyOutCategoryBreakdown(ops);
+  if (!month && period === "all") return buildMoneyOutCategoryBreakdown(ops);
+
+  const inScope = (date: string | undefined) =>
+    month ? isInCalendarMonth(date, month) : isWithinPeriod(date, period);
 
   const totals = new Map<ExpenseCategory, number>();
   for (const expense of ops.expenses) {
-    if (expense.isBaseline || !isWithinPeriod(expense.date, period)) continue;
+    if (expense.isBaseline || !inScope(expense.date)) continue;
     const category = normalizeCategory(expense.category);
     if (!category || category === "handout") continue;
     totals.set(category, (totals.get(category) ?? 0) + (expense.amount || 0));
@@ -310,7 +429,7 @@ export function buildMoneyOutForPeriod(
     }))
     .sort((a, b) => b.amount - a.amount);
 
-  const retainers = proratedFixedMonthlyForPeriod(ops.fixedMonthlyExpenses, period);
+  const retainers = month ? 0 : proratedFixedMonthlyForPeriod(ops.fixedMonthlyExpenses, period);
   if (retainers > 0) {
     rows.push({
       key: "monthly-retainers",
@@ -324,14 +443,12 @@ export function buildMoneyOutForPeriod(
   return rows;
 }
 
-export function buildMonthlyChartForPeriod(ops: OperationsData, period: PeriodKey) {
-  const chart = buildMonthlyChart(ops);
-  if (period === "all") return chart;
+export function buildMonthlyChartForPeriod(ops: OperationsData, period: PeriodKey, month?: string) {
+  const chart = month ? buildMonthlyChart(ops, month) : buildMonthlyChart(ops);
+  if (month || period === "all") return chart;
   const bounds = periodBounds(period);
   if (!bounds) return chart;
-  const startMonth = bounds.start.slice(0, 7);
-  const endMonth = bounds.end.slice(0, 7);
-  return chart.filter((row) => row.sortKey >= startMonth && row.sortKey <= endMonth);
+  return chart.filter((row) => row.sortKey >= bounds.start && row.sortKey <= bounds.end);
 }
 
 export function paymentProofCoverage(
@@ -379,10 +496,82 @@ export function buildAnalyticsSnapshot(ops: OperationsData, period: PeriodKey): 
   };
 }
 
-function formatMonthLabel(yyyyMm: string) {
-  const [y, m] = yyyyMm.split("-");
-  const d = new Date(Number(y), Number(m) - 1, 1);
-  return d.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
+function ledgerTransactions(ops: OperationsData): Transaction[] {
+  return (ops.transactions ?? []).filter((transaction) => !transaction.historical);
+}
+
+function isMoneyInTransaction(transaction: Transaction): boolean {
+  return transaction.type === "client_payment" || transaction.type === "refund";
+}
+
+function isMoneyOutTransaction(transaction: Transaction): boolean {
+  if (transaction.type === "founder_withdrawal") return true;
+  if (transaction.type !== "expense") return false;
+  return normalizeCategory(transaction.category) !== "handout";
+}
+
+function moneyInAmount(transaction: Transaction): number {
+  return transaction.type === "refund" ? -Math.abs(transaction.amount) : transaction.amount;
+}
+
+function livePaymentsCountedTowardReceived(project: Project): ProjectPayment[] {
+  const payments = project.payments ?? [];
+  if (project.historicalReceived == null) return payments;
+  return payments.filter((payment) => payment.recordedAfterMigration === true);
+}
+
+function projectMoneyInClientLabel(project: Project, ops: OperationsData): string {
+  const fromProject = projectClientLabel(project);
+  if (fromProject && fromProject !== "—") return fromProject;
+  if (project.clientId) {
+    const client = (ops.clients ?? []).find((item) => item.id === project.clientId);
+    const name = client?.companyName.trim();
+    if (name) return name;
+  }
+  return "Unknown Client";
+}
+
+function moneyOutLabel(transaction: Transaction): string {
+  const fromDescription = transaction.description.split(/[:·–]/)[0]?.trim();
+  if (fromDescription) return fromDescription;
+  if (transaction.type === "founder_withdrawal") return "Founder withdrawal";
+  const category = normalizeCategory(transaction.category);
+  if (category) return EXPENSE_CATEGORY_SHORT_LABELS[category];
+  return "Expense";
+}
+
+function incomeClientLabel(transaction: Transaction, ops: OperationsData): string {
+  if (transaction.relatedProjectId) {
+    const project = ops.projects.find((item) => item.id === transaction.relatedProjectId);
+    const name = project ? projectClientLabel(project) : "";
+    if (name && name !== "—") return name;
+  }
+  if (transaction.relatedClientId) {
+    const client = (ops.clients ?? []).find((item) => item.id === transaction.relatedClientId);
+    const name = client?.companyName.trim();
+    if (name) return name;
+  }
+  const fromDescription = transaction.description.split(/[:·–]/)[0]?.trim();
+  return fromDescription || "Unknown Client";
+}
+
+function formatWeekLabel(weekStart: string) {
+  const start = new Date(`${weekStart}T12:00:00`);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const sameMonth = start.getMonth() === end.getMonth();
+  const startText = start.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+  });
+  const endText = end.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+  });
+  if (sameMonth) {
+    return `${start.getDate()}–${endText}`;
+  }
+  return `${startText}–${endText}`;
 }
 
 export function paymentProofLabel(payment: ProjectPayment, project?: Project): string {

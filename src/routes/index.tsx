@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   TrendingUp,
   TrendingDown,
-  DollarSign,
+  IndianRupee,
   Briefcase,
   ArrowUpRight,
   Activity,
@@ -12,7 +12,6 @@ import {
   Clock3,
   Phone,
   BellRing,
-  Plus,
 } from "lucide-react";
 import { useOperations } from "@/hooks/use-operations";
 import { computeFinancialSummary } from "@/lib/financial";
@@ -161,11 +160,6 @@ function ExecutiveDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">
-          <Link to="/reminders" search={{ new: true }}>
-            <Button size="sm" variant="outline">
-              <Plus className="mr-1.5 h-4 w-4" /> Add Reminder
-            </Button>
-          </Link>
           <Link to="/invoices">
             <Button size="sm" variant="outline">
               <FileText className="mr-1.5 h-4 w-4" /> Invoices
@@ -180,6 +174,96 @@ function ExecutiveDashboard() {
             </Button>
           </Link>
         </div>
+      </div>
+
+      {/* Row 1: Premium Financial KPIs */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Cash Balance */}
+        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-xs font-semibold uppercase tracking-wider">Cash Balance</span>
+            <IndianRupee className="h-5 w-5 text-emerald-500" />
+          </div>
+          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
+            {formatINRWhole(dashboardData.cashBalance)}
+          </p>
+          <div className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1 font-semibold">
+            <ArrowUpRight className="h-3.5 w-3.5 text-emerald-500" /> Total Liquid Capital
+          </div>
+        </div>
+
+        {/* Revenue */}
+        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-xs font-semibold uppercase tracking-wider">Revenue</span>
+            <TrendingUp className="h-5 w-5 text-primary" />
+          </div>
+          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
+            {formatINRWhole(dashboardData.revenue)}
+          </p>
+          <div className="mt-2 text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-semibold">
+            Verified Payments Collected
+          </div>
+        </div>
+
+        {/* Expenses */}
+        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-xs font-semibold uppercase tracking-wider">Expenses</span>
+            <TrendingDown className="h-5 w-5 text-rose-500" />
+          </div>
+          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
+            {formatINRWhole(dashboardData.expenses)}
+          </p>
+          <div className="mt-2 text-[10px] text-rose-600 dark:text-rose-400 flex items-center gap-1 font-semibold">
+            Category Expenditures
+          </div>
+        </div>
+
+        {/* Revenue Booked */}
+        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-xs font-semibold uppercase tracking-wider">Revenue Booked</span>
+            <Briefcase className="h-5 w-5 text-primary" />
+          </div>
+          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
+            {formatINRWhole(dashboardData.revenueBooked)}
+          </p>
+          <div className="mt-2 text-[10px] text-primary flex items-center gap-1 font-semibold">
+            Contracts + recurring revenue received
+          </div>
+        </div>
+
+        {/* Outstanding Receivables */}
+        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-xs font-semibold uppercase tracking-wider">Outstanding</span>
+            <FileText className="h-5 w-5 text-indigo-500" />
+          </div>
+          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
+            {formatINRWhole(dashboardData.outstandingReceivables)}
+          </p>
+          <div className="mt-2 text-[10px] text-indigo-600 dark:text-indigo-400 flex items-center gap-1 font-semibold">
+            Outstanding client balances
+          </div>
+        </div>
+
+        {/* Active MRR */}
+        <Link
+          to="/accounts/retainers"
+          className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:border-primary/30 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-xs font-semibold uppercase tracking-wider">Active MRR</span>
+            <TrendingUp className="h-5 w-5 text-amber-500" />
+          </div>
+          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
+            {formatINRWhole(dashboardData.activeMrr)}
+          </p>
+          <div className="mt-2 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 font-semibold">
+            Started retainers / month
+          </div>
+        </Link>
       </div>
 
       {/* Meetings, calls, and follow-up reminders */}
@@ -283,175 +367,85 @@ function ExecutiveDashboard() {
         )}
       </section>
 
-      {/* Row 1: Premium Financial KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {/* Cash Balance */}
-        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Cash Balance</span>
-            <DollarSign className="h-5 w-5 text-emerald-500" />
-          </div>
-          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-            {formatINRWhole(dashboardData.cashBalance)}
-          </p>
-          <div className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1 font-semibold">
-            <ArrowUpRight className="h-3.5 w-3.5 text-emerald-500" /> Total Liquid Capital
-          </div>
-        </div>
-
-        {/* Revenue */}
-        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Revenue</span>
-            <TrendingUp className="h-5 w-5 text-primary" />
-          </div>
-          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-            {formatINRWhole(dashboardData.revenue)}
-          </p>
-          <div className="mt-2 text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-semibold">
-            Verified Payments Collected
-          </div>
-        </div>
-
-        {/* Expenses */}
-        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Expenses</span>
-            <TrendingDown className="h-5 w-5 text-rose-500" />
-          </div>
-          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-            {formatINRWhole(dashboardData.expenses)}
-          </p>
-          <div className="mt-2 text-[10px] text-rose-600 dark:text-rose-400 flex items-center gap-1 font-semibold">
-            Category Expenditures
-          </div>
-        </div>
-
-        {/* Revenue Booked */}
-        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Revenue Booked</span>
-            <Briefcase className="h-5 w-5 text-primary" />
-          </div>
-          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-            {formatINRWhole(dashboardData.revenueBooked)}
-          </p>
-          <div className="mt-2 text-[10px] text-primary flex items-center gap-1 font-semibold">
-            Contracts + recurring revenue received
-          </div>
-        </div>
-
-        {/* Outstanding Receivables */}
-        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Outstanding</span>
-            <FileText className="h-5 w-5 text-indigo-500" />
-          </div>
-          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-            {formatINRWhole(dashboardData.outstandingReceivables)}
-          </p>
-          <div className="mt-2 text-[10px] text-indigo-600 dark:text-indigo-400 flex items-center gap-1 font-semibold">
-            Outstanding client balances
-          </div>
-        </div>
-
-        {/* Active MRR */}
-        <Link
-          to="/accounts/retainers"
-          className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:border-primary/30 hover:shadow-md transition-all"
-        >
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Active MRR</span>
-            <TrendingUp className="h-5 w-5 text-amber-500" />
-          </div>
-          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-            {formatINRWhole(dashboardData.activeMrr)}
-          </p>
-          <div className="mt-2 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 font-semibold">
-            Started retainers / month
-          </div>
-        </Link>
-      </div>
-
       {/* Row 2: Charts & recent activity */}
       <div className="grid gap-6 lg:grid-cols-2">
-          {/* Monthly Revenue Chart */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
-              <span>Monthly Revenue Trend</span>
-              <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold uppercase">
-                Last 3 Months
-              </span>
-            </h2>
+        {/* Monthly Revenue Chart */}
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
+            <span>Monthly Revenue Trend</span>
+            <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold uppercase">
+              Last 3 Months
+            </span>
+          </h2>
 
-            {/* Visual HTML Bar Chart */}
-            <div className="mt-6 flex h-40 items-end justify-between gap-2.5 px-2">
-              {dashboardData.monthlyChartData.map((d) => {
-                const heightPercent = Math.round((d.revenue / dashboardData.maxChartValue) * 100);
-                return (
-                  <div
-                    key={d.label}
-                    className="flex-1 flex flex-col items-center gap-2 group cursor-pointer"
-                  >
-                    <div className="w-full relative flex items-end justify-center h-28">
-                      {/* Revenue Bar */}
-                      <div
-                        className="w-4 bg-primary rounded-t transition-all duration-300 group-hover:bg-primary/80"
-                        style={{ height: `${Math.max(4, heightPercent)}%` }}
-                        title={`Revenue: ${formatINRWhole(d.revenue)}`}
-                      />
-                    </div>
-                    <span className="text-[10px] font-bold text-muted-foreground">{d.label}</span>
+          {/* Visual HTML Bar Chart */}
+          <div className="mt-6 flex h-40 items-end justify-between gap-2.5 px-2">
+            {dashboardData.monthlyChartData.map((d) => {
+              const heightPercent = Math.round((d.revenue / dashboardData.maxChartValue) * 100);
+              return (
+                <div
+                  key={d.label}
+                  className="flex-1 flex flex-col items-center gap-2 group cursor-pointer"
+                >
+                  <div className="w-full relative flex items-end justify-center h-28">
+                    {/* Revenue Bar */}
+                    <div
+                      className="w-4 bg-primary rounded-t transition-all duration-300 group-hover:bg-primary/80"
+                      style={{ height: `${Math.max(4, heightPercent)}%` }}
+                      title={`Revenue: ${formatINRWhole(d.revenue)}`}
+                    />
                   </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-4 flex justify-center gap-6 text-[10px] font-bold text-muted-foreground border-t border-border/40 pt-3">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded bg-primary" /> Revenue (INR)
-              </span>
-            </div>
+                  <span className="text-[10px] font-bold text-muted-foreground">{d.label}</span>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Recent Payments Logs */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
-              <span>Recent Payments</span>
-              <Link
-                to="/accounts"
-                hash="transactions"
-                className="text-[10px] text-primary hover:underline font-bold uppercase"
-              >
-                Ledger
-              </Link>
-            </h2>
-
-            <div className="mt-4 space-y-3">
-              {dashboardData.recentPayments.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-4 text-center">
-                  No payment transactions found.
-                </p>
-              ) : (
-                dashboardData.recentPayments.map((pay) => (
-                  <div
-                    key={pay.id}
-                    className="flex justify-between items-center text-xs border-b border-border/40 pb-2.5"
-                  >
-                    <div>
-                      <p className="font-bold text-foreground leading-snug">{pay.description}</p>
-                      <p className="text-[9px] text-muted-foreground mt-0.5">
-                        {pay.date} &middot; {pay.paymentMethod.toUpperCase()}
-                      </p>
-                    </div>
-                    <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
-                      +{formatINRWhole(pay.amount)}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
+          <div className="mt-4 flex justify-center gap-6 text-[10px] font-bold text-muted-foreground border-t border-border/40 pt-3">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded bg-primary" /> Revenue (INR)
+            </span>
           </div>
+        </div>
+
+        {/* Recent Payments Logs */}
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
+            <span>Recent Payments</span>
+            <Link
+              to="/accounts"
+              hash="transactions"
+              className="text-[10px] text-primary hover:underline font-bold uppercase"
+            >
+              Ledger
+            </Link>
+          </h2>
+
+          <div className="mt-4 space-y-3">
+            {dashboardData.recentPayments.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic py-4 text-center">
+                No payment transactions found.
+              </p>
+            ) : (
+              dashboardData.recentPayments.map((pay) => (
+                <div
+                  key={pay.id}
+                  className="flex justify-between items-center text-xs border-b border-border/40 pb-2.5"
+                >
+                  <div>
+                    <p className="font-bold text-foreground leading-snug">{pay.description}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">
+                      {pay.date} &middot; {pay.paymentMethod.toUpperCase()}
+                    </p>
+                  </div>
+                  <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                    +{formatINRWhole(pay.amount)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

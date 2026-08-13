@@ -13,13 +13,13 @@ import {
 import {
   LogOut,
   Menu,
-  Bell,
   Shield,
   PanelLeftClose,
   PanelLeftOpen,
   LayoutDashboard,
   Users,
   BriefcaseBusiness,
+  CalendarDays,
   WalletCards,
   BarChart3,
   TrendingUp,
@@ -37,11 +37,6 @@ import { companyLogoSrc } from "@/lib/company-branding";
 import { getAuthStatusCached, clearAuthStatusCache } from "@/lib/auth-status-cache";
 import { prefetchAppData } from "@/lib/prefetch-app-data";
 import { useCompany } from "@/hooks/use-company";
-import { useOperations } from "@/hooks/use-operations";
-import { useInvoices } from "@/hooks/use-invoices";
-import { useDocuments } from "@/hooks/use-documents";
-import { syncSystemNotifications } from "@/lib/notification-engine";
-import { operationsWritesInFlight } from "@/lib/operations-storage";
 import { getDataBackendStatus } from "@/server/invoice-fns";
 import { logoutFn } from "@/server/auth-fns";
 
@@ -169,7 +164,7 @@ const navLinkClass = (active: boolean) => {
 };
 
 type NavLinkItem = { to: string; label: string; exact?: boolean };
-type NavGroupId = "crm" | "operations" | "finance" | "administration";
+type NavGroupId = "crm" | "delivery" | "workspace" | "finance" | "administration";
 type NavGroup = {
   id: NavGroupId;
   label: string;
@@ -186,19 +181,27 @@ const NAV_GROUPS: NavGroup[] = [
     section: "Daily Work",
     items: [
       { to: "/directory", label: "Directory" },
-      { to: "/leads", label: "Leads" },
+      { to: "/leads", label: "Pipeline" },
       { to: "/clients", label: "Clients" },
     ],
   },
   {
-    id: "operations",
-    label: "Operations",
+    id: "delivery",
+    label: "Delivery",
     icon: BriefcaseBusiness,
     section: "Daily Work",
     items: [
       { to: "/team", label: "Team" },
       { to: "/projects", label: "Projects" },
       { to: "/partnerships", label: "Partnerships" },
+    ],
+  },
+  {
+    id: "workspace",
+    label: "Workspace",
+    icon: CalendarDays,
+    section: "Daily Work",
+    items: [
       { to: "/calendar", label: "Calendar" },
       { to: "/reminders", label: "Reminders" },
       { to: "/documents", label: "Documents" },
@@ -384,14 +387,9 @@ function AppShell() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [serverDb, setServerDb] = useState<boolean | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [reminderClock, setReminderClock] = useState(() => Date.now());
   const [expandedNavGroups, setExpandedNavGroups] = useState<NavGroupId[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const { ops, persist, ready: opsReady } = useOperations();
-  const { invoices } = useInvoices();
-  const { docs } = useDocuments();
   const { company } = useCompany();
 
   const brandLogo = companyLogoSrc(company);
@@ -401,11 +399,6 @@ function AppShell() {
     void getDataBackendStatus()
       .then((s) => setServerDb(s.configured))
       .catch(() => setServerDb(false));
-  }, []);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setReminderClock(Date.now()), 60_000);
-    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -454,24 +447,6 @@ function AppShell() {
     window.localStorage.setItem(NAV_EXPANSION_STORAGE_KEY, JSON.stringify(expandedNavGroups));
   }, [expandedNavGroups]);
 
-  // Central Notification Sync — debounced so it never races user entity saves.
-  // Waits for the first real server load (opsReady); syncing against cached
-  // placeholder data fired saves before the CAS version existed and spammed
-  // "Cannot safely save before the current server version is loaded."
-  useEffect(() => {
-    if (!opsReady || !ops || !invoices || !docs || serverDb === null) return;
-    const timer = window.setTimeout(() => {
-      if (operationsWritesInFlight()) return;
-      const synced = syncSystemNotifications(ops, invoices, docs.agreements ?? [], serverDb);
-      const originalIds = (ops.notifications ?? []).map((n) => `${n.id}-${n.read}`).join(",");
-      const syncedIds = synced.map((n) => `${n.id}-${n.read}`).join(",");
-      if (originalIds !== syncedIds) {
-        void persist({ ...ops, notifications: synced });
-      }
-    }, 750);
-    return () => window.clearTimeout(timer);
-  }, [opsReady, ops, invoices, docs, serverDb, persist, reminderClock]);
-
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [path]);
@@ -490,41 +465,6 @@ function AppShell() {
       if (current.includes(id)) return current.filter((groupId) => groupId !== id);
       return keepOthers ? [...current, id] : [id];
     });
-  };
-
-  const notificationsList = ops?.notifications ?? [];
-  const unreadNotificationsCount = notificationsList.filter((n) => !n.read).length;
-
-  const handleToggleRead = (id: string) => {
-    if (!ops) return;
-    const updated = notificationsList.map((n) => (n.id === id ? { ...n, read: !n.read } : n));
-    persist({ ...ops, notifications: updated });
-  };
-
-  const handleMarkAllRead = () => {
-    if (!ops) return;
-    const updated = notificationsList.map((n) => ({ ...n, read: true }));
-    persist({ ...ops, notifications: updated });
-  };
-
-  const handleClearNotifications = () => {
-    if (!ops) return;
-    if (notificationsList.length === 0) return;
-    if (!confirm("Clear all notifications? Cleared items will not come back.")) return;
-  const ids = notificationsList.map((item) => item.id);
-    const dismissed = new Set(ops.dismissedNotificationIds ?? []);
-    // System health alerts must be allowed to reappear if the condition returns.
-    for (const id of ids) {
-      if (!id.startsWith("system-")) dismissed.add(id);
-    }
-    void persist(
-      {
-        ...ops,
-        notifications: [],
-        dismissedNotificationIds: [...dismissed],
-      },
-      { deleteIds: { notifications: ids } },
-    );
   };
 
   if (isLogin) {
@@ -601,114 +541,6 @@ function AppShell() {
 
           {/* Right Area */}
           <div className="flex items-center gap-3">
-            {/* Notification Drawer Sheet Trigger */}
-            <Sheet open={notificationsOpen} onOpenChange={setNotificationsOpen}>
-              <SheetTrigger asChild>
-                <button
-                  type="button"
-                  className="relative p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="Notifications"
-                >
-                  <Bell className="h-5 w-5" />
-                  {unreadNotificationsCount > 0 && (
-                    <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white ring-2 ring-background">
-                      {unreadNotificationsCount}
-                    </span>
-                  )}
-                </button>
-              </SheetTrigger>
-              <SheetContent
-                side="right"
-                className="flex w-full max-w-[min(100vw,24rem)] flex-col sm:max-w-md"
-              >
-                <SheetTitle className="text-left font-bold text-foreground border-b border-border pb-3 flex items-center justify-between gap-2">
-                  <span>Notifications</span>
-                  <div className="flex items-center gap-3">
-                    {unreadNotificationsCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleMarkAllRead}
-                        className="text-xs font-semibold text-primary hover:underline"
-                      >
-                        Mark all read
-                      </button>
-                    )}
-                    {notificationsList.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleClearNotifications}
-                        className="text-xs font-semibold text-muted-foreground hover:text-rose-500 hover:underline"
-                      >
-                        Clear all
-                      </button>
-                    )}
-                  </div>
-                </SheetTitle>
-
-                <div className="flex-1 overflow-y-auto mt-4 space-y-3 pr-1">
-                  {notificationsList.length === 0 ? (
-                    <div className="py-12 text-center text-muted-foreground">
-                      <Bell className="mx-auto h-8 w-8 opacity-40 animate-pulse mb-2 text-muted-foreground" />
-                      <p className="text-sm font-semibold">All caught up!</p>
-                    </div>
-                  ) : (
-                    notificationsList.map((item) => (
-                      <div
-                        key={item.id}
-                        className={`p-3 rounded-lg border text-xs transition-all relative ${
-                          item.read
-                            ? "bg-card/45 border-border/70 opacity-80"
-                            : "bg-card border-border shadow-sm hover:border-primary/40"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <h4 className="font-bold text-foreground leading-snug">{item.title}</h4>
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full shrink-0 mt-1.5 ${item.read ? "bg-transparent" : "bg-primary animate-pulse"}`}
-                          />
-                        </div>
-                        <p className="text-muted-foreground mt-1 leading-normal">{item.message}</p>
-                        <div className="mt-2.5 flex items-center justify-between">
-                          <span className="text-[9px] text-muted-foreground font-semibold tabular-nums">
-                            {item.timestamp}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            {item.actionUrl && (
-                              <button
-                                onClick={() => {
-                                  setNotificationsOpen(false);
-                                  void router.navigate({ to: item.actionUrl });
-                                }}
-                                className="text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded font-bold hover:bg-primary/90"
-                              >
-                                {item.actionLabel || "View"}
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleToggleRead(item.id)}
-                              className="text-muted-foreground hover:text-foreground text-[10px] font-semibold"
-                            >
-                              {item.read ? "Unread" : "Read"}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <div className="border-t border-border pt-4">
-                  <Link
-                    to="/logs"
-                    onClick={() => setNotificationsOpen(false)}
-                    className="block w-full text-center text-xs font-bold bg-muted hover:bg-muted/80 text-foreground py-2.5 rounded-lg transition-colors"
-                  >
-                    View Activity Logs
-                  </Link>
-                </div>
-              </SheetContent>
-            </Sheet>
-
             {/* Mobile menu trigger */}
             <div className="md:hidden">
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>

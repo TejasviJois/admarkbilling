@@ -13,13 +13,13 @@ import {
   Shield,
   Download,
   Upload,
-  Bell,
   Key,
   Sliders,
   CheckCircle,
 } from "lucide-react";
 import { ComplianceDocumentsPanel } from "@/components/settings/ComplianceDocumentsPanel";
 import { CompanyPartnersPanel } from "@/components/settings/CompanyPartnersPanel";
+import { CloudUsagePanel } from "@/components/settings/CloudUsagePanel";
 import {
   SettingsField,
   SettingsImageField,
@@ -57,7 +57,6 @@ type SettingsTab =
   | "bank"
   | "security"
   | "storage"
-  | "notifications"
   | "users"
   | "permissions"
   | "integrations";
@@ -484,7 +483,6 @@ function SettingsPage() {
     { value: "bank", label: "Bank Details", icon: <CreditCard className="h-4 w-4" /> },
     { value: "security", label: "Security & Access", icon: <Shield className="h-4 w-4" /> },
     { value: "storage", label: "Storage & Backups", icon: <Database className="h-4 w-4" /> },
-    { value: "notifications", label: "Notifications", icon: <Bell className="h-4 w-4" /> },
     { value: "users", label: "Users & Members", icon: <Users className="h-4 w-4" /> },
     { value: "permissions", label: "Permissions Matrix", icon: <Key className="h-4 w-4" /> },
     { value: "integrations", label: "Integrations", icon: <Sliders className="h-4 w-4" /> },
@@ -524,27 +522,27 @@ function SettingsPage() {
       )}
 
       {/* Main split grid */}
-      <div className="grid gap-6 md:grid-cols-4 items-start">
+      <div className="grid items-start gap-6 md:grid-cols-[15.5rem_minmax(0,1fr)]">
         {/* Left Sidebar Tab Navigation */}
-        <aside className="md:col-span-1 space-y-1 bg-card/65 p-2 rounded-xl border border-border">
+        <aside className="space-y-1 rounded-xl border border-border bg-card/65 p-2">
           {tabsList.map((t) => (
             <button
               key={t.value}
               onClick={() => setActiveTab(t.value)}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+              className={`flex w-full items-center justify-start gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold leading-snug transition-all ${
                 activeTab === t.value
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
-              {t.icon}
-              <span>{t.label}</span>
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center">{t.icon}</span>
+              <span className="min-w-0 flex-1 whitespace-nowrap">{t.label}</span>
             </button>
           ))}
         </aside>
 
         {/* Right Active Panel */}
-        <div className="md:col-span-3 bg-card border border-border rounded-xl p-6 shadow-sm min-h-[500px]">
+        <div className="min-w-0 rounded-xl border border-border bg-card p-6 shadow-sm min-h-[500px]">
           {/* Tab: Company Profile (includes branding assets) */}
           {activeTab === "company" && (
             <div className="space-y-6">
@@ -833,6 +831,7 @@ function SettingsPage() {
               <h2 className="text-base font-bold text-foreground border-b border-border pb-3">
                 Storage & Backups
               </h2>
+              <CloudUsagePanel />
               <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/15 p-4">
                 {backendLabel.includes("Supabase") ? (
                   <Cloud className="mt-0.5 h-5 w-5 shrink-0 text-sky-400" />
@@ -926,31 +925,6 @@ function SettingsPage() {
                   <Cloud className="h-4 w-4" />
                   {syncingCloud ? "Syncing data..." : "Migrate local data to Supabase"}
                 </button>
-              </div>
-            </div>
-          )}
-
-          {/* Tab: Notifications */}
-          {activeTab === "notifications" && (
-            <div className="space-y-6">
-              <h2 className="text-base font-bold text-foreground border-b border-border pb-3">
-                Notification Rules
-              </h2>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center text-xs border-b border-border/40 pb-2">
-                  <span className="text-foreground font-semibold">Enable Invoice Due alerts</span>
-                  <span className="text-emerald-500 font-bold">Active</span>
-                </div>
-                <div className="flex justify-between items-center text-xs border-b border-border/40 pb-2">
-                  <span className="text-foreground font-semibold">
-                    Enable Milestone deadlines alerts
-                  </span>
-                  <span className="text-emerald-500 font-bold">Active</span>
-                </div>
-                <div className="flex justify-between items-center text-xs border-b border-border/40 pb-2">
-                  <span className="text-foreground font-semibold">Enable System Error alerts</span>
-                  <span className="text-emerald-500 font-bold">Active</span>
-                </div>
               </div>
             </div>
           )}

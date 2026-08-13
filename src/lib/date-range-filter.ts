@@ -44,6 +44,45 @@ export function toLocalISODate(d: Date = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
+/** YYYY-MM for a calendar date. */
+export function calendarMonthKey(date: string | Date = toLocalISODate()): string {
+  if (typeof date === "string") {
+    const normalized = normalizeDateString(date);
+    return (normalized ?? toLocalISODate()).slice(0, 7);
+  }
+  return toLocalISODate(date).slice(0, 7);
+}
+
+export function isInCalendarMonth(date: string | undefined | null, month: string): boolean {
+  const normalized = normalizeDateString(date);
+  return Boolean(normalized && normalized.startsWith(month));
+}
+
+export function formatCalendarMonthLabel(month: string): string {
+  const parsed = new Date(`${month}-01T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return month;
+  return parsed.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+}
+
+/** Inclusive YYYY-MM list from start through end (each YYYY-MM). */
+export function monthsThrough(startMonth: string, endMonth: string): string[] {
+  const months: string[] = [];
+  let year = Number(startMonth.slice(0, 4));
+  let month = Number(startMonth.slice(5, 7));
+  const endYear = Number(endMonth.slice(0, 4));
+  const endMonthNum = Number(endMonth.slice(5, 7));
+  if (!year || !month || !endYear || !endMonthNum) return [endMonth];
+  while (year < endYear || (year === endYear && month <= endMonthNum)) {
+    months.push(`${year}-${String(month).padStart(2, "0")}`);
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return months.length ? months : [endMonth];
+}
+
 /** Normalize stored dates (ISO strings, timestamps) for safe comparison. */
 export function normalizeDateString(raw: string | undefined | null): string | null {
   if (!raw?.trim()) return null;
@@ -76,6 +115,37 @@ export function periodBounds(
   const startDate = subtractMonths(endDate, months);
 
   return { start: toLocalISODate(startDate), end };
+}
+
+/** Monday of the week that contains `date` (YYYY-MM-DD), local calendar. */
+export function isoWeekStart(date: string | undefined | null): string | null {
+  const normalized = normalizeDateString(date);
+  if (!normalized) return null;
+  const d = new Date(`${normalized}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  return toLocalISODate(d);
+}
+
+export function isoWeekEnd(weekStart: string): string | null {
+  const start = normalizeDateString(weekStart);
+  if (!start) return null;
+  const d = new Date(`${start}T12:00:00`);
+  d.setDate(d.getDate() + 6);
+  return toLocalISODate(d);
+}
+
+/** True when Mon–Sun of `weekStart` overlaps the YYYY-MM calendar month. */
+export function weekOverlapsCalendarMonth(weekStart: string, month: string): boolean {
+  const start = normalizeDateString(weekStart);
+  const end = isoWeekEnd(weekStart);
+  if (!start || !end || !/^\d{4}-\d{2}$/.test(month)) return false;
+  const [year, monthNum] = month.split("-").map(Number);
+  const monthStart = `${month}-01`;
+  const lastDay = new Date(year, monthNum, 0).getDate();
+  const monthEnd = `${month}-${String(lastDay).padStart(2, "0")}`;
+  return start <= monthEnd && end >= monthStart;
 }
 
 export function isWithinPeriod(

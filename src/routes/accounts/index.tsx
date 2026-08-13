@@ -15,11 +15,20 @@ import { TransactionFormDialog } from "@/components/operations/TransactionFormDi
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useOperations } from "@/hooks/use-operations";
 import {
   removeAccountTransactionFromProjects,
   syncAccountTransactionToProjects,
 } from "@/lib/project-payment-sync";
+import { liveCashflowMonths } from "@/lib/analytics";
+import { calendarMonthKey, formatCalendarMonthLabel, isInCalendarMonth } from "@/lib/date-range-filter";
 import { paymentSummary } from "@/lib/project-payments";
 import { formatINR } from "@/lib/invoice-calc";
 import type { Project, Transaction, TransactionType } from "@/lib/types";
@@ -52,6 +61,7 @@ function transactionLabel(transaction: Transaction): string {
 function AccountsPage() {
   const { ops, persist, loading: operationsLoading } = useOperations();
   const [movementFilter, setMovementFilter] = useState<MovementFilter>("all");
+  const [month, setMonth] = useState(() => calendarMonthKey());
   const [search, setSearch] = useState("");
   const [clientFilter, setClientFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
@@ -96,6 +106,9 @@ function AccountsPage() {
     );
   };
 
+  const monthOptions = useMemo(() => liveCashflowMonths(ops), [ops]);
+  const selectedMonth = month === "all" || monthOptions.includes(month) ? month : (monthOptions.at(-1) ?? month);
+
   const filteredTransactions = useMemo(() => {
     const query = search.trim().toLowerCase();
     return transactions
@@ -103,6 +116,8 @@ function AccountsPage() {
         if (movementFilter === "income" && !INFLOW_TYPES.includes(transaction.type)) return false;
         if (movementFilter === "expenses" && transaction.type !== "expense") return false;
         if (movementFilter === "transfers" && transaction.type !== "internal_transfer")
+          return false;
+        if (selectedMonth !== "all" && !isInCalendarMonth(transaction.date, selectedMonth))
           return false;
         if (clientFilter !== "all" && transaction.relatedClientId !== clientFilter) return false;
         if (projectFilter !== "all" && transaction.relatedProjectId !== projectFilter) return false;
@@ -126,6 +141,7 @@ function AccountsPage() {
     dateFrom,
     dateTo,
     search,
+    selectedMonth,
   ]);
 
   const activeFilterCount = [
@@ -178,18 +194,43 @@ function AccountsPage() {
             Every income, expense, transfer, and adjustment in one ledger.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {(["all", "income", "expenses", "transfers"] as MovementFilter[]).map((filter) => (
-            <Button
-              key={filter}
-              size="sm"
-              variant={movementFilter === filter ? "default" : "outline"}
-              onClick={() => setMovementFilter(filter)}
-              className="capitalize"
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            {(["all", "income", "expenses", "transfers"] as MovementFilter[]).map((filter) => (
+              <Button
+                key={filter}
+                size="sm"
+                variant={movementFilter === filter ? "default" : "outline"}
+                onClick={() => setMovementFilter(filter)}
+                className="capitalize"
+              >
+                {filter}
+              </Button>
+            ))}
+          </div>
+          <Select value={selectedMonth} onValueChange={setMonth}>
+            <SelectTrigger
+              id="accounts-month"
+              aria-label="Month"
+              className="h-8 w-auto shrink-0 gap-1.5 rounded-full border-border bg-muted/50 px-3 text-xs font-medium text-foreground shadow-none"
             >
-              {filter}
-            </Button>
-          ))}
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end" className="bg-popover text-foreground">
+              <SelectItem value="all" className="text-foreground focus:bg-accent focus:text-foreground">
+                All months
+              </SelectItem>
+              {monthOptions.map((value) => (
+                <SelectItem
+                  key={value}
+                  value={value}
+                  className="text-foreground focus:bg-accent focus:text-foreground"
+                >
+                  {formatCalendarMonthLabel(value)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-4">
