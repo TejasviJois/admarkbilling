@@ -1,4 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
+import {
+  inferDocumentLibrary,
+  isArchiveDocumentType,
+  isDocumentLibrary,
+  normalizeCompanyName,
+} from "@/lib/document-vault";
 import type { Agreement, ArchiveDocument, DocumentsData } from "@/lib/types";
 import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
@@ -61,24 +67,32 @@ function parseAgreement(raw: unknown): Agreement | null {
 function parseArchiveDocument(raw: unknown): ArchiveDocument | null {
   if (!raw || typeof raw !== "object") return null;
   const d = raw as Partial<ArchiveDocument>;
-  if (
-    typeof d.id !== "string" ||
-    typeof d.title !== "string" ||
-    typeof d.clientId !== "string" ||
-    typeof d.clientName !== "string"
-  ) {
-    return null;
-  }
+  if (typeof d.id !== "string" || typeof d.title !== "string") return null;
+  const documentType = isArchiveDocumentType(d.documentType) ? d.documentType : "other";
+  const clientId = typeof d.clientId === "string" && d.clientId ? d.clientId : undefined;
+  const library = isDocumentLibrary(d.library)
+    ? d.library
+    : inferDocumentLibrary({ library: d.library, clientId, documentType });
+  const companyName =
+    normalizeCompanyName(d.companyName || d.clientName) || (library === "vault" ? "Admark" : "");
+  if (!companyName) return null;
   const now = Date.now();
+  const assignedMemberIds = Array.isArray(d.assignedMemberIds)
+    ? d.assignedMemberIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+    : undefined;
   return {
     id: d.id,
     organizationId: DEFAULT_ORG_ID,
     title: d.title,
-    documentType:
-      d.documentType === "agreement" || d.documentType === "proposal" ? d.documentType : "other",
+    documentType,
     customType: d.customType,
-    clientId: d.clientId,
-    clientName: d.clientName,
+    library,
+    companyName,
+    clientId,
+    clientName: typeof d.clientName === "string" && d.clientName ? d.clientName : companyName,
+    projectId: typeof d.projectId === "string" && d.projectId ? d.projectId : undefined,
+    assignedMemberIds:
+      assignedMemberIds && assignedMemberIds.length > 0 ? assignedMemberIds : undefined,
     fileDataUrl: d.fileDataUrl,
     fileName: d.fileName,
     mimeType: d.mimeType,

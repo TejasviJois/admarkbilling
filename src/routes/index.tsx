@@ -5,7 +5,6 @@ import {
   TrendingDown,
   DollarSign,
   Briefcase,
-  Users,
   ArrowUpRight,
   Activity,
   FileText,
@@ -19,7 +18,7 @@ import { useOperations } from "@/hooks/use-operations";
 import { computeFinancialSummary } from "@/lib/financial";
 import { formatINRWhole } from "@/lib/invoice-calc";
 import { sumActiveMrr } from "@/lib/project-billing";
-import { estimatedPending, paymentSummary } from "@/lib/project-payments";
+import { estimatedPending } from "@/lib/project-payments";
 import { isRevenueProject } from "@/lib/project-status";
 import {
   formatScheduleDateTime,
@@ -76,10 +75,7 @@ function ExecutiveDashboard() {
 
     const activeMrr = sumActiveMrr(projects);
 
-    // 2. Active Projects
-    const activeProjectsCount = projects.filter((p) => p.status === "active").length;
-
-    // 3. Recent Payments
+    // 2. Recent Payments
     const recentPayments = transactions
       .filter((t) => t.type === "client_payment")
       .sort((a, b) => b.date.localeCompare(a.date))
@@ -124,21 +120,6 @@ function ExecutiveDashboard() {
       10000,
     );
 
-    // 5. Top Clients by Project Value (contract value across done + ongoing projects)
-    const clientValueMap: Record<string, number> = {};
-    for (const p of projects) {
-      if (!isRevenueProject(p.status)) continue;
-      const value = paymentSummary(p).target ?? 0;
-      if (value <= 0) continue;
-      const clientName = p.client?.trim() || "General Client";
-      clientValueMap[clientName] = (clientValueMap[clientName] || 0) + value;
-    }
-
-    const topClients = Object.entries(clientValueMap)
-      .map(([name, total]) => ({ name, total }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5);
-
     return {
       cashBalance,
       revenue,
@@ -146,11 +127,9 @@ function ExecutiveDashboard() {
       revenueBooked,
       outstandingReceivables,
       activeMrr,
-      activeProjectsCount,
       recentPayments,
       monthlyChartData,
       maxChartValue,
-      topClients,
     };
   }, [ops]);
 
@@ -394,10 +373,8 @@ function ExecutiveDashboard() {
         </Link>
       </div>
 
-      {/* Row 2: Secondary Grid (Desktop First: Left Content, Middle Ops, Right Feeds) */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Column: Visual Charts & Analytics */}
-        <div className="space-y-6">
+      {/* Row 2: Charts & recent activity */}
+      <div className="grid gap-6 lg:grid-cols-2">
           {/* Monthly Revenue Chart */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
@@ -475,87 +452,6 @@ function ExecutiveDashboard() {
               )}
             </div>
           </div>
-        </div>
-
-        {/* Middle Column: Operational Pipeline */}
-        <div className="space-y-6">
-          {/* Active Projects List */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
-              <span>Active Projects</span>
-              <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded font-bold uppercase">
-                {dashboardData.activeProjectsCount} Ongoing
-              </span>
-            </h2>
-
-            <div className="mt-4 space-y-4 max-h-[300px] overflow-y-auto pr-1">
-              {ops.projects.filter((p) => p.status === "active").length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-4 text-center">
-                  No active projects logged.
-                </p>
-              ) : (
-                ops.projects
-                  .filter((p) => p.status === "active")
-                  .map((project) => (
-                    <div
-                      key={project.id}
-                      className="border border-border/60 rounded p-3 bg-muted/10"
-                    >
-                      <Link
-                        to="/projects/$id"
-                        params={{ id: project.id }}
-                        className="font-bold text-xs text-primary hover:underline"
-                      >
-                        {project.client}
-                      </Link>
-                      <p className="text-[10px] text-muted-foreground">
-                        {project.projectType || "General Work"}
-                      </p>
-                    </div>
-                  ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Top Clients */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-foreground border-b border-border pb-3 flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-primary" /> Top Clients
-              </span>
-              <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold uppercase">
-                By Project Value
-              </span>
-            </h2>
-            <div className="mt-4 space-y-3">
-              {dashboardData.topClients.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-4 text-center">
-                  No project values recorded yet.
-                </p>
-              ) : (
-                dashboardData.topClients.map((client, idx) => (
-                  <div
-                    key={client.name}
-                    className="flex items-center justify-between text-xs border-b border-border/40 pb-2"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="h-5 w-5 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-[10px]">
-                        {idx + 1}
-                      </span>
-                      <span className="font-bold text-foreground">{client.name}</span>
-                    </div>
-                    <span className="font-bold tabular-nums text-foreground">
-                      {formatINRWhole(client.total)}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

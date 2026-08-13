@@ -66,7 +66,7 @@ const ALLOWED_MIME_TYPES = new Set([
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 
 export async function uploadDataUrlToStorage(
   sb: SupabaseClient,
@@ -80,7 +80,7 @@ export async function uploadDataUrlToStorage(
     throw new Error(`Unsupported file type: ${mimeType}`);
   }
   if (buffer.byteLength > MAX_FILE_SIZE_BYTES) {
-    throw new Error("File size exceeds the maximum limit of 5MB.");
+    throw new Error("File size exceeds the maximum limit of 15MB.");
   }
   const path = objectPath(folder, fileName, normalizedMime);
 

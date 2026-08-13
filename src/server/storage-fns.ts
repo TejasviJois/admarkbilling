@@ -14,7 +14,7 @@ const ALLOWED_MIME_TYPES = [
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB
 
 export const uploadFileFn = createServerFn({ method: "POST" })
   .inputValidator((data: { dataUrl: string; folder: string; fileName?: string }) => {
@@ -37,7 +37,7 @@ export const uploadFileFn = createServerFn({ method: "POST" })
     const base64Data = match[2];
     const sizeInBytes = Math.round((base64Data.length * 3) / 4);
     if (sizeInBytes > MAX_FILE_SIZE_BYTES) {
-      throw new Error("File size exceeds the maximum limit of 5MB.");
+      throw new Error("File size exceeds the maximum limit of 15MB.");
     }
 
     return data;

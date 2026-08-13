@@ -6,8 +6,7 @@ import { logClientError } from "@/lib/client-logger";
 import { upsertInvoice } from "@/lib/storage";
 import { nextInvoiceNumberFromList } from "@/lib/invoice-number";
 import { computeTotals, deriveInvoiceStatus, formatINR, lineAmount } from "@/lib/invoice-calc";
-import { buildInvoiceAdvanceTransaction, resolveRelatedProject } from "@/lib/invoice-project-link";
-import { syncAccountTransactionToProjects } from "@/lib/project-payment-sync";
+import { resolveRelatedProject } from "@/lib/invoice-project-link";
 import { rupeesInWords } from "@/lib/number-to-words";
 import type { Invoice, LineItem } from "@/lib/types";
 import { KNOWN_CLIENT_NAMES } from "@/lib/client-directory";
@@ -39,45 +38,53 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 const blankItem = (): LineItem => ({ id: uid(), description: "", quantity: 1, rate: 0 });
 
 interface Props {
+  existing?: Invoice;
   onSaved?: (inv: Invoice) => void;
 }
 
-export default function InvoiceForm({ onSaved }: Props) {
+export default function InvoiceForm({ existing, onSaved }: Props) {
   const queryClient = useQueryClient();
   const { company } = useCompany();
   const { invoices } = useInvoices();
-  const [number, setNumber] = useState("");
-  const [date, setDate] = useState(todayIso());
-  const { ops, persist: persistOps } = useOperations();
-  const [clientId, setClientId] = useState("");
-  const [clientName, setClientName] = useState("");
-  const [clientBusinessType, setClientBusinessType] = useState("");
-  const [clientAddress, setClientAddress] = useState("");
-  const [clientContact, setClientContact] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
-  const [clientEmail, setClientEmail] = useState("");
-  const [clientGstin, setClientGstin] = useState("");
-  const [items, setItems] = useState<LineItem[]>([blankItem()]);
-  const [advance, setAdvance] = useState(0);
-  const [taxPercent, setTaxPercent] = useState(0);
-  const [remarks, setRemarks] = useState(() => company.remarks ?? "");
-  const [paymentTerms, setPaymentTerms] = useState(() => company.paymentTerms ?? "");
-  const [paymentMode, setPaymentMode] = useState(() => company.paymentMode ?? "");
-  const [paymentDate, setPaymentDate] = useState("");
-  const [status, setStatus] = useState<Invoice["status"]>("generated");
+  const isEdit = Boolean(existing);
+  const [number, setNumber] = useState(existing?.number ?? "");
+  const [date, setDate] = useState(existing?.date ?? todayIso());
+  const { ops } = useOperations();
+  const [clientId, setClientId] = useState(existing?.clientId ?? "");
+  const [clientName, setClientName] = useState(existing?.clientName ?? "");
+  const [clientBusinessType, setClientBusinessType] = useState(existing?.clientBusinessType ?? "");
+  const [clientAddress, setClientAddress] = useState(existing?.clientAddress ?? "");
+  const [clientContact, setClientContact] = useState(existing?.clientContact ?? "");
+  const [clientPhone, setClientPhone] = useState(existing?.clientPhone ?? "");
+  const [clientEmail, setClientEmail] = useState(existing?.clientEmail ?? "");
+  const [clientGstin, setClientGstin] = useState(existing?.clientGstin ?? "");
+  const [items, setItems] = useState<LineItem[]>(
+    existing?.items?.length ? existing.items : [blankItem()],
+  );
+  const [advance, setAdvance] = useState(existing?.advance ?? 0);
+  const [taxPercent, setTaxPercent] = useState(existing?.taxPercent ?? 0);
+  const [remarks, setRemarks] = useState(existing?.remarks ?? company.remarks ?? "");
+  const [paymentTerms, setPaymentTerms] = useState(
+    existing?.paymentTerms ?? company.paymentTerms ?? "",
+  );
+  const [paymentMode, setPaymentMode] = useState(existing?.paymentMode ?? company.paymentMode ?? "");
+  const [paymentDate, setPaymentDate] = useState(existing?.paymentDate ?? "");
+  const [status, setStatus] = useState<Invoice["status"]>(existing?.status ?? "generated");
   const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
+    if (isEdit) return;
     setNumber(nextInvoiceNumberFromList(invoices, date));
-  }, [date, invoices]);
+  }, [date, invoices, isEdit]);
 
   /** When client / company name matches partner or client sheet, fill Type of business */
   useEffect(() => {
+    if (isEdit) return;
     const next = autoFillBusinessTypeForClientName(clientName);
     if (next !== undefined) {
       setClientBusinessType(next);
     }
-  }, [clientName]);
+  }, [clientName, isEdit]);
 
   const updateItem = (id: string, patch: Partial<LineItem>) =>
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
@@ -86,7 +93,7 @@ export default function InvoiceForm({ onSaved }: Props) {
 
   const draft: Invoice = useMemo(
     () => ({
-      id: "draft",
+      id: existing?.id ?? "draft",
       number,
       date,
       clientId: clientId || undefined,
@@ -105,7 +112,10 @@ export default function InvoiceForm({ onSaved }: Props) {
       paymentMode,
       paymentDate,
       status,
-      createdAt: Date.now(),
+      createdAt: existing?.createdAt ?? Date.now(),
+      projectId: existing?.projectId,
+      agreementId: existing?.agreementId,
+      organizationId: existing?.organizationId,
     }),
     [
       number,
@@ -126,6 +136,7 @@ export default function InvoiceForm({ onSaved }: Props) {
       paymentDate,
       status,
       clientId,
+      existing,
     ],
   );
 
@@ -145,36 +156,23 @@ export default function InvoiceForm({ onSaved }: Props) {
       alert(err);
       return;
     }
-    const assignedNumber = nextInvoiceNumberFromList(invoices, date);
-    const baseInvoice: Invoice = { ...draft, id: uid(), number: assignedNumber };
+    const assignedNumber = existing?.number ?? nextInvoiceNumberFromList(invoices, date);
+    const baseInvoice: Invoice = {
+      ...draft,
+      id: existing?.id ?? uid(),
+      number: assignedNumber,
+      createdAt: existing?.createdAt ?? Date.now(),
+    };
     const relatedProject = resolveRelatedProject(ops.projects, baseInvoice);
-    const inv: Invoice = { ...baseInvoice, projectId: relatedProject?.id };
+    const inv: Invoice = { ...baseInvoice, projectId: relatedProject?.id ?? existing?.projectId };
     try {
       const saved = await upsertInvoice(inv);
       const nextList = [saved, ...invoices.filter((i) => i.id !== saved.id)];
       queryClient.setQueryData(queryKeys.invoices, nextList);
       writeClientCache("invoices", nextList);
-      // The advance is money actually received — post it to the Accounts
-      // ledger and sync the linked project's received/outstanding, exactly
-      // like a payment logged from Accounts.
-      if ((Number(saved.advance) || 0) > 0) {
-        const transaction = buildInvoiceAdvanceTransaction(
-          saved,
-          relatedProject?.id,
-          saved.clientId,
-        );
-        persistOps({
-          ...ops,
-          transactions: [
-            transaction,
-            ...(ops.transactions ?? []).filter((t) => t.id !== transaction.id),
-          ],
-          projects: syncAccountTransactionToProjects(ops.projects, transaction),
-        });
-      }
       then?.(saved);
       onSaved?.(saved);
-      setNumber(nextInvoiceNumberFromList(nextList, date));
+      if (!isEdit) setNumber(nextInvoiceNumberFromList(nextList, date));
     } catch (e) {
       logClientError("invoiceForm.persist", e);
       alert(e instanceof Error ? e.message : "Could not save invoice.");
@@ -202,14 +200,15 @@ export default function InvoiceForm({ onSaved }: Props) {
             <ArrowLeft className="h-4 w-4" /> Back to invoices
           </Link>
           <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            Step 1 — Details
+            {isEdit ? "Edit invoice" : "Step 1 — Details"}
           </p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-            Create new invoice
+            {isEdit ? `Edit ${existing?.number}` : "Create new invoice"}
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Invoice number is assigned automatically in sequence for the financial year
-            (AM/YY-YY/0001).
+            {isEdit
+              ? "Changes save to this invoice number. A new invoice is not created."
+              : "Invoice number is assigned automatically in sequence for the financial year (AM/YY-YY/0001)."}
           </p>
         </div>
         <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
@@ -225,7 +224,7 @@ export default function InvoiceForm({ onSaved }: Props) {
             onClick={() => void persistInvoice()}
             className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-card px-4 py-2.5 text-sm font-semibold hover:bg-secondary sm:w-auto"
           >
-            Save only
+            {isEdit ? "Save changes" : "Save only"}
           </button>
           <button
             type="button"
@@ -249,7 +248,9 @@ export default function InvoiceForm({ onSaved }: Props) {
                   className={`${inputCls} cursor-default bg-muted/40 text-foreground`}
                 />
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Auto-generated sequentially for the financial year (e.g. AM/26-27/0001).
+                  {isEdit
+                    ? "This invoice keeps its original number."
+                    : "Auto-generated sequentially for the financial year (e.g. AM/26-27/0001)."}
                 </p>
               </Field>
               <Field label="Date">
@@ -303,7 +304,6 @@ export default function InvoiceForm({ onSaved }: Props) {
                       setClientBusinessType("");
                     }
                   }}
-                  required
                 >
                   <option value="">Select a saved client…</option>
                   {(ops.clients ?? []).map((c) => (
@@ -316,51 +316,51 @@ export default function InvoiceForm({ onSaved }: Props) {
               <Field label="Client / company name">
                 <input
                   value={clientName}
-                  readOnly
-                  className={`${inputCls} bg-muted/40 cursor-default`}
+                  onChange={(e) => setClientName(e.target.value)}
+                  className={inputCls}
                 />
               </Field>
               <Field label="Type of business">
                 <input
                   value={clientBusinessType}
-                  readOnly
-                  className={`${inputCls} bg-muted/40 cursor-default`}
+                  onChange={(e) => setClientBusinessType(e.target.value)}
+                  className={inputCls}
                 />
               </Field>
               <Field label="Contact person">
                 <input
                   value={clientContact}
-                  readOnly
-                  className={`${inputCls} bg-muted/40 cursor-default`}
+                  onChange={(e) => setClientContact(e.target.value)}
+                  className={inputCls}
                 />
               </Field>
               <Field label="Phone">
                 <input
                   value={clientPhone}
-                  readOnly
-                  className={`${inputCls} bg-muted/40 cursor-default`}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                  className={inputCls}
                 />
               </Field>
               <Field label="Email">
                 <input
                   value={clientEmail}
-                  readOnly
-                  className={`${inputCls} bg-muted/40 cursor-default`}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                  className={inputCls}
                 />
               </Field>
               <Field label="Address" className="sm:col-span-2">
                 <textarea
                   value={clientAddress}
-                  readOnly
+                  onChange={(e) => setClientAddress(e.target.value)}
                   rows={2}
-                  className={`${inputCls} bg-muted/40 cursor-default`}
+                  className={inputCls}
                 />
               </Field>
               <Field label="GSTIN / Company No.">
                 <input
                   value={clientGstin}
-                  readOnly
-                  className={`${inputCls} bg-muted/40 cursor-default`}
+                  onChange={(e) => setClientGstin(e.target.value)}
+                  className={inputCls}
                 />
               </Field>
             </div>

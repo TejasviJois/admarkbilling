@@ -4,6 +4,31 @@ import { logClientError } from "@/lib/client-logger";
 
 let backendConfigured: boolean | null = null;
 
+const EXT_MIME: Record<string, string> = {
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+  avif: "image/avif",
+};
+
+/** Windows often leaves `file.type` empty; infer from the extension so uploads aren't rejected. */
+export function mimeTypeForFile(file: File): string {
+  const type = file.type.toLowerCase();
+  if (type && type !== "application/octet-stream") return type;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return EXT_MIME[ext] || type || "application/octet-stream";
+}
+
+function withMimeType(dataUrl: string, mimeType: string): string {
+  if (!dataUrl.startsWith("data:")) return dataUrl;
+  return dataUrl.replace(/^data:[^;]*;base64,/, `data:${mimeType};base64,`);
+}
+
 async function remoteEnabled(): Promise<boolean> {
   if (backendConfigured !== null) return backendConfigured;
   try {
@@ -55,7 +80,8 @@ export async function readAndPersistFile(
   file: File,
   folder: string,
 ): Promise<{ url: string; fileName: string; mimeType: string }> {
-  const dataUrl = await readFileAsDataUrl(file);
+  const mimeType = mimeTypeForFile(file);
+  const dataUrl = withMimeType(await readFileAsDataUrl(file), mimeType);
   const url = await persistDataUrl(dataUrl, folder, file.name);
-  return { url, fileName: file.name, mimeType: file.type || "application/octet-stream" };
+  return { url, fileName: file.name, mimeType };
 }

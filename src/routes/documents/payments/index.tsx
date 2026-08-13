@@ -29,7 +29,7 @@ function DocumentsPaymentsHub() {
         description="Select a counterparty type, then open each client, partner, or vendor to see their full payment trail and proofs."
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-3">
         <DocumentHubCard
           to="/documents/payments/clients"
           title="Clients"

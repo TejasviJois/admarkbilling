@@ -1,7 +1,11 @@
 import { Link, type LinkProps } from "@tanstack/react-router";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, FolderOpen } from "lucide-react";
 
-export function DocumentsBreadcrumb({ items }: { items: { label: string; to?: string }[] }) {
+export function DocumentsBreadcrumb({
+  items,
+}: {
+  items: { label: string; to?: LinkProps["to"] }[];
+}) {
   return (
     <nav className="mb-6 flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
       {items.map((item, i) => (
@@ -27,7 +31,7 @@ export function DocumentHubCard({
   stat,
   icon,
 }: {
-  to: string;
+  to: LinkProps["to"];
   title: string;
   description: string;
   stat?: string;
@@ -36,17 +40,36 @@ export function DocumentHubCard({
   return (
     <Link
       to={to}
-      className="group block rounded-lg border border-border bg-card p-6 shadow-sm transition-shadow hover:shadow-md"
+      className="group flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card p-4 text-center shadow-sm transition-shadow hover:shadow-md"
     >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 shrink-0 text-primary">{icon}</span>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
-          {stat && <p className="mt-3 text-xs font-medium text-muted-foreground">{stat}</p>}
-        </div>
-        <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-      </div>
+      <span className="text-primary">{icon}</span>
+      <h3 className="text-base font-semibold tracking-tight">{title}</h3>
+      <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{description}</p>
+      {stat && <p className="text-xs font-medium text-muted-foreground">{stat}</p>}
+    </Link>
+  );
+}
+
+export function FolderTile({
+  to,
+  params,
+  title,
+  subtitle,
+}: {
+  to: LinkProps["to"];
+  params?: LinkProps["params"];
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <Link
+      to={to}
+      params={params}
+      className="group flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-center shadow-sm transition-shadow hover:shadow-md"
+    >
+      <FolderOpen className="h-8 w-8 shrink-0 text-primary" />
+      <p className="line-clamp-2 w-full text-sm font-semibold text-foreground">{title}</p>
+      {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
     </Link>
   );
 }

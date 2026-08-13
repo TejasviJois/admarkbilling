@@ -119,6 +119,7 @@ export default defineConfig({
     }),
     nitro({
       preset: "vercel",
+      maxRequestBodySize: 20 * 1024 * 1024,
       routeRules: {
         "/**": {
           headers: {

@@ -114,7 +114,7 @@ export function DocumentArchive({
           : document.documentType === "proposal"
             ? "Proposal"
             : "Agreement",
-      company: document.clientName,
+      company: document.companyName || document.clientName || "",
       date: document.updatedAt,
       document,
     }));
@@ -158,6 +158,8 @@ export function DocumentArchive({
         title: title.trim(),
         documentType,
         customType: documentType === "other" ? customType.trim() : undefined,
+        library: "client",
+        companyName: selectedClient.companyName,
         clientId: selectedClient.id,
         clientName: selectedClient.companyName,
         ...uploaded,

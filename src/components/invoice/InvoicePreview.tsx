@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { CompanySettings, Invoice } from "@/lib/types";
 import { DEFAULT_LETTERHEAD_URL } from "@/lib/constants";
 import { computeTotals, formatINR, lineAmount } from "@/lib/invoice-calc";
@@ -9,6 +10,10 @@ interface Props {
   invoice: Invoice;
   company: CompanySettings;
 }
+
+/** CSS pixels for A4 at 96dpi — layout is always this size, then scaled to fit. */
+const A4_WIDTH_PX = 794;
+const A4_HEIGHT_PX = 1123;
 
 function formatDate(iso: string) {
   if (!iso) return "";
@@ -24,211 +29,250 @@ const letterheadStyle = {
   backgroundPosition: "center top",
 } as const;
 
+function A4ScaleFrame({ children }: { children: ReactNode }) {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const el = outerRef.current;
+    if (!el) return;
+    const update = () => {
+      const width = el.clientWidth;
+      setScale(width > 0 ? Math.min(1, width / A4_WIDTH_PX) : 1);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={outerRef} className="mx-auto w-full max-w-[520px]">
+      <div className="relative overflow-hidden" style={{ height: A4_HEIGHT_PX * scale }}>
+        <div
+          className="origin-top-left"
+          style={{
+            width: A4_WIDTH_PX,
+            height: A4_HEIGHT_PX,
+            transform: `scale(${scale})`,
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function InvoicePreview({ invoice, company }: Props) {
   const totals = computeTotals(invoice);
 
   return (
-    <div
-      className="invoice-receipt-surface relative mx-auto w-full max-w-3xl rounded-xl border border-border bg-white text-ink shadow-sm sm:min-h-[297mm]"
-      style={letterheadStyle}
-    >
-      <div className="relative z-10 flex flex-col px-4 pb-20 pt-36 sm:min-h-[297mm] sm:px-10 sm:pb-[7.5rem] sm:pt-[11.5rem] lg:px-12">
-        <div className="mb-4 text-left sm:mb-6">
-          <p className="text-2xl font-black leading-none tracking-tight text-brand sm:text-3xl">
-            INVOICE
-          </p>
-          <p className="mt-2 text-sm font-bold tabular-nums text-foreground sm:mt-3 sm:text-base">
-            {invoice.number}
-          </p>
-          <p className="mt-1 text-xs font-medium text-muted-foreground">
-            Date: {formatDate(invoice.date)}
-          </p>
-        </div>
+    <A4ScaleFrame>
+      <div
+        className="invoice-receipt-surface relative overflow-hidden bg-white text-ink shadow-sm"
+        style={{
+          width: A4_WIDTH_PX,
+          height: A4_HEIGHT_PX,
+          ...letterheadStyle,
+        }}
+      >
+        <div className="relative z-10 flex h-full flex-col px-10 pb-[7.2rem] pt-[10.75rem]">
+          <div className="mb-3 text-left">
+            <p className="text-[28px] font-black leading-none tracking-tight text-brand">INVOICE</p>
+            <p className="mt-2 text-sm font-bold tabular-nums text-foreground">{invoice.number}</p>
+            <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+              Date: {formatDate(invoice.date)}
+            </p>
+          </div>
 
-        <div className="grid gap-5 pb-2 sm:grid-cols-2 sm:gap-8 sm:pb-4">
-          <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-widest text-brand">Bill To</p>
-            <p className="text-base font-bold leading-snug">{invoice.clientName || "—"}</p>
-            {invoice.clientBusinessType && (
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground/80">Type of business:</span>{" "}
-                {invoice.clientBusinessType}
+          <div className="grid grid-cols-2 gap-8 pb-3">
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-brand">
+                Bill To
               </p>
-            )}
-            <div className="space-y-1 text-xs leading-relaxed text-muted-foreground">
-              {[
-                invoice.clientAddress,
-                invoice.clientContact,
-                invoice.clientPhone,
-                invoice.clientEmail,
-                invoice.clientGstin && `GSTIN: ${invoice.clientGstin}`,
-              ]
-                .filter(Boolean)
-                .map((l, i) => (
-                  <p key={i}>{l as string}</p>
-                ))}
+              <p className="text-[15px] font-bold leading-snug">{invoice.clientName || "—"}</p>
+              {invoice.clientBusinessType && (
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground/80">Type of business:</span>{" "}
+                  {invoice.clientBusinessType}
+                </p>
+              )}
+              <div className="space-y-0.5 text-[11px] leading-snug text-muted-foreground">
+                {[
+                  invoice.clientAddress,
+                  invoice.clientContact,
+                  invoice.clientPhone,
+                  invoice.clientEmail,
+                  invoice.clientGstin && `GSTIN: ${invoice.clientGstin}`,
+                ]
+                  .filter(Boolean)
+                  .map((l, i) => (
+                    <p key={i}>{l as string}</p>
+                  ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-brand">
+                Details
+              </p>
+              <dl className="mt-2 space-y-1.5 text-[11px]">
+                <Meta k="Invoice No." v={invoice.number} />
+                <Meta k="Date" v={formatDate(invoice.date)} />
+                {invoice.paymentMode && <Meta k="Payment Mode" v={invoice.paymentMode} />}
+                {invoice.paymentDate && (
+                  <Meta k="Payment Date" v={formatDate(invoice.paymentDate)} />
+                )}
+                {invoice.paymentTerms && <Meta k="Terms" v={invoice.paymentTerms} />}
+                <div className="flex justify-between gap-3 pt-0.5">
+                  <dt className="text-muted-foreground">Status</dt>
+                  <dd>
+                    <span
+                      className={cn(
+                        "text-[11px] font-semibold uppercase tracking-wide",
+                        statusTextClassLight(invoice.status),
+                      )}
+                    >
+                      {invoice.status.replace(/_/g, " ")}
+                    </span>
+                  </dd>
+                </div>
+              </dl>
             </div>
           </div>
 
-          <div className="text-sm">
-            <p className="text-xs font-semibold uppercase tracking-widest text-brand">Details</p>
-            <dl className="mt-3 space-y-2 text-xs">
-              <Meta k="Invoice No." v={invoice.number} />
-              <Meta k="Date" v={formatDate(invoice.date)} />
-              {invoice.paymentMode && <Meta k="Payment Mode" v={invoice.paymentMode} />}
-              {invoice.paymentDate && <Meta k="Payment Date" v={formatDate(invoice.paymentDate)} />}
-              {invoice.paymentTerms && <Meta k="Terms" v={invoice.paymentTerms} />}
-              <div className="flex justify-between gap-3 pt-0.5">
-                <dt className="text-muted-foreground">Status</dt>
-                <dd>
-                  <span
-                    className={cn(
-                      "text-xs font-semibold uppercase tracking-wide",
-                      statusTextClassLight(invoice.status),
-                    )}
-                  >
-                    {invoice.status}
-                  </span>
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-6 sm:mt-6 sm:space-y-8">
-          <div className="-mx-1 overflow-x-auto px-1 sm:mx-0 sm:overflow-visible sm:px-0">
-            <table className="invoice-line-items w-full min-w-[28rem] overflow-hidden rounded-md text-xs sm:min-w-0 sm:text-sm">
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <table className="invoice-line-items w-full overflow-hidden rounded-md text-xs">
               <thead>
                 <tr>
-                  <th className="px-2 py-2 text-center sm:px-3 sm:py-3">#</th>
-                  <th className="px-2 py-2 text-left sm:px-3 sm:py-3">Description</th>
-                  <th className="px-2 py-2 text-center sm:px-3 sm:py-3">Qty</th>
-                  <th className="px-2 py-2 text-center sm:px-3 sm:py-3">Rate</th>
-                  <th className="px-2 py-2 text-right sm:px-3 sm:py-3">Amount</th>
+                  <th className="px-3 py-2 text-center">#</th>
+                  <th className="px-3 py-2 text-left">Description</th>
+                  <th className="px-3 py-2 text-center">Qty</th>
+                  <th className="px-3 py-2 text-center">Rate</th>
+                  <th className="px-3 py-2 text-right">Amount</th>
                 </tr>
               </thead>
               <tbody>
                 {invoice.items.map((it, i) => (
                   <tr key={it.id} className="border-b border-border/70 bg-white/90">
-                    <td className="px-2 py-2 text-center tabular-nums text-muted-foreground sm:px-3 sm:py-3">
+                    <td className="px-3 py-2 text-center tabular-nums text-muted-foreground">
                       {i + 1}
                     </td>
-                    <td className="px-2 py-2 sm:px-3 sm:py-3">{it.description || "—"}</td>
-                    <td className="px-2 py-2 text-center tabular-nums sm:px-3 sm:py-3">
-                      {it.quantity || 0}
-                    </td>
-                    <td className="px-2 py-2 text-center tabular-nums sm:px-3 sm:py-3">
+                    <td className="px-3 py-2">{it.description || "—"}</td>
+                    <td className="px-3 py-2 text-center tabular-nums">{it.quantity || 0}</td>
+                    <td className="px-3 py-2 text-center tabular-nums">
                       {formatINR(it.rate || 0)}
                     </td>
-                    <td className="px-2 py-2 text-right font-medium tabular-nums sm:px-3 sm:py-3">
+                    <td className="px-3 py-2 text-right font-medium tabular-nums">
                       {formatINR(lineAmount(it))}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
+            <div className="mt-4 flex justify-end">
+              <div className="w-full max-w-sm space-y-1">
+                <dl className="space-y-1">
+                  <Total k="Subtotal" v={formatINR(totals.subtotal)} muted />
+                  {totals.tax > 0 && (
+                    <Total k={`Tax (${invoice.taxPercent}%)`} v={formatINR(totals.tax)} muted />
+                  )}
+                  {totals.advance > 0 && (
+                    <Total k="Advance Received" v={`- ${formatINR(totals.advance)}`} muted />
+                  )}
+                </dl>
+                <div className="my-3 h-px bg-border" />
+                <div className="rounded-xl border-2 border-brand/40 bg-gradient-to-br from-brand/[0.14] via-brand/[0.07] to-transparent px-4 py-3 shadow-md ring-1 ring-black/[0.06]">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">
+                    Amount Payable
+                  </p>
+                  <p className="mt-1.5 text-2xl font-extrabold tabular-nums leading-none tracking-tight text-brand">
+                    {formatINR(totals.payable)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <p className="mt-3 text-[11px] italic leading-relaxed text-muted-foreground">
+              Amount in words: {rupeesInWords(totals.payable)}
+            </p>
+
+            {invoice.remarks && (
+              <div className="mt-3 rounded-md border border-border bg-white/90 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Remarks
+                </p>
+                <p className="mt-1.5 text-xs leading-relaxed">{invoice.remarks}</p>
+              </div>
+            )}
           </div>
 
-          <div className="flex justify-end">
-            <div className="w-full max-w-sm space-y-1.5">
-              <dl className="space-y-1.5">
-                <Total k="Subtotal" v={formatINR(totals.subtotal)} muted />
-                {totals.tax > 0 && (
-                  <Total k={`Tax (${invoice.taxPercent}%)`} v={formatINR(totals.tax)} muted />
+          <div className="invoice-page-footer mt-3 grid shrink-0 grid-cols-2 gap-6 pt-2">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-brand">
+                Bank Details
+              </p>
+              <div className="mt-2 space-y-1 rounded-lg border border-border/80 bg-white/95 px-3 py-2.5 text-[11px] leading-snug">
+                {company.accountName && (
+                  <p>
+                    <span className="text-muted-foreground">Account Name:</span>{" "}
+                    <span className="font-medium text-foreground">{company.accountName}</span>
+                  </p>
                 )}
-                {totals.advance > 0 && (
-                  <Total k="Advance Received" v={`- ${formatINR(totals.advance)}`} muted />
+                {company.bankName && (
+                  <p>
+                    <span className="text-muted-foreground">Bank:</span>{" "}
+                    <span className="font-medium text-foreground">{company.bankName}</span>
+                  </p>
                 )}
-              </dl>
-              <div className="my-4 h-px bg-border" />
-              <div className="rounded-xl border-2 border-brand/40 bg-gradient-to-br from-brand/[0.14] via-brand/[0.07] to-transparent px-4 py-4 shadow-md ring-1 ring-black/[0.06] sm:px-5 sm:py-5">
-                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">
-                  Amount Payable
-                </p>
-                <p className="mt-2 text-2xl font-extrabold tabular-nums leading-none tracking-tight text-brand sm:text-3xl md:text-[2.125rem]">
-                  {formatINR(totals.payable)}
+                {company.accountNumber && (
+                  <p>
+                    <span className="text-muted-foreground">A/C Number:</span>{" "}
+                    <span className="font-medium text-foreground">{company.accountNumber}</span>
+                  </p>
+                )}
+                {company.ifsc && (
+                  <p>
+                    <span className="text-muted-foreground">IFSC:</span>{" "}
+                    <span className="font-medium text-foreground">{company.ifsc}</span>
+                  </p>
+                )}
+                {company.branch && (
+                  <p>
+                    <span className="text-muted-foreground">Branch:</span>{" "}
+                    <span className="font-medium text-foreground">{company.branch}</span>
+                  </p>
+                )}
+                {company.upi && (
+                  <p>
+                    <span className="text-muted-foreground">UPI:</span>{" "}
+                    <span className="font-medium text-foreground">{company.upi}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-6 text-right">
+              {company.signatureDataUrl && (
+                <img
+                  src={company.signatureDataUrl}
+                  alt="Signature"
+                  className="ml-auto max-h-16 w-auto max-w-[200px] object-contain object-right"
+                />
+              )}
+              <div className="ml-auto mt-2 max-w-[200px] border-t border-[#121212] pt-1.5 text-[11px]">
+                <p className="font-semibold">For {company.name}</p>
+                <p className="text-muted-foreground">
+                  {company.authorizedName || "Authorized Signatory"}
                 </p>
               </div>
             </div>
           </div>
-
-          <p className="text-xs italic leading-relaxed text-muted-foreground">
-            Amount in words: {rupeesInWords(totals.payable)}
-          </p>
-
-          {invoice.remarks && (
-            <div className="rounded-md border border-border bg-white/90 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Remarks
-              </p>
-              <p className="mt-2 text-sm leading-relaxed">{invoice.remarks}</p>
-            </div>
-          )}
-        </div>
-
-        <div className="invoice-page-footer mt-6 grid grid-cols-1 gap-5 pt-2 sm:grid-cols-2 sm:gap-6 sm:pt-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-brand">
-              Bank Details
-            </p>
-            <div className="mt-2 space-y-1.5 rounded-lg border border-border/80 bg-white/95 px-3 py-3 text-xs leading-relaxed sm:mt-3 sm:px-4 sm:py-4">
-              {company.accountName && (
-                <p>
-                  <span className="text-muted-foreground">Account Name:</span>{" "}
-                  <span className="font-medium text-foreground">{company.accountName}</span>
-                </p>
-              )}
-              {company.bankName && (
-                <p>
-                  <span className="text-muted-foreground">Bank:</span>{" "}
-                  <span className="font-medium text-foreground">{company.bankName}</span>
-                </p>
-              )}
-              {company.accountNumber && (
-                <p>
-                  <span className="text-muted-foreground">A/C Number:</span>{" "}
-                  <span className="font-medium text-foreground">{company.accountNumber}</span>
-                </p>
-              )}
-              {company.ifsc && (
-                <p>
-                  <span className="text-muted-foreground">IFSC:</span>{" "}
-                  <span className="font-medium text-foreground">{company.ifsc}</span>
-                </p>
-              )}
-              {company.branch && (
-                <p>
-                  <span className="text-muted-foreground">Branch:</span>{" "}
-                  <span className="font-medium text-foreground">{company.branch}</span>
-                </p>
-              )}
-              {company.upi && (
-                <p>
-                  <span className="text-muted-foreground">UPI:</span>{" "}
-                  <span className="font-medium text-foreground">{company.upi}</span>
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="pt-2 text-left sm:pt-[45px] sm:text-right">
-            {company.signatureDataUrl && (
-              <img
-                src={company.signatureDataUrl}
-                alt="Signature"
-                className="max-h-20 w-auto max-w-[220px] object-contain object-left sm:ml-auto sm:object-right"
-              />
-            )}
-            <div className="mt-3 max-w-[200px] border-t border-[#121212] pt-2 text-xs sm:ml-auto">
-              <p className="font-semibold">For {company.name}</p>
-              <p className="text-muted-foreground">
-                {company.authorizedName || "Authorized Signatory"}
-              </p>
-            </div>
-          </div>
         </div>
       </div>
-    </div>
+    </A4ScaleFrame>
   );
 }
 

@@ -5,8 +5,8 @@ import {
   ArrowLeft,
   Download,
   Pencil,
+  Plus,
   Trash2,
-  Receipt,
   Share2,
   Image as ImageIcon,
 } from "lucide-react";
@@ -17,18 +17,8 @@ import InvoicePreview from "@/components/invoice/InvoicePreview";
 import { PaymentFormDialog } from "@/components/invoice/PaymentFormDialog";
 import { useOperations } from "@/hooks/use-operations";
 import { deriveInvoiceStatus, calculateInvoicePayments, formatINR } from "@/lib/invoice-calc";
-import {
-  invoiceAdvanceTransactionId,
-  invoiceProjectCandidates,
-  resolveRelatedProject,
-} from "@/lib/invoice-project-link";
-import { paymentSummary } from "@/lib/project-payments";
-import {
-  removeAccountTransactionFromProjects,
-  syncAccountTransactionToProjects,
-} from "@/lib/project-payment-sync";
 import { downloadPaymentReceiptPdf, sharePaymentReceiptPdf } from "@/lib/payment-receipt-pdf";
-import type { CompanySettings, Invoice, Payment, Project, Transaction } from "@/lib/types";
+import type { CompanySettings, Invoice, Payment } from "@/lib/types";
 
 /** Reject path-like or absurd IDs before hitting storage / server. */
 function isPlausibleInvoiceId(raw: string): boolean {
@@ -135,31 +125,16 @@ function InvoicePage() {
     const inv = invoice!;
     void deleteInvoice(inv.id)
       .then(() => {
-        // Remove every ledger row this invoice created (advance + logged
-        // payments) and roll them back off the linked projects.
-        const removedIds = new Set(
-          (ops.transactions ?? [])
-            .filter(
-              (t) => t.relatedInvoiceId === inv.id || t.id === invoiceAdvanceTransactionId(inv.id),
-            )
-            .map((t) => t.id),
-        );
         const removedPaymentIds = (ops.payments ?? [])
           .filter((p) => p.invoiceId === inv.id)
           .map((p) => p.id);
-        if (removedIds.size > 0 || removedPaymentIds.length > 0) {
-          let nextProjects = ops.projects;
-          for (const txId of removedIds) {
-            nextProjects = removeAccountTransactionFromProjects(nextProjects, txId);
-          }
+        if (removedPaymentIds.length > 0) {
           persistOps(
             {
               ...ops,
               payments: (ops.payments ?? []).filter((p) => p.invoiceId !== inv.id),
-              transactions: (ops.transactions ?? []).filter((t) => !removedIds.has(t.id)),
-              projects: nextProjects,
             },
-            { deleteIds: { payments: removedPaymentIds, transactions: [...removedIds] } },
+            { deleteIds: { payments: removedPaymentIds } },
           );
         }
         navigate({ to: "/invoices" });
@@ -167,74 +142,22 @@ function InvoicePage() {
       .catch((e) => logClientError("invoicePage.delete", e));
   };
 
-  /** Projects this invoice could collect against (shown in the Log Payment dialog). */
-  const projectCandidates = invoice ? invoiceProjectCandidates(ops.projects, invoice) : [];
-
   const handleSavePayment = (payment: Payment) => {
     if (!invoice) return;
-    const nextPayments = [...(ops.payments ?? []), payment];
-    const now = Date.now();
-    const linkedClientId =
-      invoice.clientId ??
-      (ops.clients ?? []).find(
-        (client) =>
-          client.companyName.trim().toLowerCase() === invoice.clientName.trim().toLowerCase(),
-      )?.id;
-    // Honor the project explicitly chosen in the dialog; otherwise fall back
-    // to the safest automatic match.
-    const relatedProject = payment.projectId
-      ? ops.projects.find((project) => project.id === payment.projectId)
-      : resolveRelatedProject(ops.projects, invoice);
-    const transaction: Transaction = {
-      id: `invoice-payment-${payment.id}`,
-      type: payment.amount >= 0 ? "client_payment" : "refund",
-      date: payment.date,
-      amount: Math.abs(payment.amount),
-      description:
-        payment.amount >= 0
-          ? `Payment for ${invoice.number} from ${invoice.clientName}`
-          : `Refund against ${invoice.number} for ${invoice.clientName}`,
-      category: payment.amount >= 0 ? "Client Income" : "Refund",
-      paymentMethod: payment.method,
-      relatedClientId: linkedClientId,
-      relatedProjectId: relatedProject?.id,
-      relatedInvoiceId: invoice.id,
-      notes:
-        [payment.referenceNumber, payment.transactionId, payment.notes]
-          .filter(Boolean)
-          .join(" · ") || undefined,
-      attachmentDataUrl: payment.screenshotDataUrl,
-      createdAt: now,
-      updatedAt: now,
-    };
-    const existingTransactions = ops.transactions ?? [];
-    const nextTransactions = existingTransactions.some((item) => item.id === transaction.id)
-      ? existingTransactions
-      : [transaction, ...existingTransactions];
-    // Same sync as the Accounts add-income flow: the project's received /
-    // outstanding update everywhere (projects table, dashboard, client pages).
-    const nextProjects = syncAccountTransactionToProjects(ops.projects, transaction);
     persistOps({
       ...ops,
-      payments: nextPayments,
-      transactions: nextTransactions,
-      projects: nextProjects,
+      payments: [...(ops.payments ?? []), payment],
     });
   };
 
   const handleRemovePayment = (payId: string) => {
     if (!confirm("Delete this payment record?")) return;
-    const transactionId = `invoice-payment-${payId}`;
     persistOps(
       {
         ...ops,
         payments: (ops.payments ?? []).filter((p) => p.id !== payId),
-        transactions: (ops.transactions ?? []).filter(
-          (transaction) => transaction.id !== transactionId,
-        ),
-        projects: removeAccountTransactionFromProjects(ops.projects, transactionId),
       },
-      { deleteIds: { payments: [payId], transactions: [transactionId] } },
+      { deleteIds: { payments: [payId] } },
     );
   };
 
@@ -294,8 +217,15 @@ function InvoicePage() {
           <ArrowLeft className="h-4 w-4" /> Back to invoices
         </Link>
         <div className="flex flex-wrap gap-2">
+          <Link
+            to="/invoice/$id/edit"
+            params={{ id: invoice.id }}
+            className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm hover:bg-secondary"
+          >
+            <Pencil className="h-4 w-4" /> Edit
+          </Link>
           <NewInvoiceLink className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm hover:bg-secondary">
-            <Pencil className="h-4 w-4" /> New invoice
+            <Plus className="h-4 w-4" /> New invoice
           </NewInvoiceLink>
           <button
             type="button"
@@ -487,12 +417,6 @@ function InvoicePage() {
         invoiceId={invoice.id}
         onSave={handleSavePayment}
         outstandingBalance={outstandingBalance}
-        projectOptions={projectCandidates.map((project) => ({
-          id: project.id,
-          label: project.name?.trim() ? `${project.name} — ${project.client}` : project.client,
-          outstanding: paymentSummary(project).pending,
-        }))}
-        defaultProjectId={resolveRelatedProject(ops.projects, invoice)?.id}
       />
     </div>
   );

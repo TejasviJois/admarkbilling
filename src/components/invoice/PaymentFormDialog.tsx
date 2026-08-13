@@ -114,9 +114,9 @@ export function PaymentFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Log Payment</DialogTitle>
+          <DialogTitle>Log payment for receipt</DialogTitle>
           <DialogDescription>
-            Record full/partial payment, advance, or refunds against this invoice.
+            Saves on this invoice so you can download a receipt. Does not add income in Accounts.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

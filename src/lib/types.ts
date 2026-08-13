@@ -631,17 +631,37 @@ export interface Agreement {
   updatedAt: number;
 }
 
-export type ArchiveDocumentType = "agreement" | "proposal" | "other";
+export type DocumentLibrary = "preclient" | "proposals" | "quotations" | "client" | "vault";
 
-/** User-uploaded file shown in the unified document archive. */
+export type ArchiveDocumentType =
+  | "proposal"
+  | "quotation"
+  | "agreement"
+  | "technical"
+  | "handover"
+  | "write_off"
+  | "annexure"
+  | "other";
+
+/** User-uploaded file in the Documents folder vault. */
 export interface ArchiveDocument {
   id: string;
   organizationId?: string;
   title: string;
   documentType: ArchiveDocumentType;
   customType?: string;
-  clientId: string;
-  clientName: string;
+  /** Which top-level folder this file lives in. Inferred for older rows. */
+  library?: DocumentLibrary;
+  /** Grouping name in Proposals/Quotations; also used after Proceed. */
+  companyName?: string;
+  /** Set only after Proceed (client folder). Optional on pre-client uploads. */
+  clientId?: string;
+  /** @deprecated Prefer `companyName`; kept for older saved rows. */
+  clientName?: string;
+  /** Optional project tag inside a client folder. */
+  projectId?: string;
+  /** Team member ids this file is assigned to (client-folder files). */
+  assignedMemberIds?: string[];
   fileDataUrl?: string;
   fileName?: string;
   mimeType?: string;

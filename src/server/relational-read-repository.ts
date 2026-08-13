@@ -9,6 +9,7 @@
  */
 import type { PostgrestError } from "@supabase/supabase-js";
 import { applyProductionBillingRepairs } from "@/lib/ground-zero";
+import { isArchiveDocumentType } from "@/lib/document-vault";
 import { decodeLeadNotesFromStorage } from "@/lib/lead-stats";
 import type {
   ActivityAction,
@@ -1579,16 +1580,21 @@ export async function loadRelationalDocuments(): Promise<DocumentsData> {
     .filter((row) => row.document_type.startsWith("archive:") && row.client_id)
     .map((row): ArchiveDocument => {
       const storedType = row.document_type.slice("archive:".length);
-      const documentType: ArchiveDocument["documentType"] =
-        storedType === "agreement" || storedType === "proposal" ? storedType : "other";
+      const documentType: ArchiveDocument["documentType"] = isArchiveDocumentType(storedType)
+        ? storedType
+        : "other";
+      const clientId = clientLegacyById.get(row.client_id!) ?? row.client_id!;
+      const clientName = clientNameById.get(row.client_id!) ?? "Unknown company";
       return {
         id: legacyIdOf(row).replace(/^archive-document-/, ""),
         organizationId: org.legacyId,
         title: row.title,
         documentType,
         customType: documentType === "other" ? storedType || "Other" : undefined,
-        clientId: clientLegacyById.get(row.client_id!) ?? row.client_id!,
-        clientName: clientNameById.get(row.client_id!) ?? "Unknown company",
+        library: "client",
+        companyName: clientName,
+        clientId,
+        clientName,
         fileDataUrl: orUndefined(row.file_url),
         fileName: orUndefined(row.file_name),
         mimeType: orUndefined(row.mime_type),
