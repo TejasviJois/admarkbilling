@@ -84,7 +84,7 @@ export function ProjectsTable({
         if (showOutstanding) {
           cells.push(isRevenueProject(p.status) && pending != null ? formatINRWhole(pending) : "—");
         }
-        cells.push(<ContactLinks key={`contact-${p.id}`} phone={p.phone} email={p.email} />);
+        cells.push(<ContactLinks key={`contact-${p.id}`} phone={p.phone} />);
         if (showActions) {
           cells.push(
             <div key={`actions-${p.id}`} className="flex items-center justify-end gap-1">

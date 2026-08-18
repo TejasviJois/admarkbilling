@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Calendar, User, Phone, Edit2, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar, User, Phone, Edit2, Trash2, Undo2 } from "lucide-react";
 import { LEAD_STATUSES, leadStatusLabel } from "@/lib/lead-utils";
 import { formatINRWhole } from "@/lib/invoice-calc";
 import { DEFAULT_COMPANY } from "@/lib/constants";
@@ -9,11 +9,13 @@ export function CRMKanbanBoard({
   onEdit,
   onRemove,
   onMoveStatus,
+  onReopen,
 }: {
   leads: Lead[];
   onEdit: (lead: Lead) => void;
   onRemove: (id: string) => void;
   onMoveStatus: (id: string, nextStatus: LeadStatus) => void;
+  onReopen: (id: string) => void;
 }) {
   const members = DEFAULT_COMPANY.companyMembers ?? [];
   const memberNameOf = (id?: string) => {
@@ -22,6 +24,7 @@ export function CRMKanbanBoard({
   };
 
   const handleMove = (lead: Lead, direction: "left" | "right") => {
+    if (lead.status === "lost") return;
     const currentIndex = LEAD_STATUSES.indexOf(lead.status);
     if (direction === "left" && currentIndex > 0) {
       onMoveStatus(lead.id, LEAD_STATUSES[currentIndex - 1]);
@@ -217,24 +220,36 @@ export function CRMKanbanBoard({
                       </div>
 
                       {/* Kanban Move Status Buttons */}
-                      <div className="flex justify-between border-t border-border/40 pt-2">
-                        <button
-                          type="button"
-                          disabled={currentIndex === 0}
-                          onClick={() => handleMove(lead, "left")}
-                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground"
-                        >
-                          <ArrowLeft className="h-3 w-3" /> Prev
-                        </button>
-                        <button
-                          type="button"
-                          disabled={currentIndex === LEAD_STATUSES.length - 1}
-                          onClick={() => handleMove(lead, "right")}
-                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground"
-                        >
-                          Next <ArrowRight className="h-3 w-3" />
-                        </button>
-                      </div>
+                      {lead.status === "lost" ? (
+                        <div className="border-t border-border/40 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => onReopen(lead.id)}
+                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-muted/60 px-2 py-1.5 text-[11px] font-semibold text-foreground hover:bg-muted"
+                          >
+                            <Undo2 className="h-3 w-3" /> Reopen
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between border-t border-border/40 pt-2">
+                          <button
+                            type="button"
+                            disabled={currentIndex === 0}
+                            onClick={() => handleMove(lead, "left")}
+                            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground"
+                          >
+                            <ArrowLeft className="h-3 w-3" /> Prev
+                          </button>
+                          <button
+                            type="button"
+                            disabled={currentIndex === LEAD_STATUSES.length - 1}
+                            onClick={() => handleMove(lead, "right")}
+                            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground"
+                          >
+                            Next <ArrowRight className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })

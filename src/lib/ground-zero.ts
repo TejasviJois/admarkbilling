@@ -41,7 +41,7 @@ export const GROUND_ZERO_BASELINE: FinancialBaseline = {
   // 148,425 but was ₹1,000 higher than the payments it summarized.
   totalRevenueReceived: 147_425,
   totalExternalPayouts: 10_000,
-  totalCompanyExpenses: 34_564.48,
+  totalCompanyExpenses: 36_564.48,
   founderPayoutPool: 56_894.1,
 };
 
@@ -63,7 +63,7 @@ export const GROUND_ZERO_TRANSACTIONS: Transaction[] = [
     id: "tx-gz-historical-expense",
     type: "expense",
     date: GROUND_ZERO_DATE,
-    amount: 101_459,
+    amount: 103_459,
     description: "Historical Expense Adjustment",
     category: "Historical Expense",
     paymentMethod: "bank_transfer",
@@ -303,6 +303,7 @@ export function applyGroundZeroMigration(data: OperationsData): OperationsData {
     migrationApplied: true,
     migrationDate: GROUND_ZERO_DATE,
     groundZeroApplied: true,
+    historicalExpenseReconciliationApplied: true,
   };
 }
 
@@ -680,7 +681,41 @@ function repairRentManagementContract(data: OperationsData): OperationsData {
 
 /** Apply all production billing backfills (one-shot each). */
 export function applyProductionBillingRepairs(data: OperationsData): OperationsData {
-  return ensureRentManagementContract(ensureKapilaRetainerBilling(data));
+  return ensureHistoricalExpenseReconciliation(
+    ensureRentManagementContract(ensureKapilaRetainerBilling(data)),
+  );
+}
+
+const HISTORICAL_EXPENSE_RECONCILIATION = 2_000;
+const HISTORICAL_EXPENSE_TX_ID = "tx-gz-historical-expense";
+
+/**
+ * One-time: add ₹2,000 to historical company expenses so dashboard
+ * Revenue − Expenses equals cash. Does not change cash (historical only).
+ */
+export function ensureHistoricalExpenseReconciliation(data: OperationsData): OperationsData {
+  if (data.historicalExpenseReconciliationApplied) return data;
+
+  const baseline = data.financialBaseline
+    ? {
+        ...data.financialBaseline,
+        totalCompanyExpenses:
+          (data.financialBaseline.totalCompanyExpenses ?? 0) + HISTORICAL_EXPENSE_RECONCILIATION,
+      }
+    : data.financialBaseline;
+
+  const transactions = (data.transactions ?? []).map((transaction) =>
+    transaction.id === HISTORICAL_EXPENSE_TX_ID && transaction.historical
+      ? { ...transaction, amount: transaction.amount + HISTORICAL_EXPENSE_RECONCILIATION }
+      : transaction,
+  );
+
+  return {
+    ...data,
+    financialBaseline: baseline,
+    transactions,
+    historicalExpenseReconciliationApplied: true,
+  };
 }
 
 /**

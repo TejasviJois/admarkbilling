@@ -1,6 +1,9 @@
-import { useState } from "react";
-import { Edit2, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Edit2, Eye, Trash2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import {
+  formatProjectStatusCounts,
+  type ClientProjectCounts,
+} from "@/lib/client-projects";
 import type { Client } from "@/lib/types";
 
 type ProjectBadge = "active" | "completed" | "none";
@@ -13,22 +16,24 @@ const PROJECT_BADGE_STYLES: Record<ProjectBadge, { label: string; className: str
 
 export function ClientsTable({
   clients,
-  allClients = clients,
   projectBadgeById,
+  projectCountsById,
   onEdit,
   onRemove,
+  showDetails = false,
   emptyMessage = "No clients configured. Add your first client profile to get started.",
 }: {
   clients: Client[];
-  allClients?: Client[];
   /** Per-client project state badge (Active / Completed / No Projects). */
   projectBadgeById?: Map<string, ProjectBadge>;
+  /** Ongoing + completed project counts for the relationship. */
+  projectCountsById?: Map<string, ClientProjectCounts>;
   onEdit: (client: Client) => void;
   onRemove: (id: string) => void;
+  showDetails?: boolean;
   emptyMessage?: string;
 }) {
-  const [showDetails, setShowDetails] = useState(false);
-  const colSpan = showDetails ? 7 : 5;
+  const colSpan = showDetails ? 7 : 4;
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
@@ -40,38 +45,11 @@ export function ClientsTable({
               <th className="px-4 py-3">Contact Person</th>
               {showDetails ? (
                 <>
-                  <th className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1.5">
-                      Email
-                      <button
-                        type="button"
-                        onClick={() => setShowDetails(false)}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
-                        title="Hide details"
-                        aria-label="Hide details columns"
-                      >
-                        <EyeOff className="h-3.5 w-3.5" />
-                      </button>
-                    </span>
-                  </th>
+                  <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Phone</th>
                   <th className="px-4 py-3">Client Since</th>
                 </>
-              ) : (
-                <th className="w-0 px-2 py-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowDetails(true)}
-                    className="inline-flex items-center gap-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    title="Show details"
-                    aria-label="Show details columns"
-                    aria-pressed={false}
-                  >
-                    <span className="px-1 py-0.5">Details</span>
-                    <Eye className="mr-1 h-3.5 w-3.5 shrink-0" />
-                  </button>
-                </th>
-              )}
+              ) : null}
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -84,7 +62,9 @@ export function ClientsTable({
                 </td>
               </tr>
             ) : (
-              clients.map((c) => (
+              clients.map((c) => {
+                const counts = projectCountsById?.get(c.id);
+                return (
                 <tr key={c.id} className="hover:bg-muted/30">
                   <td className="max-w-[16rem] px-4 py-3 font-semibold text-foreground break-words">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -103,12 +83,11 @@ export function ClientsTable({
                         </span>
                       )}
                     </div>
-                    {allClients.some((child) => child.parentClientId === c.id) && (
+                    {counts && (counts.active > 0 || counts.completed > 0) ? (
                       <p className="mt-0.5 text-[11px] font-normal text-muted-foreground">
-                        {allClients.filter((child) => child.parentClientId === c.id).length}{" "}
-                        projects
+                        {formatProjectStatusCounts(counts)}
                       </p>
-                    )}
+                    ) : null}
                   </td>
                   <td className="max-w-[12rem] px-4 py-3 text-muted-foreground break-words">
                     {c.contactPerson}
@@ -125,9 +104,7 @@ export function ClientsTable({
                         {c.clientSince || "—"}
                       </td>
                     </>
-                  ) : (
-                    <td className="w-0 px-2 py-3" aria-hidden />
-                  )}
+                  ) : null}
                   <td className="whitespace-nowrap px-4 py-3">
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
@@ -171,7 +148,8 @@ export function ClientsTable({
                     </div>
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>

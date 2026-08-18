@@ -30,6 +30,7 @@ import { Route as ClientsIndexRouteImport } from './routes/clients.index'
 import { Route as AnalyticsIndexRouteImport } from './routes/analytics/index'
 import { Route as AccountsIndexRouteImport } from './routes/accounts/index'
 import { Route as TeamAssignmentsRouteImport } from './routes/team_.assignments'
+import { Route as TeamIdRouteImport } from './routes/team_.$id'
 import { Route as ProjectsIdRouteImport } from './routes/projects.$id'
 import { Route as InvoiceIdRouteImport } from './routes/invoice.$id'
 import { Route as DocumentsVaultRouteImport } from './routes/documents/vault'
@@ -155,6 +156,11 @@ const AccountsIndexRoute = AccountsIndexRouteImport.update({
 const TeamAssignmentsRoute = TeamAssignmentsRouteImport.update({
   id: '/team_/assignments',
   path: '/team/assignments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamIdRoute = TeamIdRouteImport.update({
+  id: '/team_/$id',
+  path: '/team/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsIdRoute = ProjectsIdRouteImport.update({
@@ -296,6 +302,7 @@ export interface FileRoutesByFullPath {
   '/documents/vault': typeof DocumentsVaultRoute
   '/invoice/$id': typeof InvoiceIdRoute
   '/projects/$id': typeof ProjectsIdRoute
+  '/team/$id': typeof TeamIdRoute
   '/team/assignments': typeof TeamAssignmentsRoute
   '/accounts/': typeof AccountsIndexRoute
   '/analytics/': typeof AnalyticsIndexRoute
@@ -338,6 +345,7 @@ export interface FileRoutesByTo {
   '/documents/vault': typeof DocumentsVaultRoute
   '/invoice/$id': typeof InvoiceIdRoute
   '/projects/$id': typeof ProjectsIdRoute
+  '/team/$id': typeof TeamIdRoute
   '/team/assignments': typeof TeamAssignmentsRoute
   '/accounts': typeof AccountsIndexRoute
   '/analytics': typeof AnalyticsIndexRoute
@@ -383,6 +391,7 @@ export interface FileRoutesById {
   '/documents/vault': typeof DocumentsVaultRoute
   '/invoice/$id': typeof InvoiceIdRoute
   '/projects/$id': typeof ProjectsIdRoute
+  '/team_/$id': typeof TeamIdRoute
   '/team_/assignments': typeof TeamAssignmentsRoute
   '/accounts/': typeof AccountsIndexRoute
   '/analytics/': typeof AnalyticsIndexRoute
@@ -429,6 +438,7 @@ export interface FileRouteTypes {
     | '/documents/vault'
     | '/invoice/$id'
     | '/projects/$id'
+    | '/team/$id'
     | '/team/assignments'
     | '/accounts/'
     | '/analytics/'
@@ -471,6 +481,7 @@ export interface FileRouteTypes {
     | '/documents/vault'
     | '/invoice/$id'
     | '/projects/$id'
+    | '/team/$id'
     | '/team/assignments'
     | '/accounts'
     | '/analytics'
@@ -515,6 +526,7 @@ export interface FileRouteTypes {
     | '/documents/vault'
     | '/invoice/$id'
     | '/projects/$id'
+    | '/team_/$id'
     | '/team_/assignments'
     | '/accounts/'
     | '/analytics/'
@@ -556,6 +568,7 @@ export interface RootRouteChildren {
   DocumentsInvoicesRoute: typeof DocumentsInvoicesRoute
   DocumentsVaultRoute: typeof DocumentsVaultRoute
   InvoiceIdRoute: typeof InvoiceIdRoute
+  TeamIdRoute: typeof TeamIdRoute
   TeamAssignmentsRoute: typeof TeamAssignmentsRoute
   AnalyticsIndexRoute: typeof AnalyticsIndexRoute
   DocumentsIndexRoute: typeof DocumentsIndexRoute
@@ -720,6 +733,13 @@ declare module '@tanstack/react-router' {
       path: '/team/assignments'
       fullPath: '/team/assignments'
       preLoaderRoute: typeof TeamAssignmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team_/$id': {
+      id: '/team_/$id'
+      path: '/team/$id'
+      fullPath: '/team/$id'
+      preLoaderRoute: typeof TeamIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects/$id': {
@@ -935,6 +955,7 @@ const rootRouteChildren: RootRouteChildren = {
   DocumentsInvoicesRoute: DocumentsInvoicesRoute,
   DocumentsVaultRoute: DocumentsVaultRoute,
   InvoiceIdRoute: InvoiceIdRoute,
+  TeamIdRoute: TeamIdRoute,
   TeamAssignmentsRoute: TeamAssignmentsRoute,
   AnalyticsIndexRoute: AnalyticsIndexRoute,
   DocumentsIndexRoute: DocumentsIndexRoute,

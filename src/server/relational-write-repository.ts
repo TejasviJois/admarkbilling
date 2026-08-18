@@ -32,9 +32,9 @@ import type {
   Invoice,
   OperationsData,
   ProjectPayment,
-  TeamMemberType,
   Transaction,
 } from "@/lib/types";
+import { monthPaymentsFromSchedule } from "@/lib/team-payroll";
 import { externalizeDataUrl } from "./file-storage";
 import {
   externalizeCompanySettings,
@@ -92,12 +92,18 @@ const SCHEDULE_STATUSES = ["scheduled", "completed", "cancelled"] as const;
 const NOTIFICATION_PRIORITIES = ["low", "medium", "high"] as const;
 
 /** UI member types → relational team roles (same map as the migration script). */
-const ROLE_BY_MEMBER_TYPE: Record<TeamMemberType, string> = {
+const ROLE_BY_MEMBER_TYPE: Record<string, string> = {
   founder: "founder",
   employee: "employee",
   intern: "intern",
   contractor: "partner",
 };
+
+function relationalRoleForMember(memberType: string | undefined, role: string | undefined): string {
+  if (memberType && ROLE_BY_MEMBER_TYPE[memberType]) return ROLE_BY_MEMBER_TYPE[memberType];
+  if (role?.toLowerCase().includes("founder")) return "founder";
+  return "employee";
+}
 
 // ---------------------------------------------------------------------------
 // Supabase plumbing
@@ -1037,6 +1043,10 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
   );
   for (const schedule of salarySchedules) {
     if (!schedule.teamMemberId) continue;
+    for (const payment of monthPaymentsFromSchedule(schedule)) {
+      if (MONTH_PATTERN.test(payment.month))
+        salaryKeys.add(`${schedule.teamMemberId}:${payment.month}`);
+    }
     for (const month of schedule.paidMonths ?? []) {
       if (MONTH_PATTERN.test(month)) salaryKeys.add(`${schedule.teamMemberId}:${month}`);
     }
@@ -1056,19 +1066,32 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
     const related = payrollTransactions.filter(
       (entry) => entry.memberLegacyId === legacyMemberId && entry.month === month,
     );
+    const payment = monthPaymentsFromSchedule(scheduleByLegacyMember.get(legacyMemberId)).find(
+      (item) => item.month === month,
+    );
     const paidBase = related.reduce(
       (sum, { transaction }) =>
         sum + (numeric(transaction.salaryBaseAmount) ?? numeric(transaction.amount) ?? 0),
       0,
     );
-    const bonusAmount = related.reduce(
+    const bonusFromTx = related.reduce(
       (sum, { transaction }) => sum + (numeric(transaction.salaryBonusAmount) ?? 0),
       0,
     );
+    const scheduleAmount = numeric(scheduleByLegacyMember.get(legacyMemberId)?.amountPerMonth);
     const baseAmount =
-      numeric(scheduleByLegacyMember.get(legacyMemberId)?.amountPerMonth) ??
-      baseSalaryByTeamRowId.get(memberRowId) ??
-      paidBase;
+      payment?.salaryAmount ?? scheduleAmount ?? baseSalaryByTeamRowId.get(memberRowId) ?? paidBase;
+    const bonusAmount = payment?.bonusAmount ?? bonusFromTx;
+    const status =
+      payment?.mode === "partial"
+        ? "partial"
+        : payment
+          ? "paid"
+          : paidBase >= (baseAmount ?? 0)
+            ? "paid"
+            : paidBase > 0
+              ? "partial"
+              : "pending";
     const legacyId = `salary-${legacyMemberId}-${month}`;
     const id = salaryIds.resolve(legacyId);
     salaryBatch.add({
@@ -1079,7 +1102,8 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
       salary_month: month,
       base_amount: Math.max(baseAmount ?? 0, 0),
       bonus_amount: Math.max(bonusAmount, 0),
-      status: paidBase >= (baseAmount ?? 0) ? "paid" : paidBase > 0 ? "partial" : "pending",
+      status,
+      notes: payment?.note ?? null,
       deleted_at: null,
     });
     salaryRowIdByKey.set(key, id);
@@ -1579,6 +1603,8 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
           neRepairApplied: ops.neRepairApplied === true,
           kapilaRetainerRepairApplied: ops.kapilaRetainerRepairApplied === true,
           rentManagementContractRepairApplied: ops.rentManagementContractRepairApplied === true,
+          historicalExpenseReconciliationApplied:
+            ops.historicalExpenseReconciliationApplied === true,
           dismissedNotificationIds: ops.dismissedNotificationIds ?? [],
         },
       },
@@ -1695,7 +1721,12 @@ export async function saveRelationalCompany(data: CompanySettings): Promise<void
       { column: "document_type", values: COMPANY_DOCUMENT_TYPES },
     ),
     fetchSingletonRow<{ id: string }>(db, "companies", org.id, "id"),
-    fetchSingletonRow<SettingsLookupRow>(db, "settings", org.id, "id, feature_toggles"),
+    fetchSingletonRow<SettingsLookupRow>(
+      db,
+      "settings",
+      org.id,
+      "id, feature_toggles, application_preferences",
+    ),
   ]);
 
   const companyName = text(settings.name);
@@ -1729,6 +1760,9 @@ export async function saveRelationalCompany(data: CompanySettings): Promise<void
 
   // --- Invoice defaults + feature toggles (application_preferences untouched) ----
   const existingToggles = isRecord(settingsRow?.feature_toggles) ? settingsRow.feature_toggles : {};
+  const existingPreferences = isRecord(settingsRow?.application_preferences)
+    ? settingsRow.application_preferences
+    : {};
   await writeSingletonRow(
     db,
     "settings",
@@ -1744,6 +1778,11 @@ export async function saveRelationalCompany(data: CompanySettings): Promise<void
         paymentProofUploadsEnabled: settings.paymentProofUploadsEnabled === true,
         companyValuationEnabled: settings.companyValuationEnabled === true,
         projectAssignmentsEnabled: settings.projectAssignmentsEnabled === true,
+      },
+      application_preferences: {
+        ...existingPreferences,
+        customMemberTypes: settings.customMemberTypes ?? [],
+        customTeamGroups: settings.customTeamGroups ?? [],
       },
     },
   );
@@ -1777,9 +1816,10 @@ export async function saveRelationalCompany(data: CompanySettings): Promise<void
       name,
       email: text(member.email),
       phone: text(member.phone),
-      role:
-        (member.memberType ? ROLE_BY_MEMBER_TYPE[member.memberType] : undefined) ??
-        (member.role?.toLowerCase().includes("founder") ? "founder" : "employee"),
+      employee_code: text(member.employeeId),
+      role: relationalRoleForMember(member.memberType, member.role),
+      member_type: text(member.memberType),
+      team_group: text(member.teamGroup),
       job_title: text(member.role),
       join_date: isoDate(member.joinDate),
       status: member.status === "inactive" ? "inactive" : "active",

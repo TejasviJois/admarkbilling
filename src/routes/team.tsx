@@ -1,42 +1,41 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { IndianRupee, Pencil, Plus, Users } from "lucide-react";
+import { ChevronRight, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Field,
-  OperationsLoading,
-  OperationsPageHeader,
-} from "@/components/operations/operations-ui";
+import { PayrollOnboardingDialog, StartPayrollDialog } from "@/components/team/StartPayrollDialog";
+import { SalaryMonthPaymentDialog } from "@/components/team/SalaryMonthPaymentDialog";
+import { TeamMemberFormDialog } from "@/components/team/TeamMemberFormDialog";
+import { MemberAvatar, PayrollMonthCell } from "@/components/team/team-ui";
+import { OperationsLoading } from "@/components/operations/operations-ui";
 import { useCompany } from "@/hooks/use-company";
 import { useOperations } from "@/hooks/use-operations";
 import { saveCompany } from "@/lib/storage";
 import { formatINRWhole } from "@/lib/invoice-calc";
-import type { CompanyMember, FixedMonthlyExpense, TeamMemberType } from "@/lib/types";
+import {
+  COMPANY_START_YEAR,
+  clearSalaryPayment,
+  compareMembersByPayroll,
+  currentMonthKey,
+  currentYear,
+  ensureSalarySchedules,
+  formatSalary,
+  groupMembersByType,
+  isMonthEligible,
+  isPayrollStarted,
+  paymentForMonth,
+  payrollYearOptions,
+  recordSalaryPayment,
+  shortMonthLabel,
+  startPayroll,
+  teamGroupLabel,
+  trackerMonthsForYear,
+  upsertSalarySchedule,
+  withDirectoryCatalogs,
+} from "@/lib/team-payroll";
+import type { CompanyMember, SalaryMonthPayment, TeamMemberType } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/team")({ component: TeamPage });
-
-const MEMBER_TYPES: Array<{ value: TeamMemberType; label: string }> = [
-  { value: "founder", label: "Founder" },
-  { value: "employee", label: "Employee" },
-  { value: "intern", label: "Intern" },
-  { value: "contractor", label: "Contractor" },
-];
 
 function TeamPage() {
   const { company, loading: companyLoading, invalidate } = useCompany();
@@ -44,28 +43,63 @@ function TeamPage() {
   const [editing, setEditing] = useState<CompanyMember | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [year, setYear] = useState(() => Math.max(currentYear(), COMPANY_START_YEAR));
+  const [paymentTarget, setPaymentTarget] = useState<{
+    member: CompanyMember;
+    month: string;
+  } | null>(null);
+  const [startTarget, setStartTarget] = useState<CompanyMember | null>(null);
+  const [onboardingMember, setOnboardingMember] = useState<CompanyMember | null>(null);
+  const [directoryType, setDirectoryType] = useState<TeamMemberType>("founder");
 
   const members = useMemo(
-    () =>
-      [...(company.companyMembers ?? [])].sort(
-        (a, b) =>
-          Number(a.status === "inactive") - Number(b.status === "inactive") ||
-          a.name.localeCompare(b.name),
-      ),
+    () => [...(company.companyMembers ?? [])].sort(compareMembersByPayroll),
     [company.companyMembers],
   );
+  const directoryGroups = useMemo(
+    () => groupMembersByType(members, company.customMemberTypes),
+    [members, company.customMemberTypes],
+  );
+  const selectedDirectory =
+    directoryGroups.find((group) => group.type === directoryType) ?? directoryGroups[0];
 
-  const payrollByMember = useMemo(() => {
-    const totals = new Map<string, number>();
-    for (const transaction of ops.transactions ?? []) {
-      if (!transaction.relatedTeamMemberId || !transaction.payrollMonth) continue;
-      totals.set(
-        transaction.relatedTeamMemberId,
-        (totals.get(transaction.relatedTeamMemberId) ?? 0) + transaction.amount,
+  const opsRef = useRef(ops);
+  opsRef.current = ops;
+
+  useEffect(() => {
+    if (companyLoading || operationsLoading || members.length === 0) return;
+    const currentOps = opsRef.current;
+    const missing = members
+      .filter(isPayrollStarted)
+      .some(
+        (member) =>
+          !(currentOps.fixedMonthlyExpenses ?? []).some(
+            (item) => item.kind === "salary" && item.teamMemberId === member.id,
+          ),
       );
-    }
-    return totals;
-  }, [ops.transactions]);
+    if (!missing) return;
+    void persist(ensureSalarySchedules(currentOps, members));
+  }, [companyLoading, operationsLoading, members, persist]);
+
+  const yearOptions = useMemo(() => payrollYearOptions(year), [year]);
+  const monthKeys = useMemo(() => trackerMonthsForYear(year), [year]);
+  const thisMonth = currentMonthKey();
+  const activeMembers = members.filter((member) => member.status !== "inactive");
+  const onPayroll = activeMembers.filter(isPayrollStarted);
+  const monthlyBase = onPayroll.reduce((sum, member) => sum + (member.baseMonthlySalary ?? 0), 0);
+  const markedThisMonth = onPayroll.filter((member) =>
+    Boolean(paymentForMonth(ops, member.id, thisMonth)),
+  ).length;
+
+  const persistMember = async (member: CompanyMember, nextMembers: CompanyMember[]) => {
+    await saveCompany({
+      ...company,
+      companyMembers: nextMembers,
+      ...withDirectoryCatalogs(company, nextMembers),
+    });
+    await persist(upsertSalarySchedule(ops, member));
+    await invalidate();
+  };
 
   const saveMember = async (member: CompanyMember) => {
     setSaving(true);
@@ -74,65 +108,37 @@ function TeamPage() {
       const nextMembers = exists
         ? members.map((candidate) => (candidate.id === member.id ? member : candidate))
         : [...members, member];
-      await saveCompany({ ...company, companyMembers: nextMembers });
-
-      const schedules = ops.fixedMonthlyExpenses ?? [];
-      const scheduleIndex = schedules.findIndex(
-        (item) => item.kind === "salary" && item.teamMemberId === member.id,
-      );
-      let nextSchedules = schedules;
-      if (member.baseMonthlySalary && member.baseMonthlySalary > 0 && member.salaryStartDate) {
-        const existingSchedule = scheduleIndex >= 0 ? schedules[scheduleIndex] : undefined;
-        const salarySchedule: FixedMonthlyExpense = {
-          ...(existingSchedule ?? {}),
-          id: existingSchedule?.id ?? `fix_salary_${member.id}`,
-          label: `${member.name} salary`,
-          payee: member.name,
-          teamMemberId: member.id,
-          amountPerMonth: member.baseMonthlySalary,
-          kind: "salary",
-          startDate: member.salaryStartDate,
-          reminderDay: member.salaryDueDay ?? (Number(member.salaryStartDate.slice(8, 10)) || 1),
-          paidMonths: existingSchedule?.paidMonths ?? [],
-          status: member.status === "inactive" ? "paused" : (existingSchedule?.status ?? "active"),
-          active: member.status !== "inactive",
-          notes: existingSchedule?.notes,
-        };
-        nextSchedules =
-          scheduleIndex >= 0
-            ? schedules.map((item, index) => (index === scheduleIndex ? salarySchedule : item))
-            : [...schedules, salarySchedule];
-      } else if (scheduleIndex >= 0) {
-        nextSchedules = schedules.map((item, index) =>
-          index === scheduleIndex ? { ...item, status: "paused", active: false } : item,
-        );
-      }
-      if (nextSchedules !== schedules) {
-        persist({ ...ops, fixedMonthlyExpenses: nextSchedules });
-      }
-      await invalidate();
+      await persistMember(member, nextMembers);
       setDialogOpen(false);
+      if (member.memberType) setDirectoryType(member.memberType);
+      if (!exists) setOnboardingMember(member);
     } finally {
       setSaving(false);
     }
   };
 
-  if (companyLoading || operationsLoading) return <OperationsLoading />;
+  const applyStartPayroll = async (member: CompanyMember, month: string) => {
+    const next = startPayroll(member, month);
+    const nextMembers = members.map((candidate) => (candidate.id === next.id ? next : candidate));
+    await persistMember(next, nextMembers);
+    setStartTarget(null);
+    setOnboardingMember(null);
+  };
 
-  const activeMembers = members.filter((member) => member.status !== "inactive");
-  const monthlyBase = activeMembers.reduce(
-    (sum, member) => sum + (member.baseMonthlySalary ?? 0),
-    0,
-  );
-  const totalPaidToDate = [...payrollByMember.values()].reduce((sum, amount) => sum + amount, 0);
+  if (companyLoading || operationsLoading) return <OperationsLoading />;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <OperationsPageHeader
-          title="Team"
-          description="Members, salary schedules, and how much each person has been paid to date."
-        />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-[27px] font-semibold leading-tight tracking-tight text-foreground">
+            Team
+          </h1>
+          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            Salary tracker from June 2026 onward. Record what you actually paid each month — kept
+            separate from Accounts.
+          </p>
+        </div>
         <Button
           onClick={() => {
             setEditing(null);
@@ -145,363 +151,334 @@ function TeamPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Active team" value={String(activeMembers.length)} icon={Users} />
-        <Stat label="Monthly base payroll" value={formatINRWhole(monthlyBase)} icon={IndianRupee} />
-        <Stat label="Paid to date" value={formatINRWhole(totalPaidToDate)} icon={IndianRupee} />
+        <Stat label="Active team" value={String(activeMembers.length)} />
+        <Stat label="Monthly base payroll" value={formatINRWhole(monthlyBase)} />
+        <Stat label="This month marked paid" value={`${markedThisMonth} of ${onPayroll.length}`} />
       </div>
 
       {company.projectAssignmentsEnabled === true && (
         <div className="flex flex-wrap gap-2">
-          <Button asChild className="gap-2">
+          <Button asChild variant="outline" className="gap-2">
             <Link to="/team/assignments">Open Project Assignments</Link>
           </Button>
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {members.map((member) => {
-          const paidToDate = payrollByMember.get(member.id) ?? 0;
-          return (
-            <article
-              key={member.id}
-              className={`group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-colors hover:border-primary/40 ${
-                member.status === "inactive" ? "opacity-65" : ""
-              }`}
-            >
-              <div className="flex items-center gap-3 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/25 to-primary/5 text-sm font-bold text-primary ring-1 ring-primary/20">
-                  {initials(member.name)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h2 className="truncate font-bold text-foreground">
-                      {member.name || "Unnamed member"}
-                    </h2>
-                    <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
-                      {member.memberType ?? "team"}
-                    </span>
-                  </div>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {member.role || "Team member"}
-                    {member.status === "inactive" ? " · Inactive" : ""}
-                  </p>
-                </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 opacity-60 transition-opacity group-hover:opacity-100"
-                  onClick={() => {
-                    setEditing(member);
-                    setDialogOpen(true);
-                  }}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              </div>
-              <dl className="grid grid-cols-2 gap-px border-t border-border bg-border">
-                <MemberStat label="Salary / mo" value={formatSalary(member.baseMonthlySalary)} />
-                <MemberStat
-                  label="Paid since"
-                  value={
-                    member.salaryStartDate
-                      ? formatDate(member.salaryStartDate)
-                      : member.joinDate
-                        ? formatDate(member.joinDate)
-                        : "—"
-                  }
-                />
-                <MemberStat
-                  label="Paid to date"
-                  value={formatINRWhole(paidToDate)}
-                  highlight={paidToDate > 0}
-                  className="col-span-2"
-                />
-              </dl>
-            </article>
-          );
-        })}
-      </div>
+      <section className="overflow-hidden rounded-xl border border-border/70 bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+          <div>
+            <h2 className="text-[15px] font-semibold text-foreground">Salary tracker · {year}</h2>
+            <p className="mt-1 text-[12px] text-muted-foreground">
+              Click a month to record full, partial, or extra pay.
+            </p>
+          </div>
+          <div className="inline-flex rounded-lg bg-muted/60 p-0.5">
+            {yearOptions.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setYear(option)}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors",
+                  option === year
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
 
-      <TeamMemberDialog
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr className="border-y border-border/60 text-left text-[11px] font-medium text-muted-foreground">
+                <th className="px-5 py-2.5 font-medium">Employee</th>
+                <th className="px-3 py-2.5 font-medium">Monthly pay</th>
+                {monthKeys.map((month) => (
+                  <th
+                    key={month}
+                    className={cn(
+                      "px-1.5 py-2.5 text-center font-medium",
+                      month === thisMonth && "bg-muted/40 text-foreground",
+                    )}
+                  >
+                    {shortMonthLabel(month)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {members.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={monthKeys.length + 2}
+                    className="px-5 py-12 text-center text-muted-foreground"
+                  >
+                    No team members yet. Add someone to start tracking months.
+                  </td>
+                </tr>
+              ) : (
+                members.map((member) => {
+                  const started = isPayrollStarted(member);
+                  return (
+                    <tr
+                      key={member.id}
+                      className={cn(
+                        "border-b border-border/50 last:border-b-0",
+                        member.status === "inactive" && "opacity-60",
+                      )}
+                    >
+                      <td className="px-5 py-3.5">
+                        <Link
+                          to="/team/$id"
+                          params={{ id: member.id }}
+                          className="group flex min-w-0 items-center gap-2.5"
+                        >
+                          <MemberAvatar name={member.name} />
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-medium text-foreground group-hover:text-primary">
+                              {member.name || "Unnamed member"}
+                            </p>
+                            <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                              {member.role || "Team member"}
+                              {member.employeeId ? ` · ${member.employeeId}` : ""}
+                              {member.status === "inactive" ? " · Inactive" : ""}
+                            </p>
+                          </div>
+                          <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                        </Link>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3.5 text-[13px] font-medium tabular-nums text-foreground">
+                        {formatSalary(member.baseMonthlySalary)}
+                      </td>
+                      {started ? (
+                        monthKeys.map((month) => {
+                          const eligible = isMonthEligible(member, month);
+                          const payment = paymentForMonth(ops, member.id, month);
+                          const isCurrent = month === thisMonth;
+                          return (
+                            <td
+                              key={month}
+                              className={cn("px-1 py-3.5 text-center", isCurrent && "bg-muted/25")}
+                            >
+                              <PayrollMonthCell
+                                payment={payment}
+                                eligible={eligible}
+                                isCurrent={isCurrent}
+                                onClick={
+                                  eligible ? () => setPaymentTarget({ member, month }) : undefined
+                                }
+                                title={`${shortMonthLabel(month)} ${year}`}
+                              />
+                            </td>
+                          );
+                        })
+                      ) : (
+                        <td colSpan={monthKeys.length} className="px-3 py-3.5 align-middle">
+                          <div className="flex h-8 items-center">
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              className="h-7 px-2.5 text-[11px] shadow-none"
+                              onClick={() => setStartTarget(member)}
+                            >
+                              Start Payroll
+                            </Button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-border/70 bg-card">
+        <div className="px-5 py-4">
+          <h2 className="text-[15px] font-semibold text-foreground">Member directory</h2>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            Choose a type to see its members, sorted by employee ID.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1.5 border-t border-border/60 px-5 py-3">
+          {directoryGroups.map((group) => (
+            <button
+              key={group.type}
+              type="button"
+              onClick={() => setDirectoryType(group.type)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
+                group.type === selectedDirectory?.type
+                  ? "bg-foreground text-background"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              {group.label}
+              <span
+                className={cn(
+                  "ml-1.5 text-[12px]",
+                  group.type === selectedDirectory?.type
+                    ? "text-background/70"
+                    : "text-muted-foreground",
+                )}
+              >
+                {group.members.length}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="divide-y divide-border/50 border-t border-border/50">
+          {!selectedDirectory || selectedDirectory.members.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+              No members in this section yet.
+            </p>
+          ) : (
+            selectedDirectory.members.map((member) => {
+              const salaryLabel = formatSalary(member.baseMonthlySalary);
+              const payrollStarted = isPayrollStarted(member);
+              const teamLabel = teamGroupLabel(member.teamGroup);
+              return (
+                <div
+                  key={member.id}
+                  className={cn(
+                    "flex flex-wrap items-center gap-2.5 px-5 py-3",
+                    member.status === "inactive" && "opacity-60",
+                  )}
+                >
+                  <MemberAvatar name={member.name} />
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      to="/team/$id"
+                      params={{ id: member.id }}
+                      className="text-[13px] font-medium text-foreground hover:text-primary"
+                    >
+                      {member.name || "Unnamed member"}
+                    </Link>
+                    <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                      {member.role || "Team member"}
+                      {member.employeeId ? ` · ${member.employeeId}` : ""}
+                      {teamLabel ? ` · ${teamLabel}` : ""}
+                      {member.email ? (
+                        <>
+                          {" · "}
+                          <span className="text-muted-foreground/60">{member.email}</span>
+                        </>
+                      ) : null}
+                      {member.status === "inactive" ? " · Inactive" : ""}
+                      {!payrollStarted ? " · Payroll not started" : ""}
+                    </p>
+                  </div>
+                  <div className="flex min-w-[7.5rem] items-center justify-end">
+                    <p
+                      className={cn(
+                        "text-[13px] font-medium tabular-nums",
+                        salaryLabel === "—" ? "text-muted-foreground" : "text-foreground",
+                      )}
+                    >
+                      {salaryLabel === "—" ? "—" : `${salaryLabel} / mo`}
+                    </p>
+                  </div>
+                  {!payrollStarted && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="h-7 px-2.5 text-[11px] shadow-none"
+                      onClick={() => setStartTarget(member)}
+                    >
+                      Start Payroll
+                    </Button>
+                  )}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-muted-foreground"
+                    onClick={() => {
+                      setEditing(member);
+                      setDialogOpen(true);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </section>
+
+      <TeamMemberFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         member={editing}
+        existingMembers={members}
+        customMemberTypes={company.customMemberTypes}
+        customTeamGroups={company.customTeamGroups}
         saving={saving}
         onSave={saveMember}
+      />
+      <SalaryMonthPaymentDialog
+        open={paymentTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setPaymentTarget(null);
+        }}
+        member={paymentTarget?.member ?? null}
+        month={paymentTarget?.month ?? ""}
+        existing={
+          paymentTarget
+            ? paymentForMonth(ops, paymentTarget.member.id, paymentTarget.month)
+            : undefined
+        }
+        onSave={(payment: SalaryMonthPayment) => {
+          if (!paymentTarget) return;
+          persist(recordSalaryPayment(ops, paymentTarget.member, payment));
+        }}
+        onClear={() => {
+          if (!paymentTarget) return;
+          persist(clearSalaryPayment(ops, paymentTarget.member, paymentTarget.month));
+        }}
+      />
+      <StartPayrollDialog
+        open={startTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setStartTarget(null);
+        }}
+        member={startTarget}
+        onConfirm={(month) => {
+          if (!startTarget) return;
+          void applyStartPayroll(startTarget, month);
+        }}
+      />
+      <PayrollOnboardingDialog
+        open={onboardingMember != null && startTarget == null}
+        onOpenChange={(open) => {
+          if (!open) setOnboardingMember(null);
+        }}
+        memberName={onboardingMember?.name ?? ""}
+        onLater={() => setOnboardingMember(null)}
+        onStartNow={() => {
+          if (!onboardingMember) return;
+          setStartTarget(onboardingMember);
+        }}
       />
     </div>
   );
 }
 
-function TeamMemberDialog({
-  open,
-  onOpenChange,
-  member,
-  saving,
-  onSave,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  member: CompanyMember | null;
-  saving: boolean;
-  onSave: (member: CompanyMember) => Promise<void>;
-}) {
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    role: "",
-    memberType: "employee" as TeamMemberType,
-    joinDate: "",
-    status: "active" as "active" | "inactive",
-    baseSalary: "",
-    bonusCap: "",
-    salaryStartDate: "",
-    salaryDueDay: "1",
-  });
-
-  useEffect(() => {
-    if (!open) return;
-    setForm({
-      name: member?.name ?? "",
-      email: member?.email ?? "",
-      phone: member?.phone ?? "",
-      role: member?.role ?? "",
-      memberType: member?.memberType ?? "employee",
-      joinDate: member?.joinDate ?? "",
-      status: member?.status ?? "active",
-      baseSalary: member?.baseMonthlySalary != null ? String(member.baseMonthlySalary) : "",
-      bonusCap: member?.monthlyBonusCap != null ? String(member.monthlyBonusCap) : "",
-      salaryStartDate: member?.salaryStartDate ?? "",
-      salaryDueDay: String(member?.salaryDueDay ?? 1),
-    });
-  }, [open, member]);
-
-  const submit = () => {
-    if (!form.name.trim()) return;
-    const baseSalary = form.baseSalary ? Number(form.baseSalary) : undefined;
-    const bonusCap = form.bonusCap ? Number(form.bonusCap) : undefined;
-    const dueDay = Number(form.salaryDueDay);
-    if ((baseSalary != null && baseSalary < 0) || (bonusCap != null && bonusCap < 0)) return;
-    if (baseSalary != null && baseSalary > 0 && !form.salaryStartDate) {
-      alert("Set Salary starts when a monthly salary amount is entered.");
-      return;
-    }
-    void onSave({
-      ...(member ?? {}),
-      id: member?.id ?? `member-${crypto.randomUUID().slice(0, 8)}`,
-      name: form.name.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim(),
-      role: form.role.trim() || undefined,
-      memberType: form.memberType,
-      joinDate: form.joinDate || undefined,
-      status: form.status,
-      baseMonthlySalary: baseSalary,
-      monthlyBonusCap: bonusCap,
-      salaryStartDate: form.salaryStartDate || undefined,
-      salaryDueDay: Number.isInteger(dueDay) && dueDay >= 1 && dueDay <= 31 ? dueDay : 1,
-    });
-  };
-
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{member ? "Edit Team Member" : "Add Team Member"}</DialogTitle>
-          <DialogDescription>
-            Set the person and when salary payments start. Paid-to-date accumulates from payroll
-            records over time.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Name *" id="team-name">
-            <Input
-              id="team-name"
-              value={form.name}
-              onChange={(event) => setForm({ ...form, name: event.target.value })}
-            />
-          </Field>
-          <Field label="Role" id="team-role">
-            <Input
-              id="team-role"
-              value={form.role}
-              onChange={(event) => setForm({ ...form, role: event.target.value })}
-              placeholder="Developer, Partner, Intern…"
-            />
-          </Field>
-          <Field label="Member type" id="team-type">
-            <Select
-              value={form.memberType}
-              onValueChange={(value) => setForm({ ...form, memberType: value as TeamMemberType })}
-            >
-              <SelectTrigger id="team-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {MEMBER_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Status" id="team-status">
-            <Select
-              value={form.status}
-              onValueChange={(value) =>
-                setForm({ ...form, status: value as "active" | "inactive" })
-              }
-            >
-              <SelectTrigger id="team-status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Email" id="team-email">
-            <Input
-              id="team-email"
-              type="email"
-              value={form.email}
-              onChange={(event) => setForm({ ...form, email: event.target.value })}
-            />
-          </Field>
-          <Field label="Phone" id="team-phone">
-            <Input
-              id="team-phone"
-              value={form.phone}
-              onChange={(event) => setForm({ ...form, phone: event.target.value })}
-            />
-          </Field>
-          <Field label="Joining date" id="team-join-date">
-            <Input
-              id="team-join-date"
-              type="date"
-              value={form.joinDate}
-              onChange={(event) => setForm({ ...form, joinDate: event.target.value })}
-            />
-          </Field>
-          <Field label="Salary starts *" id="team-salary-start">
-            <Input
-              id="team-salary-start"
-              type="date"
-              value={form.salaryStartDate}
-              onChange={(event) => setForm({ ...form, salaryStartDate: event.target.value })}
-            />
-          </Field>
-          <Field label="Fixed salary / month (₹)" id="team-base-salary">
-            <Input
-              id="team-base-salary"
-              type="number"
-              min={0}
-              value={form.baseSalary}
-              onChange={(event) => setForm({ ...form, baseSalary: event.target.value })}
-              placeholder="5000"
-            />
-          </Field>
-          <Field label="Optional bonus limit (₹)" id="team-bonus-cap">
-            <Input
-              id="team-bonus-cap"
-              type="number"
-              min={0}
-              value={form.bonusCap}
-              onChange={(event) => setForm({ ...form, bonusCap: event.target.value })}
-              placeholder="0"
-            />
-          </Field>
-          <Field label="Salary due day" id="team-salary-due">
-            <Input
-              id="team-salary-due"
-              type="number"
-              min={1}
-              max={31}
-              value={form.salaryDueDay}
-              onChange={(event) => setForm({ ...form, salaryDueDay: event.target.value })}
-            />
-          </Field>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Set salary amount and start date to create the recurring payroll schedule. Paid-to-date
-          grows whenever salary/bonus payouts are recorded for this member.
-        </p>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button type="button" disabled={saving || !form.name.trim()} onClick={submit}>
-            {saving ? "Saving…" : member ? "Save" : "Add member"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  icon: typeof Users;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-center justify-between text-muted-foreground">
-        <span className="text-[11px] font-semibold uppercase tracking-wider">{label}</span>
-        <Icon className="h-4 w-4" />
-      </div>
-      <p className="mt-2 text-xl font-bold tabular-nums text-foreground">{value}</p>
-    </div>
-  );
-}
-
-function MemberStat({
-  label,
-  value,
-  highlight,
-  className,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-  className?: string;
-}) {
-  return (
-    <div className={`bg-card px-4 py-2.5 ${className ?? ""}`}>
-      <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </dt>
-      <dd
-        className={`mt-0.5 text-sm font-semibold tabular-nums ${
-          highlight ? "text-emerald-500" : "text-foreground"
-        }`}
-      >
+    <div className="rounded-xl border border-border/60 bg-card px-5 py-5">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
         {value}
-      </dd>
+      </p>
     </div>
   );
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
-}
-
-function formatSalary(amount: number | undefined): string {
-  return amount != null && amount > 0 ? formatINRWhole(amount) : "—";
-}
-
-function formatDate(iso: string): string {
-  const date = new Date(`${iso}T12:00:00`);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }

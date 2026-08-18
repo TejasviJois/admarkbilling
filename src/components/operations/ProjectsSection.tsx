@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   Select,
   SelectContent,
@@ -92,51 +92,57 @@ export function ProjectsSection({
   const showOutstanding =
     statusFilter === "all" || statusFilter === "completed" || statusFilter === "active";
 
+  const showSegments = Boolean(segmented) && filtered.length > 0 && ops.projects.length > 0;
+
   const emptyMessage =
     statusFilter === "all"
       ? "No projects match your search."
       : `No ${projectStatusLabel(statusFilter).toLowerCase()} projects${search.trim() ? " match your search" : ""}.`;
 
+  const filters = (
+    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+      <SearchWithPeriodFilter
+        id="proj-search"
+        search={search}
+        onSearchChange={setSearch}
+        period={period}
+        onPeriodChange={setPeriod}
+        placeholder="Search projects…"
+        className="w-full sm:w-auto"
+        inputClassName="h-8 text-sm sm:w-56"
+      />
+      <Select
+        value={statusFilter}
+        onValueChange={(v) => setStatusFilter(v as ProjectStatus | "all")}
+      >
+        <SelectTrigger
+          id="proj-filter-status"
+          className="h-8 w-full text-sm sm:w-[10rem]"
+          aria-label="Status filter"
+        >
+          <SelectValue placeholder="All statuses" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All statuses</SelectItem>
+          {PROJECT_STATUSES.map((s) => (
+            <SelectItem key={s} value={s}>
+              {projectStatusLabel(s)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
   return (
     <section className="scroll-mt-24 rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
-      <div className="mb-5 flex flex-wrap items-center gap-2">
-        <SearchWithPeriodFilter
-          id="proj-search"
-          search={search}
-          onSearchChange={setSearch}
-          period={period}
-          onPeriodChange={setPeriod}
-          placeholder="Search projects…"
-          className="w-full sm:w-auto"
-          inputClassName="h-8 text-sm sm:w-56"
-        />
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as ProjectStatus | "all")}
-        >
-          <SelectTrigger
-            id="proj-filter-status"
-            className="h-8 w-full text-sm sm:w-[10rem]"
-            aria-label="Status filter"
-          >
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {PROJECT_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {projectStatusLabel(s)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {!showSegments && <div className="mb-5">{filters}</div>}
 
       {ops.projects.length === 0 ? (
         <EmptyRow message="No projects logged yet." />
       ) : filtered.length === 0 ? (
         <EmptyRow message={emptyMessage} />
-      ) : segmented ? (
+      ) : showSegments && segmented ? (
         <div className="space-y-8">
           <ProjectSegment
             title={
@@ -156,6 +162,7 @@ export function ProjectsSection({
             onEdit={onEdit}
             onRemove={removeProject}
             showOutstanding={showOutstanding}
+            actions={filters}
           />
           <ProjectSegment
             title={statusFilter === "active" ? "With monthly retainers" : "Ongoing retainers"}
@@ -197,6 +204,7 @@ function ProjectSegment({
   onRemove,
   showOutstanding,
   emphasizeRetainer = false,
+  actions,
 }: {
   title: string;
   description: string;
@@ -206,17 +214,19 @@ function ProjectSegment({
   onRemove: (id: string) => void;
   showOutstanding: boolean;
   emphasizeRetainer?: boolean;
+  actions?: ReactNode;
 }) {
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-        <div>
+      <div className="mb-3 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+        <div className="min-w-0 xl:flex-1">
           <h3 className="text-sm font-semibold tracking-tight text-foreground">
             {title}
             <span className="ml-2 tabular-nums text-muted-foreground">({projects.length})</span>
           </h3>
           <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
         </div>
+        {actions ? <div className="w-full min-w-0 xl:w-auto xl:shrink-0">{actions}</div> : null}
       </div>
       {projects.length === 0 ? (
         <EmptyRow message={emptyMessage} />

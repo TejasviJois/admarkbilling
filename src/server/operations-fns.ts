@@ -20,6 +20,7 @@ import type {
   ValuationSnapshot,
 } from "@/lib/types";
 import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
+import { parseSalaryMonthPayments } from "@/lib/team-payroll";
 import { normalizeValuationSettings } from "@/lib/valuation-engine";
 import { requireServerSupabase } from "./supabase-admin";
 import { relationalDualWritesEnabled, relationalReadsEnabled } from "./env";
@@ -30,9 +31,7 @@ import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
 import { externalizeOperationsData } from "./payload-files";
 import { relinkOrphanedPaymentProofs } from "./relink-payment-proofs";
 import { encryptOperationsData, decryptOperationsData } from "@/lib/encryption";
-import {
-  applyProductionBillingRepairs,
-} from "@/lib/ground-zero";
+import { applyProductionBillingRepairs } from "@/lib/ground-zero";
 import {
   applyOperationsMutation,
   type OperationsEntityKey,
@@ -122,6 +121,7 @@ function parseFixedMonthlyExpense(raw: unknown): FixedMonthlyExpense | null {
           (month): month is string => typeof month === "string" && /^\d{4}-\d{2}$/.test(month),
         )
       : undefined,
+    monthPayments: parseSalaryMonthPayments(e.monthPayments),
     status:
       e.status === "paused" || e.status === "completed" || e.status === "active"
         ? e.status
@@ -147,8 +147,7 @@ function parseScheduleEvent(raw: unknown): ScheduleEvent | null {
   return {
     id: event.id,
     title: event.title,
-    type:
-      event.type === "call" ? "call" : event.type === "reminder" ? "reminder" : "meeting",
+    type: event.type === "call" ? "call" : event.type === "reminder" ? "reminder" : "meeting",
     date: event.date,
     startTime: event.startTime,
     durationMinutes:
@@ -608,6 +607,7 @@ function parseOperationsPayload(
     neRepairApplied: raw.neRepairApplied === true,
     kapilaRetainerRepairApplied: raw.kapilaRetainerRepairApplied === true,
     rentManagementContractRepairApplied: raw.rentManagementContractRepairApplied === true,
+    historicalExpenseReconciliationApplied: raw.historicalExpenseReconciliationApplied === true,
   });
   return applyBillingRepairs ? applyProductionBillingRepairs(parsed) : parsed;
 }
@@ -618,7 +618,9 @@ function withPersistedBillingRepairs(
   mutation: OperationsMutation,
 ): OperationsMutation {
   const needsPersist =
-    !raw.kapilaRetainerRepairApplied || !raw.rentManagementContractRepairApplied;
+    !raw.kapilaRetainerRepairApplied ||
+    !raw.rentManagementContractRepairApplied ||
+    !raw.historicalExpenseReconciliationApplied;
   if (!needsPersist) return mutation;
 
   const next: OperationsMutation = {
@@ -628,6 +630,8 @@ function withPersistedBillingRepairs(
       ...mutation.sets,
       kapilaRetainerRepairApplied: true,
       rentManagementContractRepairApplied: true,
+      historicalExpenseReconciliationApplied: true,
+      financialBaseline: finalized.financialBaseline,
     },
   };
 
@@ -641,6 +645,20 @@ function withPersistedBillingRepairs(
       byId.set(project.id, project as { id: string } & Record<string, unknown>);
     }
     next.upserts.projects = [...byId.values()];
+  }
+
+  const rawTxById = new Map((raw.transactions ?? []).map((transaction) => [transaction.id, transaction]));
+  const changedTransactions = (finalized.transactions ?? []).filter(
+    (transaction) => JSON.stringify(transaction) !== JSON.stringify(rawTxById.get(transaction.id)),
+  );
+  if (changedTransactions.length > 0) {
+    const byId = new Map(
+      (next.upserts.transactions ?? []).map((transaction) => [transaction.id, transaction]),
+    );
+    for (const transaction of changedTransactions) {
+      byId.set(transaction.id, transaction as { id: string } & Record<string, unknown>);
+    }
+    next.upserts.transactions = [...byId.values()];
   }
   return next;
 }

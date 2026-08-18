@@ -28,6 +28,7 @@ export const OPERATIONS_SCALAR_KEYS = [
   "neRepairApplied",
   "kapilaRetainerRepairApplied",
   "rentManagementContractRepairApplied",
+  "historicalExpenseReconciliationApplied",
   "dismissedNotificationIds",
 ] as const satisfies readonly (keyof OperationsData)[];
 

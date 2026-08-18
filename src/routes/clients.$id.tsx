@@ -16,7 +16,7 @@ import { useDocuments } from "@/hooks/use-documents";
 import { loadActivityLogs } from "@/lib/activity-log-storage";
 import { computeTotals, formatINR, formatINRWhole } from "@/lib/invoice-calc";
 import { formatActivityTimestamp } from "@/lib/activity-log-labels";
-import { isRevenueProject } from "@/lib/project-status";
+import { clientRelationshipMembers, projectsForClientRelationship } from "@/lib/client-projects";
 import { estimatedPending, paymentSummary } from "@/lib/project-payments";
 import { safeHref } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -54,9 +54,7 @@ function ClientOverviewPage() {
 
   const relationshipClients = useMemo(() => {
     if (!client) return [];
-    const allClients = ops.clients ?? [];
-    const children = allClients.filter((candidate) => candidate.parentClientId === client.id);
-    return children.length > 0 ? [client, ...children] : [client];
+    return clientRelationshipMembers(client, ops.clients ?? []);
   }, [ops.clients, client]);
 
   const relationshipClientIds = useMemo(
@@ -70,13 +68,8 @@ function ClientOverviewPage() {
 
   const clientProjects = useMemo(() => {
     if (!client) return [];
-    return ops.projects.filter(
-      (project) =>
-        isRevenueProject(project.status) &&
-        ((project.clientId != null && relationshipClientIds.has(project.clientId)) ||
-          relationshipCompanyNames.has(project.client.toLowerCase())),
-    );
-  }, [ops.projects, client, relationshipClientIds, relationshipCompanyNames]);
+    return projectsForClientRelationship(ops.projects, client, ops.clients ?? []);
+  }, [ops.projects, client, ops.clients]);
 
   const clientInvoices = useMemo(() => {
     if (!client) return [];

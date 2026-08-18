@@ -55,6 +55,7 @@ export function LeadFormDialog({
   onSave: (lead: Lead) => void;
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
+  const [formError, setFormError] = useState<string | null>(null);
   const isEdit = Boolean(lead);
   const members = DEFAULT_COMPANY.companyMembers ?? [];
   const activeClients = clients
@@ -88,6 +89,7 @@ export function LeadFormDialog({
         expectedClosingDate: toLocalISODate(in30),
       });
     }
+    setFormError(null);
   }, [open, lead]);
 
   const applyExistingClient = (clientId: string) => {
@@ -108,37 +110,40 @@ export function LeadFormDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
 
     if (form.clientMode === "existing" && !form.existingClientId) {
-      alert("Select an existing client for this deal.");
+      setFormError("Select an existing client for this deal.");
       return;
     }
 
     if (!form.company.trim()) {
-      alert("Company name is required.");
+      setFormError("Company name is required.");
       return;
     }
 
     if (form.source.trim().toLowerCase() === "directory") {
-      alert(
+      setFormError(
         'Lead Source cannot be "Directory" — that label is reserved for the contact book. Use "Contacted" or another source.',
       );
       return;
     }
 
-    const revenueNum = form.expectedRevenue ? Number(form.expectedRevenue) : undefined;
-    const probabilityNum = form.probability ? Number(form.probability) : undefined;
+    const revenueNum = form.expectedRevenue
+      ? Number(form.expectedRevenue.replace(/,/g, "").trim())
+      : undefined;
+    const probabilityNum = form.probability ? Number(form.probability.trim()) : undefined;
 
-    if (revenueNum !== undefined && (isNaN(revenueNum) || revenueNum < 0)) {
-      alert("Expected Revenue must be a positive number.");
+    if (revenueNum !== undefined && (Number.isNaN(revenueNum) || revenueNum < 0)) {
+      setFormError("Expected Revenue must be a positive number.");
       return;
     }
 
     if (
       probabilityNum !== undefined &&
-      (isNaN(probabilityNum) || probabilityNum < 0 || probabilityNum > 100)
+      (Number.isNaN(probabilityNum) || probabilityNum < 0 || probabilityNum > 100)
     ) {
-      alert("Probability must be a percentage between 0 and 100.");
+      setFormError("Probability must be a percentage between 0 and 100.");
       return;
     }
 
@@ -177,7 +182,7 @@ export function LeadFormDialog({
             pipeline details.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
             <p className="text-sm font-medium text-foreground">Is this an existing client?</p>
             <div className="flex flex-wrap gap-4 text-sm">
@@ -240,7 +245,6 @@ export function LeadFormDialog({
                 value={form.company}
                 onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
                 placeholder="e.g. Acme Corp"
-                required
                 readOnly={form.clientMode === "existing"}
               />
             </Field>
@@ -259,7 +263,9 @@ export function LeadFormDialog({
             <Field label="Email Address" id="crm-email">
               <Input
                 id="crm-email"
-                type="email"
+                type="text"
+                inputMode="email"
+                autoComplete="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 placeholder="e.g. contact@acme.com"
@@ -372,6 +378,11 @@ export function LeadFormDialog({
             />
           </Field>
 
+          {formError ? (
+            <p className="text-sm font-medium text-destructive" role="alert">
+              {formError}
+            </p>
+          ) : null}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel

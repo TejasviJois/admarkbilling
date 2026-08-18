@@ -1,8 +1,18 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowDownRight, ArrowUpRight, BarChart3, Building2, TrendingUp } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  BarChart3,
+  Building2,
+  CalendarRange,
+  IndianRupee,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
+import { ClientRevenueBreakdown } from "@/components/analytics/ClientRevenueBreakdown";
 import { LazyMonthlyChart } from "@/components/analytics/LazyMonthlyChart";
-import { AnalyticsKpiGrid, AnalyticsPageHeader } from "@/components/analytics/analytics-ui";
+import { AnalyticsKpiGrid, AnalyticsKpiSection, AnalyticsPageHeader } from "@/components/analytics/analytics-ui";
 import { OperationsLoading } from "@/components/operations/operations-ui";
 import {
   Select,
@@ -17,6 +27,7 @@ import {
   ledgerCashflowForMonth,
   liveCashflowMonths,
 } from "@/lib/analytics";
+import { buildClientRevenueBreakdown } from "@/lib/client-revenue-analytics";
 import {
   calendarMonthKey,
   formatCalendarMonthLabel,
@@ -38,51 +49,91 @@ function AnalyticsPage() {
 
   const snapshot = useMemo(() => buildAnalyticsSnapshot(ops, period), [ops]);
   const monthFlow = useMemo(() => ledgerCashflowForMonth(ops, selectedMonth), [ops, selectedMonth]);
+  const revenue = useMemo(
+    () => buildClientRevenueBreakdown(ops.projects, undefined, ops.clients),
+    [ops.projects, ops.clients],
+  );
   const monthHint = formatCalendarMonthLabel(selectedMonth);
 
   if (loading) return <OperationsLoading />;
 
   return (
     <div className="space-y-8">
-      <AnalyticsPageHeader
-        title="Analytics"
-        description="Cash flow by week for the selected month. Click a bar to see names."
-      />
+      <AnalyticsPageHeader title="Analytics" />
 
-      <AnalyticsKpiGrid
-        items={[
-          {
-            label: "Money in",
-            value: formatINRWhole(monthFlow.income),
-            icon: ArrowDownRight,
-            tone: "positive",
-            hint: monthHint,
-          },
-          {
-            label: "Money out",
-            value: formatINRWhole(monthFlow.expenses),
-            icon: ArrowUpRight,
-            tone: "negative",
-            hint: "Logged ledger (excl. handouts)",
-          },
-          {
-            label: "Active MRR",
-            value: formatINRWhole(snapshot.activeMrr),
-            icon: TrendingUp,
-            tone: "accent",
-            hint: "Started retainers / month",
-            to: "/accounts/retainers",
-          },
-          {
-            label: "Future monthly",
-            value: formatINRWhole(snapshot.futureMonthly),
-            icon: Building2,
-            tone: "neutral",
-            hint: "Unstarted retainers",
-            to: "/accounts/retainers",
-          },
-        ]}
-      />
+      <AnalyticsKpiSection title="Monthly analytics">
+        <AnalyticsKpiGrid
+          className="xl:grid-cols-2"
+          items={[
+            {
+              label: "Money in",
+              value: formatINRWhole(monthFlow.income),
+              icon: ArrowDownRight,
+              tone: "positive",
+              hint: monthHint,
+            },
+            {
+              label: "Money out",
+              value: formatINRWhole(monthFlow.expenses),
+              icon: ArrowUpRight,
+              tone: "negative",
+              hint: monthHint,
+            },
+          ]}
+        />
+      </AnalyticsKpiSection>
+
+      <AnalyticsKpiSection title="Recurring revenue">
+        <AnalyticsKpiGrid
+          className="xl:grid-cols-3"
+          items={[
+            {
+              label: "Active MRR",
+              value: formatINRWhole(snapshot.activeMrr),
+              icon: TrendingUp,
+              tone: "accent",
+              hint: "Live retainers",
+              to: "/accounts/retainers",
+            },
+            {
+              label: "Future monthly",
+              value: formatINRWhole(snapshot.futureMonthly),
+              icon: Building2,
+              tone: "neutral",
+              hint: "Not started",
+              to: "/accounts/retainers",
+            },
+            {
+              label: "FY retainer",
+              value: formatINRWhole(revenue.totalFyRemaining),
+              icon: CalendarRange,
+              tone: "accent",
+              hint: "Through 31 Mar",
+            },
+          ]}
+        />
+      </AnalyticsKpiSection>
+
+      <AnalyticsKpiSection title="Total">
+        <AnalyticsKpiGrid
+          className="xl:grid-cols-2"
+          items={[
+            {
+              label: "Booked",
+              value: formatINRWhole(revenue.totalBooked),
+              icon: Wallet,
+              hint: `FY ${revenue.financialYear}`,
+            },
+            {
+              label: "Total",
+              value: formatINRWhole(revenue.totalRevenue),
+              icon: IndianRupee,
+              tone: "positive",
+              hint: "Booked + FY retainer",
+            },
+          ]}
+        />
+      </AnalyticsKpiSection>
 
       <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
         <div className="mb-6 flex items-start gap-3">
@@ -91,7 +142,7 @@ function AnalyticsPage() {
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold tracking-tight">Cash flow trend</h2>
+              <h2 className="text-lg font-semibold tracking-tight">Cash flow</h2>
               <Select value={selectedMonth} onValueChange={setMonth}>
                 <SelectTrigger
                   id="analytics-month"
@@ -113,14 +164,12 @@ function AnalyticsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Money in vs money out by week — click a bar to see names. Weeks that cross months are
-              shown in full in both months.
-            </p>
           </div>
         </div>
         <LazyMonthlyChart ops={ops} period={period} month={selectedMonth} />
       </section>
+
+      <ClientRevenueBreakdown projects={ops.projects} clients={ops.clients} />
     </div>
   );
 }

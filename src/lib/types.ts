@@ -1,4 +1,12 @@
-export type TeamMemberType = "founder" | "employee" | "intern" | "contractor";
+export const BUILTIN_MEMBER_TYPES = ["founder", "employee", "intern", "contractor"] as const;
+export type BuiltinMemberType = (typeof BUILTIN_MEMBER_TYPES)[number];
+/** Built-in or a custom label added during registration. */
+export type TeamMemberType = BuiltinMemberType | (string & {});
+
+export const BUILTIN_TEAM_GROUPS = ["development", "marketing"] as const;
+export type BuiltinTeamGroup = (typeof BUILTIN_TEAM_GROUPS)[number];
+/** Development, marketing, or a custom team added during registration. */
+export type TeamGroup = BuiltinTeamGroup | (string & {});
 
 /** A person who works for the company and can own projects or receive payroll. */
 export interface CompanyMember {
@@ -6,18 +14,36 @@ export interface CompanyMember {
   name: string;
   email: string;
   phone: string;
+  /** Display code such as ADM-001. Separate from the internal `id`. */
+  employeeId?: string;
   /** e.g. Partner, Director, Developer, Operations */
   role?: string;
   memberType?: TeamMemberType;
+  /** Development, marketing, or another working team. */
+  teamGroup?: TeamGroup;
   joinDate?: string;
   status?: "active" | "inactive";
   /** Guaranteed monthly salary. Variable bonuses are recorded month by month. */
   baseMonthlySalary?: number;
   /** Maximum suggested bonus for a month; the actual bonus defaults to zero. */
   monthlyBonusCap?: number;
-  /** Salary schedule start and due day. */
+  /** Salary schedule start and due day. Missing start date means payroll has not begun. */
   salaryStartDate?: string;
   salaryDueDay?: number;
+}
+
+export type SalaryPaymentMode = "full" | "partial" | "extra";
+
+/** One month of Team payroll — never written to the Accounts ledger. */
+export interface SalaryMonthPayment {
+  /** YYYY-MM */
+  month: string;
+  mode: SalaryPaymentMode;
+  /** Salary portion actually paid this month. */
+  salaryAmount: number;
+  /** Extra / bonus paid this month. */
+  bonusAmount?: number;
+  note?: string;
 }
 
 export interface CompanySettings {
@@ -45,6 +71,10 @@ export interface CompanySettings {
   authorizedName?: string;
   /** Team members — name, email, phone for reference and settings UI. */
   companyMembers?: CompanyMember[];
+  /** Extra member types created from the Team form (beyond founder/employee/intern/contractor). */
+  customMemberTypes?: string[];
+  /** Extra working teams created from the Team form (beyond development/marketing). */
+  customTeamGroups?: string[];
   /** One-time upgrade from the old partners-only list to the Team directory. */
   teamDirectoryMigrationApplied?: boolean;
   paymentTerms?: string;
@@ -492,6 +522,8 @@ export interface OperationsData {
   kapilaRetainerRepairApplied?: boolean;
   /** One-time repair: aligned Rent Management contract billing to the locked ₹80k total. */
   rentManagementContractRepairApplied?: boolean;
+  /** One-time: +₹2,000 historical company expense so Revenue − Expenses matches cash. */
+  historicalExpenseReconciliationApplied?: boolean;
 }
 
 export type TransactionType =
@@ -600,8 +632,10 @@ export interface FixedMonthlyExpense {
   totalMonths?: number;
   /** Calendar day (1–31) to remind the user each month. */
   reminderDay?: number;
-  /** Checked-off installment months, stored as YYYY-MM. */
+  /** Checked-off installment months, stored as YYYY-MM. Kept in sync with `monthPayments`. */
   paidMonths?: string[];
+  /** Amount-aware Team payroll records. Source of truth for salary ticks. */
+  monthPayments?: SalaryMonthPayment[];
   /** Explicit workflow state; `active` remains for backwards compatibility. */
   status?: "active" | "paused" | "completed";
   notes?: string;

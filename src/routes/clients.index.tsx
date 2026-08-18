@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Search } from "lucide-react";
+import { Eye, EyeOff, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ClientFormDialog } from "@/components/operations/ClientFormDialog";
@@ -8,7 +8,11 @@ import { ClientsTable } from "@/components/operations/ClientsTable";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
 import { relinkProjectsAfterClientRename } from "@/lib/client-links";
-import { isRevenueProject } from "@/lib/project-status";
+import {
+  countClientProjects,
+  projectsForClientRelationship,
+  type ClientProjectCounts,
+} from "@/lib/client-projects";
 import type { Client } from "@/lib/types";
 
 export const Route = createFileRoute("/clients/")({ component: ClientsPage });
@@ -26,41 +30,29 @@ function ClientsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
+  const [showDetails, setShowDetails] = useState(false);
 
   const clients = ops.clients ?? [];
 
   // "Active" wins over "Completed"; clients with no revenue projects show "No Projects".
-  const projectBadgeById = useMemo(() => {
-    const normalized = (value: string) => value.trim().toLowerCase();
-    const map = new Map<string, ProjectBadge>();
+  const projectStatsById = useMemo(() => {
+    const badge = new Map<string, ProjectBadge>();
+    const counts = new Map<string, ClientProjectCounts>();
     const roots = clients.filter((client) => !client.parentClientId);
     for (const client of roots) {
-      const companyIds = new Set([
+      const related = projectsForClientRelationship(ops.projects, client, clients);
+      const projectCounts = countClientProjects(related);
+      counts.set(client.id, projectCounts);
+      badge.set(
         client.id,
-        ...clients.filter((child) => child.parentClientId === client.id).map((child) => child.id),
-      ]);
-      const companyNames = new Set(
-        clients
-          .filter((candidate) => companyIds.has(candidate.id))
-          .map((candidate) => normalized(candidate.companyName)),
-      );
-      const related = ops.projects.filter(
-        (project) =>
-          isRevenueProject(project.status) &&
-          ((project.clientId != null && companyIds.has(project.clientId)) ||
-            companyNames.has(normalized(project.client))),
-      );
-      map.set(
-        client.id,
-        related.some((project) => project.status === "active")
-          ? "active"
-          : related.some((project) => project.status === "completed")
-            ? "completed"
-            : "none",
+        projectCounts.active > 0 ? "active" : projectCounts.completed > 0 ? "completed" : "none",
       );
     }
-    return map;
+    return { badge, counts };
   }, [clients, ops.projects]);
+
+  const projectBadgeById = projectStatsById.badge;
+  const projectCountsById = projectStatsById.counts;
 
   const visibleClients = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -79,8 +71,7 @@ function ClientsPage() {
         const badgeB = projectBadgeById.get(b.id) ?? "none";
         const byBadge = BADGE_ORDER[badgeA] - BADGE_ORDER[badgeB];
         if (byBadge !== 0) return byBadge;
-        const byClientStatus =
-          Number(a.status !== "active") - Number(b.status !== "active");
+        const byClientStatus = Number(a.status !== "active") - Number(b.status !== "active");
         if (byClientStatus !== 0) return byClientStatus;
         return a.companyName.localeCompare(b.companyName);
       });
@@ -138,9 +129,22 @@ function ClientsPage() {
         title="Clients"
         description="Centralized directory of companies, contacts, billing profiles, and client relationship logs."
         action={
-          <Button type="button" size="icon" onClick={openAdd} aria-label="Add client">
-            <Plus className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              onClick={() => setShowDetails((open) => !open)}
+              aria-label={showDetails ? "Hide client details" : "Show client details"}
+              aria-pressed={showDetails}
+              title={showDetails ? "Hide details" : "Show details"}
+            >
+              {showDetails ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </Button>
+            <Button type="button" size="icon" onClick={openAdd} aria-label="Add client">
+              <Plus className="h-5 w-5" />
+            </Button>
+          </div>
         }
       />
 
@@ -167,10 +171,11 @@ function ClientsPage() {
       />
       <ClientsTable
         clients={visibleClients}
-        allClients={clients}
         projectBadgeById={projectBadgeById}
+        projectCountsById={projectCountsById}
         onEdit={openEdit}
         onRemove={handleRemove}
+        showDetails={showDetails}
         emptyMessage={
           search.trim()
             ? "No clients match your search."

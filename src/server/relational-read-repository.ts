@@ -56,6 +56,7 @@ import type {
   ValuationSnapshot,
 } from "@/lib/types";
 import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
+import { parseSalaryMonthPayments } from "@/lib/team-payroll";
 import { normalizeCompanySettings } from "@/lib/company-settings";
 import { normalizeValuationSettings } from "@/lib/valuation-engine";
 import { requireServerSupabase } from "./supabase-admin";
@@ -211,7 +212,10 @@ interface TeamMemberRow extends BaseRow {
   name: string;
   email: string | null;
   phone: string | null;
+  employee_code: string | null;
   role: string;
+  member_type: string | null;
+  team_group: string | null;
   job_title: string | null;
   join_date: string | null;
   status: string;
@@ -504,6 +508,14 @@ function orUndefined<T>(value: T | null | undefined): T | undefined {
   return value ?? undefined;
 }
 
+function parseStringList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const labels = value.filter(
+    (item): item is string => typeof item === "string" && item.trim().length > 0,
+  );
+  return labels.length > 0 ? labels : undefined;
+}
+
 function pickOne<T extends string>(
   value: string | null | undefined,
   allowed: readonly T[],
@@ -652,6 +664,7 @@ interface LegacyMigrationState {
   neRepairApplied: boolean;
   kapilaRetainerRepairApplied: boolean;
   rentManagementContractRepairApplied: boolean;
+  historicalExpenseReconciliationApplied: boolean;
   dismissedNotificationIds?: string[];
 }
 
@@ -722,6 +735,7 @@ function parseLegacySalarySchedule(raw: unknown): FixedMonthlyExpense | null {
           (month): month is string => typeof month === "string" && /^\d{4}-\d{2}$/.test(month),
         )
       : undefined,
+    monthPayments: parseSalaryMonthPayments(raw.monthPayments),
     status,
     notes: asString(raw.notes),
     active: status === "active",
@@ -738,6 +752,7 @@ function parseLegacyMigrationState(raw: unknown): LegacyMigrationState {
     neRepairApplied: state.neRepairApplied === true,
     kapilaRetainerRepairApplied: state.kapilaRetainerRepairApplied === true,
     rentManagementContractRepairApplied: state.rentManagementContractRepairApplied === true,
+    historicalExpenseReconciliationApplied: state.historicalExpenseReconciliationApplied === true,
     dismissedNotificationIds: Array.isArray(state.dismissedNotificationIds)
       ? state.dismissedNotificationIds.filter((id): id is string => typeof id === "string")
       : undefined,
@@ -1293,6 +1308,8 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
     kapilaRetainerRepairApplied: preferences.migrationState.kapilaRetainerRepairApplied,
     rentManagementContractRepairApplied:
       preferences.migrationState.rentManagementContractRepairApplied,
+    historicalExpenseReconciliationApplied:
+      preferences.migrationState.historicalExpenseReconciliationApplied,
   });
 }
 
@@ -1324,8 +1341,10 @@ export async function loadRelationalCompany(): Promise<CompanySettings> {
       name: row.name,
       email: row.email ?? "",
       phone: row.phone ?? "",
+      employeeId: orUndefined(row.employee_code),
       role: orUndefined(row.job_title),
-      memberType: MEMBER_TYPE_BY_ROLE[row.role],
+      memberType: orUndefined(row.member_type) ?? MEMBER_TYPE_BY_ROLE[row.role],
+      teamGroup: orUndefined(row.team_group),
       joinDate: orUndefined(row.join_date),
       status: row.status === "inactive" ? ("inactive" as const) : ("active" as const),
       baseMonthlySalary: asNumber(row.base_monthly_salary),
@@ -1370,6 +1389,16 @@ export async function loadRelationalCompany(): Promise<CompanySettings> {
     complianceDocuments,
     authorizedName: orUndefined(companyRow.authorized_name),
     companyMembers,
+    customMemberTypes: parseStringList(
+      isRecord(settingsRow?.application_preferences)
+        ? settingsRow.application_preferences.customMemberTypes
+        : undefined,
+    ),
+    customTeamGroups: parseStringList(
+      isRecord(settingsRow?.application_preferences)
+        ? settingsRow.application_preferences.customTeamGroups
+        : undefined,
+    ),
     teamDirectoryMigrationApplied: true,
     paymentTerms: orUndefined(settingsRow?.default_payment_terms),
     remarks: orUndefined(settingsRow?.default_remarks),

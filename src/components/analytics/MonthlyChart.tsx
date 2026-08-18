@@ -12,7 +12,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -99,7 +98,7 @@ export function MonthlyIncomeExpenseChart({
     return (
       <div className="flex h-80 items-center justify-center rounded-lg border border-dashed border-border bg-muted/10">
         <p className="text-sm text-muted-foreground">
-          No activity in this period — record a payment or expense in Accounts to see weekly trends.
+          No activity this month.
         </p>
       </div>
     );
@@ -231,9 +230,6 @@ export function MonthlyIncomeExpenseChart({
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{selected?.label ?? "Week"}</DialogTitle>
-            <DialogDescription>
-              Money in and money out for this week, by name.
-            </DialogDescription>
           </DialogHeader>
           {selected && (
             <div className="space-y-5">

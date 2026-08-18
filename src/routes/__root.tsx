@@ -202,8 +202,7 @@ const NAV_GROUPS: NavGroup[] = [
     icon: CalendarDays,
     section: "Daily Work",
     items: [
-      { to: "/calendar", label: "Calendar" },
-      { to: "/reminders", label: "Reminders" },
+      { to: "/calendar", label: "Schedules & Reminders" },
       { to: "/documents", label: "Documents" },
     ],
   },

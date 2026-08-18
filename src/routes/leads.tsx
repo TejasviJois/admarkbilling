@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
   archiveLead,
   computeLeadCrmStats,
   isLeadArchived,
+  reopenLostLead,
   visibleLeadsForBoard,
 } from "@/lib/lead-stats";
 import type { Lead, LeadStatus } from "@/lib/types";
@@ -68,9 +69,22 @@ function LeadsPage() {
   const handleMoveStatus = (id: string, nextStatus: LeadStatus) => {
     const moved = leads.find((l) => l.id === id);
     if (!moved || isLeadArchived(moved)) return;
+    if (moved.status === "lost" && nextStatus === "won") return;
     const nextLead = { ...moved, status: nextStatus };
     const nextLeads = leads.map((l) => (l.id === id ? nextLead : l));
     persist(syncLeadLifecycle({ ...ops, leads: nextLeads }, nextLead));
+  };
+
+  const handleReopen = (id: string) => {
+    const lead = leads.find((l) => l.id === id);
+    if (!lead || lead.status !== "lost") return;
+    const nextLead = reopenLostLead(lead, toLocalISODate());
+    persist(
+      syncLeadLifecycle(
+        { ...ops, leads: leads.map((item) => (item.id === id ? nextLead : item)) },
+        nextLead,
+      ),
+    );
   };
 
   if (loading) return <OperationsLoading />;
@@ -88,60 +102,37 @@ function LeadsPage() {
       />
 
       {/* CRM Stats Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Pipeline Value
-          </p>
-          <p className="mt-2 text-2xl font-bold text-foreground tabular-nums">
-            {formatINRWhole(stats.pipelineValue)}
-          </p>
-          <p className="mt-1 text-[10px] text-muted-foreground">
-            {stats.activeCount} active deals in funnel
-          </p>
-        </div>
-
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Expected Value
-          </p>
-          <p className="mt-2 text-2xl font-bold text-primary tabular-nums">
-            {formatINRWhole(stats.expectedRevenue)}
-          </p>
-          <p className="mt-1 text-[10px] text-muted-foreground">Weighted by deal probability</p>
-        </div>
-
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Win Rate
-          </p>
-          <p className="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-            {stats.conversionRate.toFixed(1)}%
-          </p>
-          <p className="mt-1 text-[10px] text-muted-foreground">
-            {stats.wonCount} won &middot; {stats.lostDeals} lost
-          </p>
-        </div>
-
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Lost Deals
-          </p>
-          <p className="mt-2 text-2xl font-bold text-rose-600 dark:text-rose-400 tabular-nums">
-            {stats.lostDeals}
-          </p>
-          <p className="mt-1 text-[10px] text-muted-foreground">Inactive / closed lost</p>
-        </div>
-
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Avg Deal Size
-          </p>
-          <p className="mt-2 text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums">
-            {formatINRWhole(stats.averageDealSize)}
-          </p>
-          <p className="mt-1 text-[10px] text-muted-foreground">Average forecast budget</p>
-        </div>
+      <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-5">
+        <LeadStat
+          label="Pipeline Value"
+          value={formatINRWhole(stats.pipelineValue)}
+          caption={`${stats.activeCount} active deals in funnel`}
+        />
+        <LeadStat
+          label="Expected Value"
+          value={formatINRWhole(stats.expectedRevenue)}
+          valueClassName="text-primary"
+          caption="Weighted by deal probability"
+        />
+        <LeadStat
+          label="Win Rate"
+          value={`${stats.conversionRate.toFixed(1)}%`}
+          valueClassName="text-emerald-600 dark:text-emerald-400"
+          caption={`${stats.wonCount} won · ${stats.lostDeals} lost`}
+        />
+        <LeadStat
+          label="Lost Deals"
+          value={String(stats.lostDeals)}
+          valueClassName="text-rose-600 dark:text-rose-400"
+          caption="Inactive / closed lost"
+        />
+        <LeadStat
+          label="Avg Deal Size"
+          value={formatINRWhole(stats.averageDealSize)}
+          valueClassName="text-blue-600 dark:text-blue-400"
+          caption="Average forecast budget"
+          className="col-span-2 lg:col-span-1"
+        />
       </div>
 
       {/* Visual Kanban Board */}
@@ -151,6 +142,7 @@ function LeadsPage() {
           onEdit={openEdit}
           onRemove={handleRemove}
           onMoveStatus={handleMoveStatus}
+          onReopen={handleReopen}
         />
       </div>
 
@@ -161,6 +153,36 @@ function LeadsPage() {
         clients={ops.clients ?? []}
         onSave={handleSave}
       />
+    </div>
+  );
+}
+
+function LeadStat({
+  label,
+  value,
+  caption,
+  valueClassName,
+  className,
+}: {
+  label: string;
+  value: string;
+  caption: string;
+  valueClassName?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`rounded-lg border border-border bg-card p-3 shadow-sm sm:p-4 ${className ?? ""}`}
+    >
+      <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:text-xs">
+        {label}
+      </p>
+      <p
+        className={`mt-1.5 text-lg font-bold tabular-nums sm:mt-2 sm:text-2xl ${valueClassName ?? "text-foreground"}`}
+      >
+        {value}
+      </p>
+      <p className="mt-1 truncate text-[10px] text-muted-foreground">{caption}</p>
     </div>
   );
 }

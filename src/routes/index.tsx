@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   TrendingUp,
@@ -26,6 +26,7 @@ import {
   sortScheduleEvents,
 } from "@/lib/schedule";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({ component: ExecutiveDashboard });
 
@@ -148,25 +149,25 @@ function ExecutiveDashboard() {
   return (
     <div className="space-y-6">
       {/* Header Welcome banner */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-border pb-5">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+      <div className="flex items-start justify-between gap-3 border-b border-border pb-5 md:items-center">
+        <div className="w-min min-w-0 md:w-auto md:max-w-2xl md:flex-1">
+          <h1 className="whitespace-nowrap text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
             Business Overview
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="mt-0.5 text-sm text-muted-foreground">
             Real-time financial status, pipeline forecasts, and operational analytics.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2.5">
-          <Link to="/invoices">
-            <Button size="sm" variant="outline">
+        <div className="flex shrink-0 flex-col items-stretch gap-2 md:flex-row md:flex-wrap md:items-center">
+          <Link to="/invoices" className="w-full md:w-auto">
+            <Button size="sm" variant="outline" className="w-full md:w-auto">
               <FileText className="mr-1.5 h-4 w-4" /> Invoices
             </Button>
           </Link>
-          <Link to="/leads">
+          <Link to="/leads" className="w-full md:w-auto">
             <Button
               size="sm"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+              className="w-full bg-primary font-semibold text-primary-foreground hover:bg-primary/90 md:w-auto"
             >
               <TrendingUp className="mr-1.5 h-4 w-4" /> Sales Pipeline
             </Button>
@@ -175,93 +176,54 @@ function ExecutiveDashboard() {
       </div>
 
       {/* Row 1: Premium Financial KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {/* Cash Balance */}
-        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Cash Balance</span>
-            <IndianRupee className="h-5 w-5 text-emerald-500" />
-          </div>
-          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-            {formatINRWhole(dashboardData.cashBalance)}
-          </p>
-          <div className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1 font-semibold">
-            <ArrowUpRight className="h-3.5 w-3.5 text-emerald-500" /> Total Liquid Capital
-          </div>
-        </div>
-
-        {/* Revenue */}
-        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Revenue</span>
-            <TrendingUp className="h-5 w-5 text-primary" />
-          </div>
-          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-            {formatINRWhole(dashboardData.revenue)}
-          </p>
-          <div className="mt-2 text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-semibold">
-            Verified Payments Collected
-          </div>
-        </div>
-
-        {/* Expenses */}
-        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Expenses</span>
-            <TrendingDown className="h-5 w-5 text-rose-500" />
-          </div>
-          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-            {formatINRWhole(dashboardData.expenses)}
-          </p>
-          <div className="mt-2 text-[10px] text-rose-600 dark:text-rose-400 flex items-center gap-1 font-semibold">
-            Category Expenditures
-          </div>
-        </div>
-
-        {/* Revenue Booked */}
-        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Revenue Booked</span>
-            <Briefcase className="h-5 w-5 text-primary" />
-          </div>
-          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-            {formatINRWhole(dashboardData.revenueBooked)}
-          </p>
-          <div className="mt-2 text-[10px] text-primary flex items-center gap-1 font-semibold">
-            Contracts + recurring revenue received
-          </div>
-        </div>
-
-        {/* Outstanding Receivables */}
-        <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:shadow-md transition-all">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Outstanding</span>
-            <FileText className="h-5 w-5 text-indigo-500" />
-          </div>
-          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-            {formatINRWhole(dashboardData.outstandingReceivables)}
-          </p>
-          <div className="mt-2 text-[10px] text-indigo-600 dark:text-indigo-400 flex items-center gap-1 font-semibold">
-            Outstanding client balances
-          </div>
-        </div>
-
-        {/* Active MRR */}
-        <Link
-          to="/accounts/retainers"
-          className="rounded-xl border border-border/80 bg-card p-5 shadow-sm hover:border-primary/30 hover:shadow-md transition-all"
-        >
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Active MRR</span>
-            <TrendingUp className="h-5 w-5 text-amber-500" />
-          </div>
-          <p className="mt-3 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-            {formatINRWhole(dashboardData.activeMrr)}
-          </p>
-          <div className="mt-2 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 font-semibold">
-            Started retainers / month
-          </div>
-        </Link>
+      <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
+        <KpiCard
+          label="Cash Balance"
+          value={formatINRWhole(dashboardData.cashBalance)}
+          icon={<IndianRupee className="h-4 w-4 text-emerald-500 sm:h-5 sm:w-5" />}
+          footer={
+            <>
+              <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-emerald-500" /> Total Liquid
+              Capital
+            </>
+          }
+        />
+        <KpiCard
+          label="Revenue"
+          value={formatINRWhole(dashboardData.revenue)}
+          icon={<TrendingUp className="h-4 w-4 text-primary sm:h-5 sm:w-5" />}
+          footer="Verified Payments Collected"
+          footerClassName="text-emerald-600 dark:text-emerald-400"
+        />
+        <KpiCard
+          label="Expenses"
+          value={formatINRWhole(dashboardData.expenses)}
+          icon={<TrendingDown className="h-4 w-4 text-rose-500 sm:h-5 sm:w-5" />}
+          footer="Category Expenditures"
+          footerClassName="text-rose-600 dark:text-rose-400"
+        />
+        <KpiCard
+          label="Revenue Booked"
+          value={formatINRWhole(dashboardData.revenueBooked)}
+          icon={<Briefcase className="h-4 w-4 text-primary sm:h-5 sm:w-5" />}
+          footer="Contracts + recurring revenue received"
+          footerClassName="text-primary"
+        />
+        <KpiCard
+          label="Outstanding"
+          value={formatINRWhole(dashboardData.outstandingReceivables)}
+          icon={<FileText className="h-4 w-4 text-indigo-500 sm:h-5 sm:w-5" />}
+          footer="Outstanding client balances"
+          footerClassName="text-indigo-600 dark:text-indigo-400"
+        />
+        <KpiCard
+          href="/accounts/retainers"
+          label="Active MRR"
+          value={formatINRWhole(dashboardData.activeMrr)}
+          icon={<TrendingUp className="h-4 w-4 text-amber-500 sm:h-5 sm:w-5" />}
+          footer="Started retainers / month"
+          footerClassName="text-amber-600 dark:text-amber-400"
+        />
       </div>
 
       {/* Meetings, calls, and follow-up reminders */}
@@ -279,14 +241,14 @@ function ExecutiveDashboard() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link to="/reminders">
-              <Button size="sm" variant="outline">
-                Reminders
-              </Button>
-            </Link>
             <Link to="/calendar">
               <Button size="sm" variant="outline">
-                Open Calendar
+                Open Schedules
+              </Button>
+            </Link>
+            <Link to="/calendar" search={{ reminder: true }}>
+              <Button size="sm" variant="outline">
+                Add Reminder
               </Button>
             </Link>
           </div>
@@ -299,8 +261,8 @@ function ExecutiveDashboard() {
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
-                to="/reminders"
-                search={{ new: true }}
+                to="/calendar"
+                search={{ reminder: true }}
                 className="text-xs font-bold text-primary hover:underline"
               >
                 Add a reminder
@@ -318,7 +280,7 @@ function ExecutiveDashboard() {
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {upcomingSchedule.map((event) => {
               const reminderState = scheduleReminderState(event, new Date(reminderClock));
-              const href = event.type === "reminder" ? "/reminders" : "/calendar";
+              const href = "/calendar";
               return (
                 <Link
                   key={event.id}
@@ -447,4 +409,52 @@ function ExecutiveDashboard() {
       </div>
     </div>
   );
+}
+
+function KpiCard({
+  label,
+  value,
+  icon,
+  footer,
+  footerClassName,
+  href,
+}: {
+  label: string;
+  value: string;
+  icon: ReactNode;
+  footer: ReactNode;
+  footerClassName?: string;
+  href?: "/accounts/retainers";
+}) {
+  const body = (
+    <>
+      <div className="flex items-center justify-between gap-2 text-muted-foreground">
+        <span className="truncate text-[10px] font-semibold uppercase tracking-wider sm:text-xs">
+          {label}
+        </span>
+        {icon}
+      </div>
+      <p className="mt-1.5 text-lg font-bold tracking-tight text-foreground tabular-nums sm:mt-3 sm:text-2xl">
+        {value}
+      </p>
+      <div
+        className={cn(
+          "mt-1.5 flex items-center gap-1 truncate text-[10px] font-semibold text-muted-foreground sm:mt-2 sm:whitespace-normal",
+          footerClassName,
+        )}
+      >
+        {footer}
+      </div>
+    </>
+  );
+  const className =
+    "rounded-xl border border-border/80 bg-card p-3 shadow-sm transition-all sm:p-5 hover:shadow-md";
+  if (href) {
+    return (
+      <Link to={href} className={cn(className, "hover:border-primary/30")}>
+        {body}
+      </Link>
+    );
+  }
+  return <div className={className}>{body}</div>;
 }

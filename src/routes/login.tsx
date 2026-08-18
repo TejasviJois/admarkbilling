@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { LogIn } from "lucide-react";
+import { Eye, EyeOff, LogIn } from "lucide-react";
 
 import { DEFAULT_PUBLIC_LOGO_URL } from "@/lib/constants";
 import { clearAuthStatusCache, getAuthStatusCached } from "@/lib/auth-status-cache";
@@ -31,6 +31,7 @@ function LoginPage() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -84,14 +85,26 @@ function LoginPage() {
             <span className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Password
             </span>
-            <input
-              type="password"
-              autoComplete="current-password"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={pending}
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={pending}
+              />
+              <button
+                type="button"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword((value) => !value)}
+                disabled={pending}
+                className="absolute inset-y-0 right-0 inline-flex w-10 items-center justify-center text-muted-foreground transition hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
             <span className="mt-1 block text-[11px] text-muted-foreground">Case-sensitive</span>
           </label>
 

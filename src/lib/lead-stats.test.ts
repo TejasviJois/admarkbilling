@@ -5,6 +5,7 @@ import {
   decodeLeadNotesFromStorage,
   encodeLeadNotesForStorage,
   normalizeArchivedAt,
+  reopenLostLead,
   visibleLeadsForBoard,
 } from "./lead-stats";
 import type { Lead, OperationsData, Project } from "./types";
@@ -27,9 +28,7 @@ describe("lead archive stats", () => {
     expect(before.wonCount).toBe(1);
     expect(before.conversionRate).toBe(50);
 
-    const afterArchive = leads.map((l) =>
-      l.id === "l1" ? archiveLead(l, "2026-07-25") : l,
-    );
+    const afterArchive = leads.map((l) => (l.id === "l1" ? archiveLead(l, "2026-07-25") : l));
     const after = computeLeadCrmStats(afterArchive);
     expect(after.lostDeals).toBe(1);
     expect(after.wonCount).toBe(1);
@@ -52,9 +51,7 @@ describe("lead archive stats", () => {
     expect(before.pipelineValue).toBe(80_000);
     expect(before.averageDealSize).toBe(90_000);
 
-    const archived = leads.map((l) =>
-      l.id === "open1" ? archiveLead(l, "2026-07-25") : l,
-    );
+    const archived = leads.map((l) => (l.id === "open1" ? archiveLead(l, "2026-07-25") : l));
     const after = computeLeadCrmStats(archived);
     expect(after.pipelineValue).toBe(0);
     expect(after.activeCount).toBe(0);
@@ -124,5 +121,39 @@ describe("lead notes archivedAt encoding", () => {
       archivedAt: "2026-07-25",
       notes: undefined,
     });
+  });
+});
+
+describe("reopen lost lead", () => {
+  it("returns the same cycle to negotiation and drops the loss from win rate", () => {
+    const lost = lead({
+      id: "l1",
+      company: "Blue Blocks",
+      status: "lost",
+      expectedRevenue: 50_000,
+      archivedAt: "2026-07-10",
+      notes: "Budget delay",
+    });
+    const won = lead({ id: "w1", company: "Won Co", status: "won", expectedRevenue: 100_000 });
+    expect(computeLeadCrmStats([won, lost]).conversionRate).toBe(50);
+
+    const reopened = reopenLostLead(lost, "2026-08-18");
+    expect(reopened.status).toBe("negotiation");
+    expect(reopened.archivedAt).toBeUndefined();
+    expect(reopened.notes).toContain("Budget delay");
+    expect(reopened.notes).toContain("Reopened after lost on 2026-08-18.");
+    expect(reopened.id).toBe(lost.id);
+
+    const after = computeLeadCrmStats([won, reopened]);
+    expect(after.lostDeals).toBe(0);
+    expect(after.wonCount).toBe(1);
+    expect(after.conversionRate).toBe(100);
+    expect(after.activeCount).toBe(1);
+    expect(visibleLeadsForBoard([won, reopened]).map((item) => item.id)).toEqual(["w1", "l1"]);
+  });
+
+  it("does not reopen a deal that is not lost", () => {
+    const open = lead({ id: "n1", company: "Open Co", status: "negotiation" });
+    expect(reopenLostLead(open, "2026-08-18")).toBe(open);
   });
 });

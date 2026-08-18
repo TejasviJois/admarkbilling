@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  BellRing,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -14,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
+import { ReminderFormDialog } from "@/components/operations/ReminderFormDialog";
 import { ScheduleEventDialog } from "@/components/operations/ScheduleEventDialog";
 import { useOperations } from "@/hooks/use-operations";
 import { formatScheduleDateTime, sortScheduleEvents } from "@/lib/schedule";
@@ -22,9 +24,13 @@ import type { ScheduleEvent } from "@/lib/types";
 
 export const Route = createFileRoute("/calendar")({
   component: CalendarPage,
-  // `?new=1` opens the schedule dialog immediately (used by Dashboard shortcuts).
-  validateSearch: (search: Record<string, unknown>): { new?: boolean } => ({
+  // `?new=1` opens the schedule dialog. `?reminder=1` opens the reminder dialog.
+  validateSearch: (search: Record<string, unknown>): { new?: boolean; reminder?: boolean } => ({
     new: search.new === true || search.new === "true" || search.new === 1 ? true : undefined,
+    reminder:
+      search.reminder === true || search.reminder === "true" || search.reminder === 1
+        ? true
+        : undefined,
   }),
 });
 
@@ -37,11 +43,13 @@ function dateKey(date: Date): string {
 
 function CalendarPage() {
   const { ops, persist, loading } = useOperations();
-  const { new: openNewOnArrival } = Route.useSearch();
+  const { new: openNewOnArrival, reminder: openReminderOnArrival } = Route.useSearch();
   const navigate = Route.useNavigate();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ScheduleEvent | null>(null);
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<ScheduleEvent | null>(null);
 
   useEffect(() => {
     if (!openNewOnArrival) return;
@@ -50,6 +58,13 @@ function CalendarPage() {
     // Drop the param so refresh/back doesn't reopen the dialog.
     navigate({ search: {}, replace: true });
   }, [openNewOnArrival, navigate]);
+
+  useEffect(() => {
+    if (!openReminderOnArrival) return;
+    setEditingReminder(null);
+    setReminderDialogOpen(true);
+    navigate({ search: {}, replace: true });
+  }, [openReminderOnArrival, navigate]);
   const events = useMemo(() => ops.scheduleEvents ?? [], [ops.scheduleEvents]);
   const selectedKey = dateKey(selectedDate);
 
@@ -57,6 +72,12 @@ function CalendarPage() {
     () => sortScheduleEvents(events.filter((event) => event.date === selectedKey)),
     [events, selectedKey],
   );
+  const reminders = useMemo(
+    () => sortScheduleEvents(events.filter((event) => event.type === "reminder")),
+    [events],
+  );
+  const openReminders = reminders.filter((event) => event.status === "scheduled");
+  const doneReminders = reminders.filter((event) => event.status !== "scheduled");
   const eventDates = useMemo(
     () =>
       events
@@ -94,17 +115,51 @@ function CalendarPage() {
     setDialogOpen(true);
   };
 
+  const openNewReminder = () => {
+    setEditingReminder(null);
+    setReminderDialogOpen(true);
+  };
+
+  const saveReminder = (saved: ScheduleEvent) => {
+    const next = editingReminder
+      ? events.map((event) => (event.id === saved.id ? saved : event))
+      : [...events, saved];
+    persist({ ...ops, scheduleEvents: next });
+  };
+
+  const updateReminderStatus = (event: ScheduleEvent, status: ScheduleEvent["status"]) => {
+    persist({
+      ...ops,
+      scheduleEvents: events.map((item) =>
+        item.id === event.id ? { ...item, status, updatedAt: Date.now() } : item,
+      ),
+    });
+  };
+
+  const deleteReminder = (event: ScheduleEvent) => {
+    if (!confirm(`Delete reminder "${event.title}"?`)) return;
+    persist(
+      { ...ops, scheduleEvents: events.filter((item) => item.id !== event.id) },
+      { deleteIds: { scheduleEvents: [event.id] } },
+    );
+  };
+
   if (loading) return <OperationsLoading />;
 
   return (
     <div className="space-y-6">
       <OperationsPageHeader
-        title="Calendar & Schedule"
-        description="Create meetings and calls here. Upcoming schedules are reminded on your Dashboard."
+        title="Schedules & Reminders"
+        description="Meetings, calls, and follow-ups in one place."
         action={
-          <Button type="button" onClick={openNew} className="gap-2">
-            <Plus className="h-4 w-4" /> New schedule
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={openNewReminder} className="gap-2">
+              <BellRing className="h-4 w-4" /> Add reminder
+            </Button>
+            <Button type="button" onClick={openNew} className="gap-2">
+              <Plus className="h-4 w-4" /> New schedule
+            </Button>
+          </div>
         }
       />
 
@@ -268,6 +323,106 @@ function CalendarPage() {
         </section>
       </div>
 
+      <section className="rounded-xl border border-border bg-card shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
+          <div>
+            <h2 className="font-bold text-foreground">Reminders</h2>
+            <p className="text-xs text-muted-foreground">Follow-ups that are not full meetings</p>
+          </div>
+          <Button type="button" size="sm" onClick={openNewReminder} className="gap-1.5">
+            <Plus className="h-4 w-4" /> Add reminder
+          </Button>
+        </div>
+
+        <div className="space-y-3 p-5">
+          {openReminders.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
+              <BellRing className="mx-auto h-8 w-8 text-muted-foreground/50" />
+              <p className="mt-2 text-sm text-muted-foreground">No open reminders.</p>
+              <Button type="button" size="sm" className="mt-3" onClick={openNewReminder}>
+                <Plus className="mr-1.5 h-4 w-4" /> Add reminder
+              </Button>
+            </div>
+          ) : (
+            openReminders.map((event) => (
+              <div
+                key={event.id}
+                className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border bg-background/60 p-4"
+              >
+                <div className="min-w-0">
+                  <p className="font-semibold text-foreground">{event.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatScheduleDateTime(event)}
+                    {event.contact ? ` · ${event.contact}` : ""}
+                  </p>
+                  {event.notes ? (
+                    <p className="mt-2 text-xs text-muted-foreground">{event.notes}</p>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingReminder(event);
+                      setReminderDialogOpen(true);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => updateReminderStatus(event, "completed")}
+                  >
+                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Done
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-rose-500"
+                    onClick={() => deleteReminder(event)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      {doneReminders.length > 0 && (
+        <section className="rounded-xl border border-border bg-card/60 p-5 shadow-sm">
+          <h2 className="text-sm font-bold text-muted-foreground">
+            Completed reminders ({doneReminders.length})
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {doneReminders.slice(0, 12).map((event) => (
+              <li
+                key={event.id}
+                className="flex items-center justify-between gap-3 text-xs text-muted-foreground"
+              >
+                <span className="truncate">
+                  {event.title}
+                  <span className="ml-2 opacity-70">{formatScheduleDateTime(event)}</span>
+                </span>
+                <button
+                  type="button"
+                  className="shrink-0 text-rose-500 hover:underline"
+                  onClick={() => deleteReminder(event)}
+                >
+                  Delete
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <ScheduleEventDialog
         open={dialogOpen}
         onOpenChange={(open) => {
@@ -277,6 +432,12 @@ function CalendarPage() {
         event={editing}
         initialDate={selectedKey}
         onSave={saveEvent}
+      />
+      <ReminderFormDialog
+        open={reminderDialogOpen}
+        onOpenChange={setReminderDialogOpen}
+        reminder={editingReminder}
+        onSave={saveReminder}
       />
     </div>
   );

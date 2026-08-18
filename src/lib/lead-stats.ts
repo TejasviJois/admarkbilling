@@ -102,3 +102,18 @@ export function archiveLead(lead: Lead, archivedAt: string): Lead {
   if (!when) return lead;
   return { ...lead, archivedAt: when };
 }
+
+/** Same deal cycle: Lost → Negotiation. The loss drops out of win-rate stats. */
+export function reopenLostLead(lead: Lead, reopenedOn: string): Lead {
+  if (lead.status !== "lost") return lead;
+  const when = normalizeArchivedAt(reopenedOn) ?? reopenedOn.slice(0, 10);
+  const marker = `Reopened after lost on ${when}.`;
+  const notes = lead.notes?.trim() ?? "";
+  const nextNotes = !notes ? marker : notes.includes(marker) ? notes : `${notes}\n${marker}`;
+  return {
+    ...lead,
+    status: "negotiation",
+    archivedAt: undefined,
+    notes: nextNotes,
+  };
+}

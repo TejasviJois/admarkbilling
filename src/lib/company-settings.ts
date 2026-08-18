@@ -1,5 +1,22 @@
 import { DEFAULT_COMPANY } from "./constants";
+import {
+  applyTeamDirectoryDefaults,
+  collectCustomMemberTypes,
+  collectCustomTeamGroups,
+} from "./team-payroll";
 import type { CompanyMember, CompanySettings } from "./types";
+
+function missingDefaultMembers(existing: CompanyMember[]): CompanyMember[] {
+  const defaults = DEFAULT_COMPANY.companyMembers ?? [];
+  return defaults.filter(
+    (candidate) =>
+      !existing.some(
+        (member) =>
+          member.id === candidate.id ||
+          member.name.trim().toLowerCase() === candidate.name.toLowerCase(),
+      ),
+  );
+}
 
 /** Ensures required company fields and default partners always exist. */
 export function normalizeCompanySettings(
@@ -23,20 +40,26 @@ export function normalizeCompanySettings(
       status: member.status ?? "active",
       baseMonthlySalary: member.baseMonthlySalary ?? defaultById.get(member.id)?.baseMonthlySalary,
       monthlyBonusCap: member.monthlyBonusCap ?? defaultById.get(member.id)?.monthlyBonusCap,
+      employeeId: member.employeeId ?? defaultById.get(member.id)?.employeeId,
+      salaryStartDate: member.salaryStartDate ?? defaultById.get(member.id)?.salaryStartDate,
     }));
-    const chetan = defaults.find((member) => member.id === "member-chetan");
-    if (
-      chetan &&
-      !upgraded.some(
-        (member) =>
-          member.id === chetan.id || member.name.trim().toLowerCase() === chetan.name.toLowerCase(),
-      )
-    ) {
-      upgraded.push(chetan);
-    }
+    upgraded.push(...missingDefaultMembers(upgraded));
     merged.companyMembers = upgraded;
     merged.teamDirectoryMigrationApplied = true;
+  } else {
+    const existing = merged.companyMembers ?? [];
+    const withMissing = [...existing, ...missingDefaultMembers(existing)];
+    merged.companyMembers = withMissing;
   }
+  merged.companyMembers = applyTeamDirectoryDefaults(merged.companyMembers ?? []);
+  merged.customMemberTypes = collectCustomMemberTypes(
+    merged.companyMembers,
+    raw?.customMemberTypes ?? merged.customMemberTypes,
+  );
+  merged.customTeamGroups = collectCustomTeamGroups(
+    merged.companyMembers,
+    raw?.customTeamGroups ?? merged.customTeamGroups,
+  );
   // Replace the old generic Net 30 default with Admark's actual project terms.
   if (!raw?.paymentTerms?.trim() || raw.paymentTerms.trim().toLowerCase() === "net 30") {
     merged.paymentTerms = DEFAULT_COMPANY.paymentTerms;
