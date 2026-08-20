@@ -2,6 +2,7 @@ import type { Agreement, ArchiveDocument, DocumentsData } from "@/lib/types";
 import { logClientError } from "./client-logger";
 import { getDocumentsFn, saveDocumentsFn, EMPTY_DOCUMENTS } from "@/server/documents-fns";
 import { isServerApiConfigured } from "@/lib/backend-status-cache";
+import { safeLocalStorageSet } from "./browser-storage";
 
 const DOCUMENTS_KEY = "admark.documents";
 type DocumentKey = "agreements" | "archiveDocuments";
@@ -77,7 +78,7 @@ function loadDocumentsLocal(): DocumentsData {
 
 function saveDocumentsLocal(data: DocumentsData) {
   if (!isBrowser()) return;
-  localStorage.setItem(DOCUMENTS_KEY, JSON.stringify(data));
+  safeLocalStorageSet(DOCUMENTS_KEY, JSON.stringify(data));
 }
 
 export async function loadDocuments(): Promise<DocumentsData> {

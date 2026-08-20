@@ -39,6 +39,7 @@ import { prefetchAppData } from "@/lib/prefetch-app-data";
 import { useCompany } from "@/hooks/use-company";
 import { isServerApiConfigured } from "@/lib/backend-status-cache";
 import { logoutFn } from "@/server/auth-fns";
+import { safeLocalStorageSet } from "@/lib/browser-storage";
 
 function NotFoundComponent() {
   const router = useRouter();
@@ -414,7 +415,7 @@ function AppShell() {
   const toggleSidebar = () => {
     setSidebarCollapsed((current) => {
       const next = !current;
-      window.localStorage.setItem("admark.sidebar.collapsed", next ? "1" : "0");
+      safeLocalStorageSet("admark.sidebar.collapsed", next ? "1" : "0");
       return next;
     });
   };
@@ -443,7 +444,7 @@ function AppShell() {
   }, [path]);
 
   useEffect(() => {
-    window.localStorage.setItem(NAV_EXPANSION_STORAGE_KEY, JSON.stringify(expandedNavGroups));
+    safeLocalStorageSet(NAV_EXPANSION_STORAGE_KEY, JSON.stringify(expandedNavGroups));
   }, [expandedNavGroups]);
 
   useEffect(() => {

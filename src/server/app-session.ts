@@ -90,13 +90,13 @@ export function writeSessionCookie(token: string): void {
   setCookie(APP_SESSION_COOKIE, token, {
     httpOnly: true,
     secure: isProd,
-    sameSite: "strict", // Strict same-site cookie policy
+    sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 12, // Shortened from 14 days to 12 hours (session expiration)
+    maxAge: 60 * 60 * 24 * 7,
   });
 }
 
 export function eraseSessionCookie(): void {
   const isProd = process.env.NODE_ENV === "production";
-  deleteCookie(APP_SESSION_COOKIE, { path: "/", secure: isProd, sameSite: "strict" });
+  deleteCookie(APP_SESSION_COOKIE, { path: "/", secure: isProd, sameSite: "lax" });
 }

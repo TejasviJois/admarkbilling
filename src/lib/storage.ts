@@ -14,6 +14,7 @@ import {
   getServerApiConfiguredCached,
   isServerApiConfigured,
 } from "@/lib/backend-status-cache";
+import { safeLocalStorageSet } from "./browser-storage";
 
 export { DEFAULT_COMPANY } from "./constants";
 export { normalizeCompanySettings } from "./company-settings";
@@ -39,7 +40,7 @@ function loadInvoicesLocal(): Invoice[] {
 
 function saveInvoicesLocal(invs: Invoice[]) {
   if (!isBrowser()) return;
-  localStorage.setItem(INVOICES_KEY, JSON.stringify(invs));
+  safeLocalStorageSet(INVOICES_KEY, JSON.stringify(invs));
 }
 
 function loadCompanyLocal(): CompanySettings {
@@ -54,7 +55,7 @@ function loadCompanyLocal(): CompanySettings {
 
 function saveCompanyLocal(c: CompanySettings) {
   if (!isBrowser()) return;
-  localStorage.setItem(COMPANY_KEY, JSON.stringify(c));
+  safeLocalStorageSet(COMPANY_KEY, JSON.stringify(c));
 }
 
 async function recordActivity(draft: LogDraft) {

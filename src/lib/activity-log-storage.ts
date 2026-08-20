@@ -3,6 +3,7 @@ import { createActivityLogEntry, trimActivityLogs, type LogDraft } from "./activ
 import type { ActivityLogEntry } from "./types";
 import { getActivityLogsFn, saveActivityLogsFn } from "@/server/activity-log-fns";
 import { isServerApiConfigured } from "@/lib/backend-status-cache";
+import { safeLocalStorageSet } from "./browser-storage";
 
 const ACTIVITY_LOGS_KEY = "admark.activity-logs";
 
@@ -24,7 +25,7 @@ function loadActivityLogsLocal(): ActivityLogEntry[] {
 
 function saveActivityLogsLocal(entries: ActivityLogEntry[]) {
   if (!isBrowser()) return;
-  localStorage.setItem(ACTIVITY_LOGS_KEY, JSON.stringify(entries));
+  safeLocalStorageSet(ACTIVITY_LOGS_KEY, JSON.stringify(entries));
 }
 
 let activityVersion: string | null = null;

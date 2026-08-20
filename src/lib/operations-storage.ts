@@ -15,6 +15,7 @@ import { mergeAllProjectBilling } from "./project-billing";
 import { logClientError } from "./client-logger";
 import { getOperationsFn, saveOperationsFn, EMPTY_OPERATIONS } from "@/server/operations-fns";
 import { isServerApiConfigured } from "@/lib/backend-status-cache";
+import { safeLocalStorageSet } from "./browser-storage";
 import type { OperationsMutation, OperationsPersistOptions } from "./operations-mutations";
 
 const OPERATIONS_KEY = "admark.operations";
@@ -79,14 +80,6 @@ function seedPaymentsFromProjects(projects: Project[]): Payment[] {
 
 function runHistoricalMigration(data: OperationsData): OperationsData {
   if (data.migrationApplied) return data;
-
-  // 1. Safety Backup
-  if (isBrowser()) {
-    const rawPrev = localStorage.getItem(OPERATIONS_KEY);
-    if (rawPrev) {
-      localStorage.setItem(`${OPERATIONS_KEY}.backup.${Date.now()}`, rawPrev);
-    }
-  }
 
   const transactions: Transaction[] = [];
 
@@ -236,7 +229,7 @@ function loadOperationsLocal(): OperationsData {
 
 function saveOperationsLocal(data: OperationsData) {
   if (!isBrowser()) return;
-  localStorage.setItem(OPERATIONS_KEY, JSON.stringify(data));
+  safeLocalStorageSet(OPERATIONS_KEY, JSON.stringify(data));
 }
 
 let operationsVersion: string | null = null;
@@ -295,6 +288,7 @@ export async function saveOperations(
   conflictVersion?: string,
   persistOptions: OperationsPersistOptions = {},
 ): Promise<OperationsData> {
+  // Local cache is best-effort. Phone Safari quota must not block the cloud write.
   saveOperationsLocal(data);
   if (!(await serverApiEnabled())) return data;
 
