@@ -1,6 +1,14 @@
 import { useRef, useState } from "react";
 import { FileText, Link2, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { fileFromUpload } from "@/components/documents/proof-ui";
 import { logClientError } from "@/lib/client-logger";
 import type { DocumentsPersistOptions } from "@/lib/documents-storage";
@@ -181,141 +189,171 @@ export function AgreementsPanel({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          MOUs, NDAs, service agreements, and signed contracts — stored in Supabase.
-        </p>
-        <Button type="button" size="sm" onClick={openAdd} disabled={saving}>
+        <h2 className="text-sm font-medium text-foreground">Agreements</h2>
+        <Button
+          type="button"
+          size="sm"
+          className="h-10 gap-1.5 rounded-lg px-4"
+          onClick={openAdd}
+          disabled={saving}
+        >
           <Plus className="h-4 w-4" />
           Add agreement
         </Button>
       </div>
 
-      {formOpen && (
-        <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4 sm:p-5">
-          <h3 className="text-sm font-semibold">
-            {editingId ? "Edit agreement" : "New agreement"}
-          </h3>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block sm:col-span-2">
-              <span className="mb-1 block text-xs text-muted-foreground">Title</span>
-              <input
-                value={form.title}
-                onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-                placeholder="e.g. Website development MOU"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs text-muted-foreground">Counterparty</span>
-              <input
-                value={form.counterpartyName}
-                onChange={(e) => setForm((p) => ({ ...p, counterpartyName: e.target.value }))}
-                placeholder="Client / partner / vendor name"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs text-muted-foreground">Type</span>
-              <select
-                value={form.counterpartyType}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    counterpartyType: e.target.value as AgreementCounterpartyType,
-                  }))
-                }
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+      <Dialog
+        open={formOpen}
+        onOpenChange={(open) => {
+          if (!open) resetForm();
+          else setFormOpen(true);
+        }}
+      >
+        <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-lg">
+          <DialogHeader className="border-b border-border/80 px-5 py-4 text-left">
+            <DialogTitle className="text-base font-semibold tracking-tight">
+              {editingId ? "Edit agreement" : "New agreement"}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Attach a file or paste a link.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 px-5 py-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block sm:col-span-2">
+                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</span>
+                <input
+                  value={form.title}
+                  onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                  placeholder="e.g. Website development MOU"
+                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-sm outline-none focus:border-border"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Counterparty
+                </span>
+                <input
+                  value={form.counterpartyName}
+                  onChange={(e) => setForm((p) => ({ ...p, counterpartyName: e.target.value }))}
+                  placeholder="Client / partner / vendor name"
+                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-sm outline-none focus:border-border"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Type</span>
+                <select
+                  value={form.counterpartyType}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      counterpartyType: e.target.value as AgreementCounterpartyType,
+                    }))
+                  }
+                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-sm outline-none focus:border-border"
+                >
+                  {COUNTERPARTY_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Signed date
+                </span>
+                <input
+                  type="date"
+                  value={form.signedDate ?? ""}
+                  onChange={(e) => setForm((p) => ({ ...p, signedDate: e.target.value }))}
+                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-sm outline-none focus:border-border"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Expiry (optional)
+                </span>
+                <input
+                  type="date"
+                  value={form.expiryDate ?? ""}
+                  onChange={(e) => setForm((p) => ({ ...p, expiryDate: e.target.value }))}
+                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-sm outline-none focus:border-border"
+                />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Or paste a link
+                </span>
+                <input
+                  value={form.externalUrl ?? ""}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      externalUrl: e.target.value,
+                      fileDataUrl: e.target.value.trim() ? undefined : p.fileDataUrl,
+                    }))
+                  }
+                  placeholder="https://…"
+                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-sm outline-none focus:border-border"
+                />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</span>
+                <textarea
+                  value={form.notes ?? ""}
+                  onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                  rows={2}
+                  className="w-full rounded-md border border-border/80 bg-background px-3 py-2 text-sm outline-none focus:border-border"
+                />
+              </label>
+            </div>
+
+            <div>
+              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">File</span>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-9 w-full items-center gap-2 rounded-md border border-dashed border-border/80 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
               >
-                {COUNTERPARTY_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs text-muted-foreground">Signed date</span>
+                <Upload className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">
+                  {form.fileName ?? (form.fileDataUrl ? "Replace file" : "Choose file (max 5MB)")}
+                </span>
+              </button>
               <input
-                type="date"
-                value={form.signedDate ?? ""}
-                onChange={(e) => setForm((p) => ({ ...p, signedDate: e.target.value }))}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                ref={fileInputRef}
+                type="file"
+                accept={FILE_ACCEPT}
+                className="hidden"
+                onChange={onFilePick}
               />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs text-muted-foreground">Expiry (optional)</span>
-              <input
-                type="date"
-                value={form.expiryDate ?? ""}
-                onChange={(e) => setForm((p) => ({ ...p, expiryDate: e.target.value }))}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-              />
-            </label>
-            <label className="block sm:col-span-2">
-              <span className="mb-1 block text-xs text-muted-foreground">
-                External link (optional)
-              </span>
-              <input
-                value={form.externalUrl ?? ""}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    externalUrl: e.target.value,
-                    fileDataUrl: e.target.value.trim() ? undefined : p.fileDataUrl,
-                  }))
-                }
-                placeholder="https://drive.google.com/…"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-              />
-            </label>
-            <label className="block sm:col-span-2">
-              <span className="mb-1 block text-xs text-muted-foreground">Notes</span>
-              <textarea
-                value={form.notes ?? ""}
-                onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                rows={2}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-              />
-            </label>
-          </div>
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => fileInputRef.current?.click()} className={btnRow}>
-              <Upload className="h-3.5 w-3.5" />
-              {form.fileDataUrl ? "Replace file" : "Upload file"}
-            </button>
-            {form.fileName && (
-              <span className="text-xs text-muted-foreground">{form.fileName}</span>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={FILE_ACCEPT}
-              className="hidden"
-              onChange={onFilePick}
-            />
+            <DialogFooter className="gap-2 border-t border-border/80 pt-4 sm:justify-end">
+              <Button type="button" size="sm" variant="outline" onClick={resetForm}>
+                Cancel
+              </Button>
+              <Button type="button" size="sm" onClick={() => void save()} disabled={saving}>
+                {saving ? "Saving…" : editingId ? "Update" : "Save"}
+              </Button>
+            </DialogFooter>
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" onClick={() => void save()} disabled={saving}>
-              {saving ? "Saving…" : editingId ? "Update" : "Save agreement"}
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={resetForm}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {agreements.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
-          No agreements stored yet. Add your first contract or MOU above.
+        <p className="rounded-xl border border-dashed border-border/80 py-12 text-center text-sm text-muted-foreground">
+          No agreements stored yet. Add your first contract or MOU.
         </p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {agreements.map((a) => (
-            <li key={a.id} className="rounded-lg border border-border bg-card p-4 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-3">
+            <li
+              key={a.id}
+              className="rounded-xl border border-border/80 bg-card/40 p-4 transition-colors hover:border-border hover:bg-card/70"
+            >
+              <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold text-foreground">{a.title}</p>
                   <p className="mt-0.5 text-sm text-muted-foreground">
@@ -330,13 +368,12 @@ export function AgreementsPanel({
                       {a.expiryDate && `Expires ${a.expiryDate}`}
                     </p>
                   )}
-                  {a.notes && <p className="mt-2 text-xs text-muted-foreground">{a.notes}</p>}
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <button
                     type="button"
                     onClick={() => openEdit(a)}
-                    className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    className="rounded-md p-1.5 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                     title="Edit"
                   >
                     <Pencil className="h-4 w-4" />
@@ -344,7 +381,7 @@ export function AgreementsPanel({
                   <button
                     type="button"
                     onClick={() => remove(a.id)}
-                    className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    className="rounded-md p-1.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-400"
                     title="Remove"
                   >
                     <Trash2 className="h-4 w-4" />

@@ -1783,6 +1783,7 @@ export async function saveRelationalCompany(data: CompanySettings): Promise<void
         ...existingPreferences,
         customMemberTypes: settings.customMemberTypes ?? [],
         customTeamGroups: settings.customTeamGroups ?? [],
+        formOptions: settings.formOptions ?? {},
       },
     },
   );

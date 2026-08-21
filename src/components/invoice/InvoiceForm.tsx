@@ -190,54 +190,54 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+    <div className="space-y-8">
+      <div className="flex flex-col gap-3 border-b border-border/80 pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <Link
             to="/invoices"
-            className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
-            <ArrowLeft className="h-4 w-4" /> Back to invoices
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Invoices
           </Link>
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            {isEdit ? "Edit invoice" : "Step 1 — Details"}
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-            {isEdit ? `Edit ${existing?.number}` : "Create new invoice"}
+          <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+            {isEdit ? `Edit ${existing?.number}` : "New invoice"}
           </h1>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
             {isEdit
-              ? "Changes save to this invoice number. A new invoice is not created."
-              : "Invoice number is assigned automatically in sequence for the financial year (AM/YY-YY/0001)."}
+              ? "Changes save to this invoice number."
+              : "Number is assigned automatically for the financial year."}
           </p>
         </div>
-        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+        <div className="flex flex-wrap gap-1.5">
           <button
             type="button"
             onClick={handleGenerate}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 sm:w-auto"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
           >
-            <Save className="h-4 w-4" /> Download
+            <Save className="h-3.5 w-3.5" />
+            Download
           </button>
           <button
             type="button"
             onClick={() => void persistInvoice()}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-card px-4 py-2.5 text-sm font-semibold hover:bg-secondary sm:w-auto"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/40"
           >
-            {isEdit ? "Save changes" : "Save only"}
+            {isEdit ? "Save" : "Save only"}
           </button>
           <button
             type="button"
             onClick={() => setShowPreview(true)}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-card px-4 py-2.5 text-sm hover:bg-secondary sm:w-auto"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/40"
           >
-            <Eye className="h-4 w-4" /> Show preview
+            <Eye className="h-3.5 w-3.5" />
+            Preview
           </button>
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,360px)]">
-        <div className="min-w-0 space-y-6">
+      <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(240px,18rem)]">
+        <div className="min-w-0 space-y-8">
           <Section title="Invoice info">
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label="Invoice number">
@@ -245,12 +245,10 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
                   value={number}
                   readOnly
                   aria-readonly="true"
-                  className={`${inputCls} cursor-default bg-muted/40 text-foreground`}
+                  className={`${inputCls} cursor-default bg-muted/30 text-foreground`}
                 />
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  {isEdit
-                    ? "This invoice keeps its original number."
-                    : "Auto-generated sequentially for the financial year (e.g. AM/26-27/0001)."}
+                  {isEdit ? "Original number kept." : "Auto-sequenced (e.g. AM/26-27/0001)."}
                 </p>
               </Field>
               <Field label="Date">
@@ -278,7 +276,7 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
 
           <Section title="Bill to">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Select Client *" className="sm:col-span-2">
+              <Field label="Select client" className="sm:col-span-2">
                 <select
                   className={inputCls}
                   value={clientId}
@@ -356,7 +354,7 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
                   className={inputCls}
                 />
               </Field>
-              <Field label="GSTIN / Company No.">
+              <Field label="GSTIN / company no.">
                 <input
                   value={clientGstin}
                   onChange={(e) => setClientGstin(e.target.value)}
@@ -368,7 +366,7 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
 
           <Section title="Services">
             <div className="space-y-3">
-              <div className="hidden grid-cols-[1fr_80px_120px_120px_40px] gap-3 px-2 text-xs uppercase tracking-wider text-muted-foreground sm:grid">
+              <div className="hidden grid-cols-[1fr_80px_120px_120px_40px] gap-3 text-xs text-muted-foreground sm:grid">
                 <div>Description</div>
                 <div className="text-right">Qty</div>
                 <div className="text-right">Rate (₹)</div>
@@ -378,7 +376,7 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
               {items.map((it) => (
                 <div
                   key={it.id}
-                  className="grid grid-cols-1 gap-3 rounded-md border border-border bg-background p-3 sm:grid-cols-[1fr_80px_120px_120px_40px] sm:items-center sm:border-0 sm:bg-transparent sm:p-0"
+                  className="grid grid-cols-1 gap-3 border-b border-border/60 py-3 last:border-b-0 sm:grid-cols-[1fr_80px_120px_120px_40px] sm:items-center sm:border-0 sm:py-0"
                 >
                   <input
                     value={it.description}
@@ -408,7 +406,7 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
                   <button
                     type="button"
                     onClick={() => removeItem(it.id)}
-                    className="rounded p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    className="rounded-md p-2 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-400"
                     title="Remove"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -418,9 +416,10 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
               <button
                 type="button"
                 onClick={() => setItems([...items, blankItem()])}
-                className="inline-flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-primary"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
-                <Plus className="h-4 w-4" /> Add service
+                <Plus className="h-3.5 w-3.5" />
+                Add service
               </button>
             </div>
 
@@ -487,29 +486,24 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
           </Section>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-          <div className="rounded-xl border border-border bg-card p-5">
-            <h3 className="text-lg font-semibold tracking-tight">Totals</h3>
-            <dl className="mt-4 space-y-2 text-sm">
-              <Row label="Subtotal" value={formatINR(totals.subtotal)} />
-              {taxPercent > 0 && (
-                <Row label={`Tax (${taxPercent}%)`} value={formatINR(totals.tax)} />
-              )}
-              {advance > 0 && <Row label="Advance" value={`- ${formatINR(totals.advance)}`} />}
-              <div className="my-2 h-px bg-border" />
-              <Row label="Payable" value={formatINR(totals.payable)} highlight />
-            </dl>
-            <p className="mt-3 text-xs italic text-muted-foreground">
-              {rupeesInWords(totals.payable)}
-            </p>
-          </div>
+        <aside className="space-y-3 lg:sticky lg:top-20 lg:self-start">
+          <h3 className="text-sm font-medium text-foreground">Totals</h3>
+          <dl className="divide-y divide-border/80 border-y border-border/80 text-sm">
+            <Row label="Subtotal" value={formatINR(totals.subtotal)} />
+            {taxPercent > 0 && (
+              <Row label={`Tax (${taxPercent}%)`} value={formatINR(totals.tax)} />
+            )}
+            {advance > 0 && <Row label="Advance" value={`− ${formatINR(totals.advance)}`} />}
+            <Row label="Payable" value={formatINR(totals.payable)} highlight />
+          </dl>
+          <p className="text-xs text-muted-foreground">{rupeesInWords(totals.payable)}</p>
         </aside>
       </div>
 
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
         <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] gap-3 overflow-y-auto p-3 sm:w-[min(95vw,920px)] sm:max-w-none sm:gap-4 sm:p-6">
           <DialogHeader className="text-left">
-            <DialogTitle>Live preview</DialogTitle>
+            <DialogTitle>Preview</DialogTitle>
             <DialogDescription>Same layout as the PDF — updates as you edit.</DialogDescription>
           </DialogHeader>
           <div className="invoice-preview-shell rounded-lg bg-zinc-100/90 p-1.5 dark:bg-zinc-950/40 sm:p-4">
@@ -524,12 +518,12 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
 }
 
 const inputCls =
-  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary";
+  "w-full rounded-md border border-border/80 bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-4 sm:p-6">
-      <h2 className="mb-4 text-lg font-semibold tracking-tight">{title}</h2>
+    <section className="space-y-4">
+      <h2 className="text-sm font-medium tracking-tight text-foreground">{title}</h2>
       {children}
     </section>
   );
@@ -546,9 +540,7 @@ function Field({
 }) {
   return (
     <label className={`block ${className}`}>
-      <span className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
+      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{label}</span>
       {children}
     </label>
   );
@@ -556,12 +548,14 @@ function Field({
 
 function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="flex items-baseline justify-between">
-      <dt className={highlight ? "text-sm font-semibold text-primary" : "text-muted-foreground"}>
+    <div className="flex items-baseline justify-between gap-3 py-2.5">
+      <dt className={highlight ? "font-medium text-foreground" : "text-muted-foreground"}>
         {label}
       </dt>
       <dd
-        className={"tabular-nums " + (highlight ? "text-lg font-bold text-primary" : "font-medium")}
+        className={
+          "tabular-nums " + (highlight ? "text-base font-semibold text-foreground" : "font-medium")
+        }
       >
         {value}
       </dd>

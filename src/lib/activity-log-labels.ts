@@ -34,11 +34,13 @@ export function actionLabel(action: ActivityAction): string {
     case "payment_removed":
       return "Payment removed";
     case "login":
-      return "Log In";
+      return "Log in";
     case "logout":
-      return "Log Out";
+      return "Log out";
     case "failed_login":
-      return "Failed Login";
+      return "Failed login";
+    case "password_change":
+      return "Password changed";
   }
 }
 

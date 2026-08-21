@@ -1,7 +1,12 @@
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Download, ExternalLink, FileText, Plus, Search, Trash2, Upload, X } from "lucide-react";
-import { FolderTile } from "@/components/documents/documents-ui";
+import { ArrowRight, Download, ExternalLink, FileText, Plus, Search, Trash2, Upload } from "lucide-react";
+import {
+  CompanyFolderRow,
+  DocumentFileCard,
+  FolderPagination,
+  FolderViewToggle,
+} from "@/components/documents/documents-ui";
 import { fileFromUpload } from "@/components/documents/proof-ui";
 import { Button } from "@/components/ui/button";
 import { useCompany } from "@/hooks/use-company";
@@ -24,6 +29,7 @@ import {
   clientFolders,
   documentsForClient,
   documentsForCompany,
+  documentTypeLabel,
   ensureClientForCompany,
   groupByCompany,
   newArchiveDocumentId,
@@ -46,7 +52,7 @@ import type {
 const FILE_ACCEPT =
   ".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*";
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
-const TILE_GRID = "grid max-w-5xl grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5";
+const LIST_ROWS = "divide-y divide-border/80 border-y border-border/80";
 
 type UploadInput = {
   title: string;
@@ -59,6 +65,24 @@ type UploadInput = {
 
 function firstName(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
+}
+
+function memberInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
+function approxFileSizeLabel(document: ArchiveDocument): string | undefined {
+  const data = document.fileDataUrl;
+  if (!data) return document.externalUrl ? "Link" : undefined;
+  const base64 = data.includes(",") ? data.split(",")[1] : data;
+  if (!base64) return undefined;
+  const bytes = Math.floor((base64.length * 3) / 4);
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function MemberChips({
@@ -81,10 +105,10 @@ function MemberChips({
             type="button"
             aria-pressed={isOn}
             onClick={() => onToggle(member.id)}
-            className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
               isOn
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             }`}
           >
             {firstName(member.name)}
@@ -93,10 +117,6 @@ function MemberChips({
       })}
     </div>
   );
-}
-
-function fileCountLabel(count: number): string {
-  return `${count} file${count === 1 ? "" : "s"}`;
 }
 
 function isImageDocument(document: ArchiveDocument): boolean {
@@ -250,23 +270,28 @@ function DocumentTile({
   onRemove: () => void;
 }) {
   const thumb = isImageDocument(document) ? previewSrc(document) : undefined;
+  const meta = assigneeLabel || document.fileName || undefined;
 
   return (
-    <div className="relative">
+    <div className="group flex items-center gap-3 py-3">
       <button
         type="button"
         onClick={onOpen}
-        className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card p-3 text-center shadow-sm transition-shadow hover:shadow-md"
+        className="flex min-w-0 flex-1 items-center gap-3 text-left transition-colors"
       >
         {thumb ? (
-          <img src={thumb} alt="" className="h-16 w-16 rounded-md object-cover" />
+          <img src={thumb} alt="" className="h-9 w-9 shrink-0 rounded object-cover" />
         ) : (
-          <FileText className="h-8 w-8 shrink-0 text-primary" />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <FileText className="h-4 w-4" />
+          </span>
         )}
-        <p className="line-clamp-2 w-full text-sm font-semibold">{document.title}</p>
-        {assigneeLabel ? (
-          <p className="line-clamp-1 w-full text-[11px] text-muted-foreground">{assigneeLabel}</p>
-        ) : null}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium text-foreground">{document.title}</span>
+          {meta ? (
+            <span className="mt-0.5 block truncate text-xs text-muted-foreground">{meta}</span>
+          ) : null}
+        </span>
       </button>
       <button
         type="button"
@@ -274,7 +299,7 @@ function DocumentTile({
           event.stopPropagation();
           onRemove();
         }}
-        className="absolute right-1.5 top-1.5 rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-400 group-hover:opacity-100"
         title="Remove document"
       >
         <Trash2 className="h-3.5 w-3.5" />
@@ -284,18 +309,20 @@ function DocumentTile({
 }
 
 function UploadForm({
+  open,
+  onOpenChange,
   library,
   documentType,
   companyNameLocked,
   members,
-  onCancel,
   onSave,
 }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   library: DocumentLibrary;
   documentType: ArchiveDocumentType;
   companyNameLocked?: string;
   members?: CompanyMember[];
-  onCancel: () => void;
   onSave: (input: UploadInput) => Promise<void>;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -306,6 +333,18 @@ function UploadForm({
   const [assignedMemberIds, setAssignedMemberIds] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setTitle("");
+    setCompanyName(companyNameLocked ?? "");
+    setPickedFile(null);
+    setExternalUrl("");
+    setAssignedMemberIds([]);
+    setUploading(false);
+    setError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [open, companyNameLocked]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -337,6 +376,7 @@ function UploadForm({
         file: pickedFile ?? undefined,
         externalUrl: externalUrl.trim() || undefined,
       });
+      onOpenChange(false);
     } catch (caught) {
       logClientError("documents.vault.upload", caught);
       setError(caught instanceof Error ? caught.message : "Could not upload document.");
@@ -346,113 +386,157 @@ function UploadForm({
   };
 
   return (
-    <form
-      onSubmit={(event) => void submit(event)}
-      className="rounded-lg border border-border bg-muted/20 p-4"
-    >
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Upload document</h2>
-        <button type="button" onClick={onCancel} aria-label="Close upload form">
-          <X className="h-4 w-4 text-muted-foreground" />
-        </button>
-      </div>
-      <div className="grid gap-3">
-        <label>
-          <span className="mb-1 block text-xs text-muted-foreground">Title</span>
-          <Input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder={
-              library === "vault"
-                ? "e.g. SOP, partnership draft"
-                : library === "client"
-                  ? "e.g. Agreement, handover, write-off"
-                  : "e.g. Proposal, quotation"
-            }
-          />
-        </label>
-        {!companyNameLocked && (
-          <label>
-            <span className="mb-1 block text-xs text-muted-foreground">Company name</span>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-md">
+        <DialogHeader className="border-b border-border/80 px-5 py-4 text-left">
+          <DialogTitle className="text-base font-semibold tracking-tight">Upload document</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            PDF, Word, image, or paste a link.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={(event) => void submit(event)} className="space-y-4 px-5 py-4">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</span>
             <Input
-              value={companyName}
-              onChange={(event) => setCompanyName(event.target.value)}
-              placeholder="e.g. Motorola"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder={
+                library === "vault"
+                  ? "e.g. SOP, partnership draft"
+                  : library === "client"
+                    ? "e.g. Agreement, handover"
+                    : "e.g. Proposal, quotation"
+              }
+              className="h-9 border-border/80"
+              autoFocus
             />
           </label>
-        )}
-        <div>
-          <span className="mb-1 block text-xs text-muted-foreground">File</span>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex h-9 w-full items-center gap-2 rounded-md border border-dashed border-input bg-background px-3 text-sm text-muted-foreground hover:bg-secondary"
-          >
-            <Upload className="h-4 w-4" />
-            {pickedFile?.name ?? "Choose PDF, Word, or image (max 15MB)"}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={FILE_ACCEPT}
-            className="hidden"
-            onChange={(event) => setPickedFile(event.target.files?.[0] ?? null)}
-          />
-        </div>
-        <label>
-          <span className="mb-1 block text-xs text-muted-foreground">Or paste a link</span>
-          <Input
-            value={externalUrl}
-            onChange={(event) => setExternalUrl(event.target.value)}
-            placeholder="https://…"
-          />
-        </label>
-        {members && members.length > 0 ? (
+          {!companyNameLocked && (
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Company name
+              </span>
+              <Input
+                value={companyName}
+                onChange={(event) => setCompanyName(event.target.value)}
+                placeholder="e.g. Motorola"
+                className="h-9 border-border/80"
+              />
+            </label>
+          )}
           <div>
-            <span className="mb-1 block text-xs text-muted-foreground">
-              Assign to (accountability)
-            </span>
-            <MemberChips
-              members={members}
-              selectedIds={assignedMemberIds}
-              onToggle={(id) =>
-                setAssignedMemberIds((current) =>
-                  current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
-                )
-              }
+            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">File</span>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-9 w-full items-center gap-2 rounded-md border border-dashed border-border/80 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+            >
+              <Upload className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{pickedFile?.name ?? "Choose file (max 15MB)"}</span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={FILE_ACCEPT}
+              className="hidden"
+              onChange={(event) => setPickedFile(event.target.files?.[0] ?? null)}
             />
           </div>
-        ) : null}
-      </div>
-      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
-      <div className="mt-4 flex gap-2">
-        <Button type="submit" size="sm" disabled={uploading}>
-          {uploading ? "Uploading…" : "Save document"}
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={onCancel} disabled={uploading}>
-          Cancel
-        </Button>
-      </div>
-    </form>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Or paste a link
+            </span>
+            <Input
+              value={externalUrl}
+              onChange={(event) => setExternalUrl(event.target.value)}
+              placeholder="https://…"
+              className="h-9 border-border/80"
+            />
+          </label>
+          {members && members.length > 0 ? (
+            <div>
+              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Assign to
+              </span>
+              <MemberChips
+                members={members}
+                selectedIds={assignedMemberIds}
+                onToggle={(id) =>
+                  setAssignedMemberIds((current) =>
+                    current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+                  )
+                }
+              />
+            </div>
+          ) : null}
+          {error && <p className="text-sm text-rose-400">{error}</p>}
+          <DialogFooter className="gap-2 border-t border-border/80 pt-4 sm:justify-end">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="border-border/80"
+              onClick={() => onOpenChange(false)}
+              disabled={uploading}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" disabled={uploading}>
+              {uploading ? "Uploading…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 export function PreClientLibraryView({
   documents,
   onChange,
+  search: searchProp,
+  uploadOpen: uploadOpenProp,
+  onUploadOpenChange,
+  folderCountLabel,
 }: {
   documents: DocumentsData;
   saving?: boolean;
   onChange: (next: DocumentsData, options?: DocumentsPersistOptions) => Promise<void>;
+  /** When provided with onUploadOpenChange, parent owns the toolbar. */
+  search?: string;
+  uploadOpen?: boolean;
+  onUploadOpenChange?: (open: boolean) => void;
+  folderCountLabel?: number;
 }) {
-  const [search, setSearch] = useState("");
-  const [uploadOpen, setUploadOpen] = useState(false);
+  const [searchLocal, setSearchLocal] = useState("");
+  const [uploadOpenLocal, setUploadOpenLocal] = useState(false);
+  const [view, setView] = useState<"grid" | "list">("grid");
+  const [page, setPage] = useState(1);
+  /** Grid: 3 rows × 5 cols. List: denser page. Paginate only when overflow. */
+  const pageSize = view === "grid" ? 15 : 16;
+  const controlled = onUploadOpenChange != null;
+  const search = controlled ? (searchProp ?? "") : searchLocal;
+  const uploadOpen = controlled ? Boolean(uploadOpenProp) : uploadOpenLocal;
+  const setUploadOpen = controlled
+    ? (open: boolean) => onUploadOpenChange?.(open)
+    : setUploadOpenLocal;
+
   const folders = useMemo(() => {
     const grouped = groupByCompany(preClientDocuments(documents.archiveDocuments));
     const query = search.trim().toLowerCase();
-    if (!query) return grouped;
-    return grouped.filter((folder) => folder.companyName.toLowerCase().includes(query));
+    const list = query
+      ? grouped.filter((folder) => folder.companyName.toLowerCase().includes(query))
+      : grouped;
+    return list.sort((a, b) => b.updatedAt - a.updatedAt);
   }, [documents.archiveDocuments, search]);
+
+  const pageCount = Math.max(1, Math.ceil(folders.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageFolders = folders.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, view]);
 
   const saveUpload = async (input: UploadInput) => {
     const id = newArchiveDocumentId();
@@ -477,52 +561,82 @@ export function PreClientLibraryView({
     setUploadOpen(false);
   };
 
+  const count = folderCountLabel ?? folders.length;
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search companies…"
-            className="pl-9"
-            aria-label="Search companies"
-          />
-        </div>
-        <Button type="button" size="sm" onClick={() => setUploadOpen(true)}>
-          <Plus className="h-4 w-4" /> Upload file
-        </Button>
-      </div>
-
-      {uploadOpen && (
-        <UploadForm
-          library="preclient"
-          documentType="other"
-          onCancel={() => setUploadOpen(false)}
-          onSave={saveUpload}
-        />
-      )}
-
-      {folders.length === 0 ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">
-          {search
-            ? "No companies match your search."
-            : "No files yet. Upload a proposal or quotation under the company name — no client profile needed."}
-        </p>
-      ) : (
-        <div className={TILE_GRID}>
-          {folders.map((folder) => (
-            <FolderTile
-              key={folder.key}
-              to="/documents/proposals/$companyKey"
-              params={{ companyKey: folder.key }}
-              title={folder.companyName}
-              subtitle={fileCountLabel(folder.count)}
+    <div className="space-y-6">
+      {!controlled ? (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1 sm:max-w-xs lg:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={searchLocal}
+              onChange={(event) => setSearchLocal(event.target.value)}
+              placeholder="Search companies…"
+              className="h-10 w-full rounded-lg border border-border/80 bg-card/40 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-border"
+              aria-label="Search companies"
             />
-          ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setUploadOpen(true)}
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Upload
+          </button>
         </div>
-      )}
+      ) : null}
+
+      <UploadForm
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        library="preclient"
+        documentType="other"
+        onSave={saveUpload}
+      />
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-foreground">Company folders</h2>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-muted-foreground">
+              {count} compan{count === 1 ? "y" : "ies"}
+            </p>
+            <FolderViewToggle view={view} onChange={setView} />
+          </div>
+        </div>
+        {folders.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border/80 py-12 text-center text-sm text-muted-foreground">
+            {search
+              ? "No companies match your search."
+              : "No files yet. Upload a proposal or quotation under the company name."}
+          </p>
+        ) : (
+          <>
+            <div
+              className={
+                view === "grid"
+                  ? "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"
+                  : "flex flex-col gap-2"
+              }
+            >
+              {pageFolders.map((folder) => (
+                <CompanyFolderRow
+                  key={folder.key}
+                  to="/documents/proposals/$companyKey"
+                  params={{ companyKey: folder.key }}
+                  title={folder.companyName}
+                  fileCount={folder.count}
+                  updatedAt={folder.updatedAt}
+                  layout={view}
+                />
+              ))}
+            </div>
+            <FolderPagination page={safePage} pageCount={pageCount} onPageChange={setPage} />
+          </>
+        )}
+      </section>
     </div>
   );
 }
@@ -547,7 +661,20 @@ export function PreClientCompanyView({
   const [uploadOpen, setUploadOpen] = useState(false);
   const [proceeding, setProceeding] = useState(false);
   const [preview, setPreview] = useState<ArchiveDocument | null>(null);
+  const [view, setView] = useState<"grid" | "list">("list");
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
   const files = documentsForCompany(documents.archiveDocuments, companyName);
+
+  const pageCount = Math.max(1, Math.ceil(files.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageFiles = files.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const rangeStart = files.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const rangeEnd = Math.min(safePage * pageSize, files.length);
+
+  useEffect(() => {
+    setPage(1);
+  }, [view, files.length]);
 
   const saveUpload = async (input: UploadInput) => {
     const id = newArchiveDocumentId();
@@ -609,46 +736,74 @@ export function PreClientCompanyView({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button type="button" size="sm" variant="outline" onClick={() => setUploadOpen(true)}>
-          <Plus className="h-4 w-4" /> Upload file
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          onClick={() => void proceed()}
-          disabled={proceeding || saving}
-        >
-          {proceeding ? "Moving…" : "Proceed — create client folder"}
-        </Button>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setUploadOpen(true)}
+            className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-border/80 px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted/40"
+          >
+            <Plus className="h-4 w-4" />
+            Upload
+          </button>
+          <button
+            type="button"
+            onClick={() => void proceed()}
+            disabled={proceeding || saving}
+            className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {proceeding ? "Moving…" : "Proceed"}
+            {!proceeding ? <ArrowRight className="h-4 w-4" /> : null}
+          </button>
+        </div>
+        <FolderViewToggle view={view} onChange={setView} />
       </div>
 
-      {uploadOpen && (
-        <UploadForm
-          library="preclient"
-          documentType="other"
-          companyNameLocked={companyName}
-          onCancel={() => setUploadOpen(false)}
-          onSave={saveUpload}
-        />
-      )}
+      <UploadForm
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        library="preclient"
+        documentType="other"
+        companyNameLocked={companyName}
+        onSave={saveUpload}
+      />
 
       {files.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No files in this folder yet.
+        <p className="rounded-xl border border-dashed border-border/80 py-12 text-center text-sm text-muted-foreground">
+          No files in this folder yet. Upload a proposal or quotation to get started.
         </p>
       ) : (
-        <div className={TILE_GRID}>
-          {files.map((document) => (
-            <DocumentTile
-              key={document.id}
-              document={document}
-              onOpen={() => setPreview(document)}
-              onRemove={() => void remove(document)}
-            />
-          ))}
-        </div>
+        <>
+          <div
+            className={
+              view === "grid"
+                ? "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"
+                : "divide-y divide-border/80 border-y border-border/80"
+            }
+          >
+            {pageFiles.map((document) => (
+              <DocumentFileCard
+                key={document.id}
+                title={document.title}
+                updatedAt={document.updatedAt}
+                accent="rose"
+                layout={view}
+                typeLabel={documentTypeLabel(document)}
+                fileSizeLabel={approxFileSizeLabel(document)}
+                onOpen={() => setPreview(document)}
+                onRemove={() => void remove(document)}
+              />
+            ))}
+          </div>
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              {rangeStart} – {rangeEnd} of {files.length} item{files.length === 1 ? "" : "s"}
+            </p>
+            <FolderPagination page={safePage} pageCount={pageCount} onPageChange={setPage} />
+            <p className="text-xs text-muted-foreground">Items per page: {pageSize}</p>
+          </div>
+        </>
       )}
       <DocumentPreviewDialog document={preview} onClose={() => setPreview(null)} />
     </div>
@@ -658,49 +813,94 @@ export function PreClientCompanyView({
 export function ClientFoldersView({
   documents,
   clients,
+  search: searchProp,
+  folderCountLabel,
 }: {
   documents: DocumentsData;
   clients: Client[];
+  search?: string;
+  folderCountLabel?: number;
 }) {
-  const [search, setSearch] = useState("");
+  const [searchLocal, setSearchLocal] = useState("");
+  const [view, setView] = useState<"grid" | "list">("grid");
+  const [page, setPage] = useState(1);
+  const pageSize = view === "grid" ? 15 : 16;
+  const controlled = searchProp != null;
+  const search = controlled ? searchProp : searchLocal;
+
   const folders = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return clientFolders(documents.archiveDocuments, clients).filter((folder) =>
-      query ? folder.name.toLowerCase().includes(query) : true,
-    );
+    return clientFolders(documents.archiveDocuments, clients)
+      .filter((folder) => (query ? folder.name.toLowerCase().includes(query) : true))
+      .sort((a, b) => b.updatedAt - a.updatedAt);
   }, [clients, documents.archiveDocuments, search]);
 
+  const pageCount = Math.max(1, Math.ceil(folders.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageFolders = folders.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const count = folderCountLabel ?? folders.length;
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, view]);
+
   return (
-    <div className="space-y-4">
-      <div className="relative max-w-xl">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search client folders…"
-          className="pl-9"
-          aria-label="Search client folders"
-        />
-      </div>
-      {folders.length === 0 ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">
-          {search
-            ? "No folders match your search."
-            : "No client folders yet. Open a quotation or proposal and press Proceed when that company is won."}
-        </p>
-      ) : (
-        <div className={TILE_GRID}>
-          {folders.map((folder) => (
-            <FolderTile
-              key={folder.clientId}
-              to="/documents/clients/$id"
-              params={{ id: folder.clientId }}
-              title={folder.name}
-              subtitle={fileCountLabel(folder.count)}
-            />
-          ))}
+    <div className="space-y-6">
+      {!controlled ? (
+        <div className="relative max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={searchLocal}
+            onChange={(event) => setSearchLocal(event.target.value)}
+            placeholder="Search client folders…"
+            className="h-10 w-full rounded-lg border border-border/80 bg-card/40 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-border"
+            aria-label="Search client folders"
+          />
         </div>
-      )}
+      ) : null}
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-foreground">Client folders</h2>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-muted-foreground">
+              {count} folder{count === 1 ? "" : "s"}
+            </p>
+            <FolderViewToggle view={view} onChange={setView} />
+          </div>
+        </div>
+        {folders.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border/80 py-12 text-center text-sm text-muted-foreground">
+            {search
+              ? "No folders match your search."
+              : "No client folders yet. Open a company folder and press Proceed when won."}
+          </p>
+        ) : (
+          <>
+            <div
+              className={
+                view === "grid"
+                  ? "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"
+                  : "flex flex-col gap-2"
+              }
+            >
+              {pageFolders.map((folder) => (
+                <CompanyFolderRow
+                  key={folder.clientId}
+                  to="/documents/clients/$id"
+                  params={{ id: folder.clientId }}
+                  title={folder.name}
+                  fileCount={folder.count}
+                  updatedAt={folder.updatedAt}
+                  layout={view}
+                  accent="violet"
+                />
+              ))}
+            </div>
+            <FolderPagination page={safePage} pageCount={pageCount} onPageChange={setPage} />
+          </>
+        )}
+      </section>
     </div>
   );
 }
@@ -710,18 +910,31 @@ export function ClientFolderView({
   documents,
   ops,
   onChange,
+  uploadOpen: uploadOpenProp,
+  onUploadOpenChange,
 }: {
   clientId: string;
   documents: DocumentsData;
   ops: OperationsData;
   saving?: boolean;
   onChange: (next: DocumentsData, options?: DocumentsPersistOptions) => Promise<void>;
+  uploadOpen?: boolean;
+  onUploadOpenChange?: (open: boolean) => void;
 }) {
   const { company } = useCompany();
   const members = useMemo(() => activeMembers(company.companyMembers), [company.companyMembers]);
-  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadOpenLocal, setUploadOpenLocal] = useState(false);
   const [preview, setPreview] = useState<ArchiveDocument | null>(null);
   const [assigneeFilter, setAssigneeFilter] = useState("all");
+  const [view, setView] = useState<"grid" | "list">("list");
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const controlledUpload = onUploadOpenChange != null;
+  const uploadOpen = controlledUpload ? Boolean(uploadOpenProp) : uploadOpenLocal;
+  const setUploadOpen = controlledUpload
+    ? (open: boolean) => onUploadOpenChange?.(open)
+    : setUploadOpenLocal;
+
   const client =
     (ops.clients ?? []).find((item) => item.id === clientId) ??
     ({
@@ -742,6 +955,16 @@ export function ClientFolderView({
     if (assigneeFilter === "unassigned") return ids.length === 0;
     return ids.includes(assigneeFilter);
   });
+
+  const pageCount = Math.max(1, Math.ceil(visible.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageFiles = visible.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const rangeStart = visible.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const rangeEnd = Math.min(safePage * pageSize, visible.length);
+
+  useEffect(() => {
+    setPage(1);
+  }, [assigneeFilter, view]);
 
   const remove = async (document: ArchiveDocument) => {
     if (!confirm(`Remove "${document.title}"?`)) return;
@@ -790,76 +1013,108 @@ export function ClientFolderView({
     );
   };
 
+  const filterOptions = [
+    { id: "all", label: "Everyone" },
+    { id: "unassigned", label: "Unassigned" },
+    ...members.map((member) => ({ id: member.id, label: firstName(member.name) })),
+  ] as const;
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {members.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-xs text-muted-foreground">Assigned to</span>
-            {(
-              [
-                { id: "all", label: "Everyone" },
-                { id: "unassigned", label: "Unassigned" },
-                ...members.map((member) => ({ id: member.id, label: firstName(member.name) })),
-              ] as const
-            ).map((option) => (
+    <div className="space-y-6">
+      {!controlledUpload ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setUploadOpen(true)}
+            className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Upload
+          </button>
+        </div>
+      ) : null}
+
+      <UploadForm
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        library="client"
+        documentType="other"
+        companyNameLocked={client.companyName}
+        members={members}
+        onSave={saveUpload}
+      />
+
+      <div className="flex flex-col gap-3 border-b border-border/80 sm:flex-row sm:items-end sm:justify-between">
+        <div className="-mb-px flex gap-0.5 overflow-x-auto">
+          {filterOptions.map((option) => {
+            const active = assigneeFilter === option.id;
+            return (
               <button
                 key={option.id}
                 type="button"
-                aria-pressed={assigneeFilter === option.id}
+                aria-pressed={active}
                 onClick={() => setAssigneeFilter(option.id)}
-                className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                  assigneeFilter === option.id
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                className={`shrink-0 border-b-2 px-3 py-2.5 text-xs font-medium transition-colors ${
+                  active
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {option.label}
               </button>
-            ))}
-          </div>
-        ) : (
-          <span />
-        )}
-        <Button type="button" size="sm" onClick={() => setUploadOpen(true)}>
-          <Plus className="h-4 w-4" /> Upload file
-        </Button>
-      </div>
-
-      {uploadOpen && (
-        <UploadForm
-          library="client"
-          documentType="other"
-          companyNameLocked={client.companyName}
-          members={members}
-          onCancel={() => setUploadOpen(false)}
-          onSave={saveUpload}
-        />
-      )}
-
-      {files.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No files yet. Upload with a title, then assign who owns it.
-        </p>
-      ) : visible.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No files for that person. Try Everyone, or assign someone on a file.
-        </p>
-      ) : (
-        <div className={TILE_GRID}>
-          {visible.map((document) => {
-            const names = assigneeNames(document.assignedMemberIds, members).map(firstName);
-            return (
-              <DocumentTile
-                key={document.id}
-                document={document}
-                assigneeLabel={names.length ? names.join(", ") : "Unassigned"}
-                onOpen={() => setPreview(document)}
-                onRemove={() => void remove(document)}
-              />
             );
           })}
         </div>
+        <div className="flex shrink-0 items-center gap-2 pb-2">
+          <FolderViewToggle view={view} onChange={setView} />
+        </div>
+      </div>
+
+      {files.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-border/80 py-12 text-center text-sm text-muted-foreground">
+          No files yet. Upload, then assign who owns it.
+        </p>
+      ) : visible.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-border/80 py-12 text-center text-sm text-muted-foreground">
+          No files for that filter.
+        </p>
+      ) : (
+        <>
+          <div
+            className={
+              view === "grid"
+                ? "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"
+                : "divide-y divide-border/80 border-y border-border/80"
+            }
+          >
+            {pageFiles.map((document) => {
+              const names = assigneeNames(document.assignedMemberIds, members);
+              const primary = names[0];
+              return (
+                <DocumentFileCard
+                  key={document.id}
+                  title={document.title}
+                  updatedAt={document.updatedAt}
+                  accent="rose"
+                  layout={view}
+                  typeLabel={documentTypeLabel(document)}
+                  assigneeName={primary ? firstName(primary) : "Unassigned"}
+                  assigneeInitials={primary ? memberInitials(primary) : "—"}
+                  fileSizeLabel={approxFileSizeLabel(document)}
+                  onOpen={() => setPreview(document)}
+                  onRemove={() => void remove(document)}
+                />
+              );
+            })}
+          </div>
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              {rangeStart} – {rangeEnd} of {visible.length} item{visible.length === 1 ? "" : "s"}
+            </p>
+            <FolderPagination page={safePage} pageCount={pageCount} onPageChange={setPage} />
+            <p className="text-xs text-muted-foreground">Items per page: {pageSize}</p>
+          </div>
+        </>
       )}
       <DocumentPreviewDialog
         document={preview}
@@ -874,14 +1129,46 @@ export function ClientFolderView({
 export function AdmarkVaultView({
   documents,
   onChange,
+  search: searchProp,
+  uploadOpen: uploadOpenProp,
+  onUploadOpenChange,
 }: {
   documents: DocumentsData;
   saving?: boolean;
   onChange: (next: DocumentsData, options?: DocumentsPersistOptions) => Promise<void>;
+  search?: string;
+  uploadOpen?: boolean;
+  onUploadOpenChange?: (open: boolean) => void;
 }) {
-  const [uploadOpen, setUploadOpen] = useState(false);
+  const [searchLocal, setSearchLocal] = useState("");
+  const [uploadOpenLocal, setUploadOpenLocal] = useState(false);
   const [preview, setPreview] = useState<ArchiveDocument | null>(null);
-  const files = admarkVaultDocuments(documents.archiveDocuments);
+  const [view, setView] = useState<"grid" | "list">("grid");
+  const [page, setPage] = useState(1);
+  const pageSize = view === "grid" ? 15 : 16;
+  const controlled = onUploadOpenChange != null;
+  const search = controlled ? (searchProp ?? "") : searchLocal;
+  const uploadOpen = controlled ? Boolean(uploadOpenProp) : uploadOpenLocal;
+  const setUploadOpen = controlled
+    ? (open: boolean) => onUploadOpenChange?.(open)
+    : setUploadOpenLocal;
+
+  const files = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return admarkVaultDocuments(documents.archiveDocuments).filter((doc) => {
+      if (!query) return true;
+      const hay = `${doc.title} ${doc.fileName ?? ""}`.toLowerCase();
+      return hay.includes(query);
+    });
+  }, [documents.archiveDocuments, search]);
+
+  const pageCount = Math.max(1, Math.ceil(files.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageFiles = files.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, view]);
 
   const remove = async (document: ArchiveDocument) => {
     if (!confirm(`Remove "${document.title}"?`)) return;
@@ -917,39 +1204,81 @@ export function AdmarkVaultView({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button type="button" size="sm" onClick={() => setUploadOpen(true)}>
-          <Plus className="h-4 w-4" /> Upload file
-        </Button>
-      </div>
-
-      {uploadOpen && (
-        <UploadForm
-          library="vault"
-          documentType="other"
-          companyNameLocked={ADMARK_VAULT_COMPANY}
-          onCancel={() => setUploadOpen(false)}
-          onSave={saveUpload}
-        />
-      )}
-
-      {files.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No files yet. Upload SOPs, company docs, or partnership drafts — title them yourself.
-        </p>
-      ) : (
-        <div className={TILE_GRID}>
-          {files.map((document) => (
-            <DocumentTile
-              key={document.id}
-              document={document}
-              onOpen={() => setPreview(document)}
-              onRemove={() => void remove(document)}
+    <div className="space-y-6">
+      {!controlled ? (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1 sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={searchLocal}
+              onChange={(event) => setSearchLocal(event.target.value)}
+              placeholder="Search vault…"
+              className="h-10 w-full rounded-lg border border-border/80 bg-card/40 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-border"
+              aria-label="Search vault"
             />
-          ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setUploadOpen(true)}
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Upload
+          </button>
         </div>
-      )}
+      ) : null}
+
+      <UploadForm
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        library="vault"
+        documentType="other"
+        companyNameLocked={ADMARK_VAULT_COMPANY}
+        onSave={saveUpload}
+      />
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-foreground">Vault files</h2>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-muted-foreground">
+              {files.length} file{files.length === 1 ? "" : "s"}
+            </p>
+            <FolderViewToggle view={view} onChange={setView} />
+          </div>
+        </div>
+        {files.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border/80 py-12 text-center text-sm text-muted-foreground">
+            {search
+              ? "No files match your search."
+              : "No files yet. Upload SOPs, company docs, or partnership drafts."}
+          </p>
+        ) : (
+          <>
+            <div
+              className={
+                view === "grid"
+                  ? "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5"
+                  : "flex flex-col gap-2"
+              }
+            >
+              {pageFiles.map((document) => (
+                <DocumentFileCard
+                  key={document.id}
+                  title={document.title}
+                  meta={document.fileName}
+                  updatedAt={document.updatedAt}
+                  accent="amber"
+                  layout={view}
+                  onOpen={() => setPreview(document)}
+                  onRemove={() => void remove(document)}
+                />
+              ))}
+            </div>
+            <FolderPagination page={safePage} pageCount={pageCount} onPageChange={setPage} />
+          </>
+        )}
+      </section>
       <DocumentPreviewDialog document={preview} onClose={() => setPreview(null)} />
     </div>
   );

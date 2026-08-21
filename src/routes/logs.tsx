@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { actionLabel, entityLabel, formatActivityTimestamp } from "@/lib/activity-log-labels";
 import { logClientError } from "@/lib/client-logger";
 import type { ActivityEntity, ActivityLogEntry } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
 export const Route = createFileRoute("/logs")({ component: LogsPage });
 
 const ENTITY_FILTERS: Array<ActivityEntity | "all"> = [
@@ -16,56 +18,75 @@ const ENTITY_FILTERS: Array<ActivityEntity | "all"> = [
   "security",
 ];
 
-function entityBadgeClass(entity: ActivityEntity): string {
-  switch (entity) {
-    case "project":
-      return "bg-sky-500/15 text-sky-400 ring-sky-500/30";
-    case "partnership":
-      return "bg-violet-500/15 text-violet-400 ring-violet-500/30";
-    case "expense":
-      return "bg-amber-500/15 text-amber-400 ring-amber-500/30";
-    case "invoice":
-      return "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30";
-    case "settings":
-      return "bg-muted text-muted-foreground ring-border";
-    case "agreement":
-    case "document":
-      return "bg-indigo-500/15 text-indigo-400 ring-indigo-500/30";
-    case "security":
-      return "bg-rose-500/15 text-rose-400 ring-rose-500/30";
+function actionTone(action: ActivityLogEntry["action"]): string {
+  switch (action) {
+    case "created":
+    case "payment_added":
+    case "login":
+      return "text-emerald-400";
+    case "updated":
+    case "password_change":
+      return "text-sky-400";
+    case "deleted":
+    case "payment_removed":
+    case "failed_login":
+      return "text-rose-400";
+    case "logout":
     default:
-      return "bg-muted text-muted-foreground ring-border";
+      return "text-muted-foreground";
   }
 }
 
-function actionBadgeClass(action: ActivityLogEntry["action"]): string {
-  switch (action) {
-    case "created":
-      return "text-emerald-400";
-    case "updated":
-      return "text-sky-400";
-    case "deleted":
-      return "text-rose-400";
-    case "payment_added":
-      return "text-emerald-300";
-    case "payment_removed":
-      return "text-rose-300";
-    case "login":
-      return "text-emerald-400 font-bold";
-    case "logout":
-      return "text-muted-foreground";
-    case "failed_login":
-      return "text-rose-500 font-extrabold";
-    default:
-      return "text-muted-foreground";
-  }
+function dayKey(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+function dayHeading(ts: number): string {
+  const d = new Date(ts);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  if (sameDay(d, today)) return "Today";
+  if (sameDay(d, yesterday)) return "Yesterday";
+  return new Intl.DateTimeFormat("en-IN", { dateStyle: "full" }).format(d);
+}
+
+function timeOnly(ts: number): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(ts));
+}
+
+/** Local midnight for YYYY-MM-DD. */
+function startOfLocalDay(ymd: string): number {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+}
+
+/** End of local day for YYYY-MM-DD. */
+function endOfLocalDay(ymd: string): number {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+}
+
+const dateInputClass =
+  "h-8 rounded-md border border-border/80 bg-transparent px-2 text-xs text-foreground outline-none focus:border-primary [color-scheme:dark]";
 
 function LogsPage() {
   const [logs, setLogs] = useState<ActivityLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [entityFilter, setEntityFilter] = useState<ActivityEntity | "all">("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   useEffect(() => {
     void import("@/lib/activity-log-storage")
@@ -74,10 +95,16 @@ function LogsPage() {
       .catch((e) => logClientError("logs.load", e))
       .finally(() => setLoading(false));
   }, []);
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
+    const fromTs = dateFrom ? startOfLocalDay(dateFrom) : null;
+    const toTs = dateTo ? endOfLocalDay(dateTo) : null;
+
     return logs.filter((entry) => {
       if (entityFilter !== "all" && entry.entity !== entityFilter) return false;
+      if (fromTs != null && entry.timestamp < fromTs) return false;
+      if (toTs != null && entry.timestamp > toTs) return false;
       if (!term) return true;
       return (
         entry.summary.toLowerCase().includes(term) ||
@@ -86,113 +113,167 @@ function LogsPage() {
         (entry.entityName?.toLowerCase().includes(term) ?? false)
       );
     });
-  }, [logs, q, entityFilter]);
+  }, [logs, q, entityFilter, dateFrom, dateTo]);
+
+  const groups = useMemo(() => {
+    const map = new Map<string, ActivityLogEntry[]>();
+    for (const entry of filtered) {
+      const key = dayKey(entry.timestamp);
+      const list = map.get(key);
+      if (list) list.push(entry);
+      else map.set(key, [entry]);
+    }
+    return Array.from(map.entries()).map(([key, entries]) => ({
+      key,
+      heading: dayHeading(entries[0].timestamp),
+      entries,
+    }));
+  }, [filtered]);
+
+  const hasDateFilter = Boolean(dateFrom || dateTo);
+
+  const clearDates = () => {
+    setDateFrom("");
+    setDateTo("");
+  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Activity logs</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Every change across projects, partnerships, expenses, invoices, and settings is recorded
-          here.
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative min-w-0 flex-1 sm:min-w-64">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            strokeWidth={1.5}
-          />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search logs..."
-            className="w-full rounded-md border border-input bg-card py-2 pl-9 pr-3 text-sm outline-none transition-shadow focus:border-primary focus:ring-1 focus:ring-primary"
-          />
+    <div className="space-y-8">
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+            Activity
+          </h1>
+          <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
+            Changes across projects, invoices, expenses, and settings.
+          </p>
         </div>
-        <select
-          value={entityFilter}
-          onChange={(e) => setEntityFilter(e.target.value as ActivityEntity | "all")}
-          className="w-full shrink-0 rounded-md border border-input bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:w-auto"
-        >
-          {ENTITY_FILTERS.map((value) => (
-            <option key={value} value={value}>
-              {value === "all" ? "All areas" : entityLabel(value)}
-            </option>
-          ))}
-        </select>
+
+        <div className="flex flex-col gap-3 border-y border-border/80 py-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative min-w-0 flex-1 sm:max-w-sm">
+              <Search
+                className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                strokeWidth={1.5}
+              />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search…"
+                className="w-full border-0 bg-transparent py-1.5 pl-7 pr-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-0"
+              />
+            </div>
+            <p className="shrink-0 text-xs tabular-nums text-muted-foreground">
+              {loading ? "…" : `${filtered.length} of ${logs.length}`}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="shrink-0">From</span>
+              <input
+                type="date"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className={dateInputClass}
+                aria-label="From date"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="shrink-0">To</span>
+              <input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => setDateTo(e.target.value)}
+                className={dateInputClass}
+                aria-label="To date"
+              />
+            </label>
+            {hasDateFilter ? (
+              <button
+                type="button"
+                onClick={clearDates}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear dates
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-0.5" role="group" aria-label="Filter by area">
+          {ENTITY_FILTERS.map((value) => {
+            const active = entityFilter === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setEntityFilter(value)}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                  active
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                )}
+              >
+                {value === "all" ? "All" : entityLabel(value)}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-        {loading ? (
-          <div className="p-12 text-center text-sm text-muted-foreground">Loading logs…</div>
-        ) : filtered.length === 0 ? (
-          <div className="p-12 text-center text-sm text-muted-foreground">
-            {logs.length === 0
-              ? "No activity yet. Changes you make will appear here."
-              : "No logs match your search."}
-          </div>
-        ) : (
-          <>
-            <ul className="divide-y divide-border md:hidden" aria-label="Activity log list">
-              {filtered.map((entry) => (
-                <li key={entry.id} className="p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset ${entityBadgeClass(entry.entity)}`}
+      {loading ? (
+        <p className="border-y border-dashed border-border/80 py-12 text-center text-sm text-muted-foreground">
+          Loading…
+        </p>
+      ) : filtered.length === 0 ? (
+        <p className="border-y border-dashed border-border/80 py-12 text-center text-sm text-muted-foreground">
+          {logs.length === 0
+            ? "No activity yet. Changes you make will appear here."
+            : "No logs match your filters."}
+        </p>
+      ) : (
+        <div className="space-y-8">
+          {groups.map((group) => (
+            <section key={group.key} className="space-y-2">
+              <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {group.heading}
+              </h2>
+              <ul className="divide-y divide-border/80 border-y border-border/80">
+                {group.entries.map((entry) => (
+                  <li
+                    key={entry.id}
+                    className="grid gap-1 py-3 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:items-baseline sm:gap-4"
+                  >
+                    <time
+                      dateTime={new Date(entry.timestamp).toISOString()}
+                      className="text-xs tabular-nums text-muted-foreground"
+                      title={formatActivityTimestamp(entry.timestamp)}
                     >
-                      {entityLabel(entry.entity)}
-                    </span>
-                    <span className={`text-xs font-medium ${actionBadgeClass(entry.action)}`}>
-                      {actionLabel(entry.action)}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm text-foreground">{entry.summary}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {formatActivityTimestamp(entry.timestamp)}
-                  </p>
-                </li>
-              ))}
-            </ul>
-            <div className="hidden md:block">
-              <table className="w-full text-sm">
-                <thead className="border-b border-border bg-muted/80 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-normal">When</th>
-                    <th className="px-4 py-3 font-normal">Area</th>
-                    <th className="px-4 py-3 font-normal">Action</th>
-                    <th className="px-4 py-3 font-normal">Details</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((entry) => (
-                    <tr
-                      key={entry.id}
-                      className="border-t border-border transition-colors hover:bg-muted/40"
-                    >
-                      <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                        {formatActivityTimestamp(entry.timestamp)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset ${entityBadgeClass(entry.entity)}`}
-                        >
+                      {timeOnly(entry.timestamp)}
+                    </time>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span className={cn("text-xs font-medium", actionTone(entry.action))}>
+                          {actionLabel(entry.action)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
                           {entityLabel(entry.entity)}
                         </span>
-                      </td>
-                      <td className={`px-4 py-3 font-medium ${actionBadgeClass(entry.action)}`}>
-                        {actionLabel(entry.action)}
-                      </td>
-                      <td className="px-4 py-3 text-foreground">{entry.summary}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </div>
+                      </div>
+                      <p className="mt-0.5 text-sm leading-snug text-foreground">{entry.summary}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

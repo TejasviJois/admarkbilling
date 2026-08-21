@@ -506,7 +506,7 @@ function AppShell() {
       </aside>
 
       {/* Right Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Header Bar */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           {/* Left: Mobile branding */}
@@ -617,8 +617,18 @@ function AppShell() {
         )}
 
         {/* Main Outlet */}
-        <main className="flex-1 overflow-y-auto px-6 py-8">
-          <div className="max-w-6xl mx-auto">
+        <main
+          className={
+            path === "/settings"
+              ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+              : "flex-1 overflow-y-auto px-6 py-8"
+          }
+        >
+          <div
+            className={
+              path === "/settings" ? "flex h-full min-h-0 flex-1 flex-col" : "mx-auto max-w-6xl"
+            }
+          >
             <Outlet />
           </div>
         </main>

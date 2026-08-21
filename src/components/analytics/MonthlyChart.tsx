@@ -98,7 +98,7 @@ export function MonthlyIncomeExpenseChart({
     return (
       <div className="flex h-80 items-center justify-center rounded-lg border border-dashed border-border bg-muted/10">
         <p className="text-sm text-muted-foreground">
-          No activity this month.
+          No activity in this range.
         </p>
       </div>
     );

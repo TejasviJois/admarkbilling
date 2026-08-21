@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,15 +27,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { Field } from "@/components/operations/operations-ui";
-import {
-  EXPENSE_CATEGORIES,
-  matchExpenseCategory,
-} from "@/components/operations/ExpenseFormDialog";
+import { useCompany } from "@/hooks/use-company";
 import { useOperations } from "@/hooks/use-operations";
 import { FOUNDER_SALARY_CATEGORY, FOUNDER_SHARE_WITHDRAWAL_CATEGORY } from "@/lib/founder-ledger";
-import type { Transaction, TransactionType, Client, Project } from "@/lib/types";
+import {
+  expenseCategoriesFor,
+  incomeCategoriesFor,
+  matchCatalogCategory,
+  paymentMethodLabelsFor,
+  resolvePaymentMethodLabel,
+} from "@/lib/form-options";
+import type { Transaction, TransactionType } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const TRANSACTION_TYPES: { value: TransactionType; label: string }[] = [
   { value: "client_payment", label: "Client Payment (Income)" },
@@ -47,21 +51,13 @@ const TRANSACTION_TYPES: { value: TransactionType; label: string }[] = [
   { value: "adjustment", label: "Cash Balance Adjustment (+ / −)" },
 ];
 
-const PAYMENT_METHODS = [
-  { value: "upi", label: "UPI (GPay / PhonePe / Paytm)" },
-  { value: "bank_transfer", label: "Bank Transfer (NEFT / IMPS / RTGS)" },
-  { value: "cash", label: "Cash" },
-  { value: "cheque", label: "Cheque" },
-  { value: "other", label: "Other" },
-];
-
 const EMPTY_FORM = {
   type: "expense" as TransactionType,
   date: "",
   amount: "",
   description: "",
   category: "",
-  paymentMethod: "bank_transfer",
+  paymentMethod: "",
   relatedClientId: "",
   relatedProjectId: "",
   relatedInvoiceId: "",
@@ -87,9 +83,13 @@ export function TransactionFormDialog({
   const [form, setForm] = useState(EMPTY_FORM);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const { ops } = useOperations();
+  const { company } = useCompany();
   const clients = ops.clients ?? [];
   const projects = ops.projects ?? [];
   const founders = ops.founders ?? [];
+  const expenseCategories = useMemo(() => expenseCategoriesFor(company), [company]);
+  const incomeCategories = useMemo(() => incomeCategoriesFor(company), [company]);
+  const paymentMethods = useMemo(() => paymentMethodLabelsFor(company), [company]);
 
   const isEdit = Boolean(transaction);
 
@@ -102,7 +102,7 @@ export function TransactionFormDialog({
         amount: String(transaction.amount),
         description: transaction.description,
         category: transaction.category,
-        paymentMethod: transaction.paymentMethod,
+        paymentMethod: resolvePaymentMethodLabel(transaction.paymentMethod, paymentMethods),
         relatedClientId: transaction.relatedClientId ?? "",
         relatedProjectId: transaction.relatedProjectId ?? "",
         relatedInvoiceId: transaction.relatedInvoiceId ?? "",
@@ -111,21 +111,65 @@ export function TransactionFormDialog({
         notes: transaction.notes ?? "",
         attachmentDataUrl: transaction.attachmentDataUrl ?? "",
       });
-    } else {
-      const category =
-        initialType === "client_payment"
-          ? "Client Income"
-          : initialType === "internal_transfer"
-            ? "Transfer"
-            : "";
-      setForm({
-        ...EMPTY_FORM,
-        type: initialType,
-        category,
-        date: new Date().toISOString().slice(0, 10),
-      });
+      return;
     }
-  }, [open, transaction, initialType]);
+    const defaultExpense =
+      expenseCategories.find((cat) => cat.toLowerCase() === "miscellaneous") ??
+      expenseCategories[0] ??
+      "";
+    const category =
+      initialType === "client_payment"
+        ? (incomeCategories.find((c) => /client/i.test(c)) ?? incomeCategories[0] ?? "Client Income")
+        : initialType === "founder_investment"
+          ? (incomeCategories.find((c) => /founder|invest/i.test(c)) ??
+            incomeCategories[0] ??
+            "Founder Investment")
+          : initialType === "refund"
+            ? (incomeCategories.find((c) => /refund/i.test(c)) ?? "Refund")
+            : initialType === "expense"
+              ? defaultExpense
+              : "";
+    setForm({
+      ...EMPTY_FORM,
+      type: initialType,
+      category,
+      paymentMethod: resolvePaymentMethodLabel("bank_transfer", paymentMethods),
+      date: new Date().toISOString().slice(0, 10),
+    });
+  }, [open, transaction, initialType, expenseCategories, incomeCategories, paymentMethods]);
+
+  const expenseCategoryOptions = useMemo(() => {
+    const current = form.category.trim();
+    if (
+      current &&
+      !expenseCategories.some((cat) => cat.toLowerCase() === current.toLowerCase())
+    ) {
+      return [...expenseCategories, current];
+    }
+    return expenseCategories;
+  }, [expenseCategories, form.category]);
+
+  const incomeCategoryOptions = useMemo(() => {
+    const current = form.category.trim();
+    if (
+      current &&
+      !incomeCategories.some((cat) => cat.toLowerCase() === current.toLowerCase())
+    ) {
+      return [...incomeCategories, current];
+    }
+    return incomeCategories;
+  }, [incomeCategories, form.category]);
+
+  const paymentOptions = useMemo(() => {
+    const current = form.paymentMethod.trim();
+    if (
+      current &&
+      !paymentMethods.some((method) => method.toLowerCase() === current.toLowerCase())
+    ) {
+      return [...paymentMethods, current];
+    }
+    return paymentMethods;
+  }, [paymentMethods, form.paymentMethod]);
 
   const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -141,48 +185,35 @@ export function TransactionFormDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amountNum = Number(form.amount);
-    if (isNaN(amountNum) || (form.type === "adjustment" ? amountNum === 0 : amountNum <= 0)) {
-      alert(
-        form.type === "adjustment"
-          ? "Enter a non-zero adjustment. Use a negative value to reduce cash."
-          : "Please enter a valid amount greater than 0.",
-      );
+    if (form.type !== "adjustment" && (isNaN(amountNum) || amountNum <= 0)) {
+      alert("Please enter a valid amount greater than 0.");
+      return;
+    }
+    if (form.type === "adjustment" && (isNaN(amountNum) || amountNum === 0)) {
+      alert("Please enter a non-zero adjustment amount.");
+      return;
+    }
+    if (!form.description.trim()) {
+      alert("Description is required.");
+      return;
+    }
+    if (!form.paymentMethod) {
+      alert("Payment method is required.");
+      return;
+    }
+    if (form.type === "expense" && !form.category.trim()) {
+      alert("Category is required for expenses.");
+      return;
+    }
+    if (
+      (form.type === "founder_investment" || form.type === "founder_withdrawal") &&
+      !form.relatedFounderId
+    ) {
+      alert("Please select a founder.");
       return;
     }
 
-    // FUTURE VALIDATION RULES
-    if (!transaction || !transaction.historical) {
-      // 1. Encourage payment proof upload for Income (client_payment)
-      if (form.type === "client_payment" && !form.attachmentDataUrl) {
-        const confirmSave = confirm(
-          "Tip: It is highly encouraged to upload a payment proof or screenshot for client payments. Save anyway?",
-        );
-        if (!confirmSave) return;
-      }
-
-      // 2. Payments / Transactions must contain payment method
-      if (!form.paymentMethod) {
-        alert("Payment Method is required.");
-        return;
-      }
-
-      // 3. Expenses must contain category
-      if (form.type === "expense" && !form.category.trim()) {
-        alert("Expense Category is required (e.g., software, rent, office, travel).");
-        return;
-      }
-
-      // 4. Large Expenses (> ₹10,000) should support attachments
-      if (form.type === "expense" && amountNum > 10000 && !form.attachmentDataUrl) {
-        const confirmSave = confirm(
-          "Large Expense Notice: Expenses above ₹10,000 should have a supporting receipt/attachment. Save anyway?",
-        );
-        if (!confirmSave) return;
-      }
-    }
-
     const saved: Transaction = {
-      ...(transaction ?? {}),
       id: transaction?.id ?? "tx-" + crypto.randomUUID().slice(0, 8),
       type: form.type,
       date: form.date,
@@ -206,6 +237,11 @@ export function TransactionFormDialog({
     onOpenChange(false);
   };
 
+  const usesIncomeCatalog =
+    form.type === "client_payment" ||
+    form.type === "founder_investment" ||
+    form.type === "refund";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
@@ -222,12 +258,28 @@ export function TransactionFormDialog({
               value={form.type}
               onValueChange={(v) => {
                 let defaultCat = form.category;
-                if (v === "client_payment") defaultCat = "Client Income";
-                else if (v === "founder_investment") defaultCat = "Founder Equity";
-                else if (v === "founder_withdrawal") defaultCat = FOUNDER_SHARE_WITHDRAWAL_CATEGORY;
-                else if (v === "refund") defaultCat = "Refund";
-                else if (v === "internal_transfer") defaultCat = "Transfer";
+                if (v === "client_payment") {
+                  defaultCat =
+                    incomeCategories.find((c) => /client/i.test(c)) ??
+                    incomeCategories[0] ??
+                    "Client Income";
+                } else if (v === "founder_investment") {
+                  defaultCat =
+                    incomeCategories.find((c) => /founder|invest/i.test(c)) ??
+                    incomeCategories[0] ??
+                    "Founder Investment";
+                } else if (v === "founder_withdrawal") {
+                  defaultCat = FOUNDER_SHARE_WITHDRAWAL_CATEGORY;
+                } else if (v === "refund") {
+                  defaultCat = incomeCategories.find((c) => /refund/i.test(c)) ?? "Refund";
+                } else if (v === "internal_transfer") defaultCat = "Transfer";
                 else if (v === "adjustment") defaultCat = "Adjustment";
+                else if (v === "expense") {
+                  defaultCat =
+                    expenseCategories.find((c) => c.toLowerCase() === "miscellaneous") ??
+                    expenseCategories[0] ??
+                    "";
+                }
                 setForm((f) => ({ ...f, type: v as TransactionType, category: defaultCat }));
               }}
             >
@@ -317,7 +369,8 @@ export function TransactionFormDialog({
                       aria-expanded={categoryOpen}
                       className="w-full justify-between font-normal"
                     >
-                      {matchExpenseCategory(form.category) || "Select category…"}
+                      {matchCatalogCategory(form.category, expenseCategoryOptions) ||
+                        "Select category…"}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -327,7 +380,7 @@ export function TransactionFormDialog({
                       <CommandList>
                         <CommandEmpty>No category found.</CommandEmpty>
                         <CommandGroup>
-                          {EXPENSE_CATEGORIES.map((cat) => (
+                          {expenseCategoryOptions.map((cat) => (
                             <CommandItem
                               key={cat}
                               value={cat}
@@ -339,7 +392,8 @@ export function TransactionFormDialog({
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  matchExpenseCategory(form.category) === cat
+                                  matchCatalogCategory(form.category, expenseCategoryOptions) ===
+                                    cat
                                     ? "opacity-100"
                                     : "opacity-0",
                                 )}
@@ -353,13 +407,33 @@ export function TransactionFormDialog({
                   </PopoverContent>
                 </Popover>
               </Field>
+            ) : usesIncomeCatalog ? (
+              <Field label="Category *" id="tx-category">
+                <Select
+                  value={
+                    matchCatalogCategory(form.category, incomeCategoryOptions) || form.category
+                  }
+                  onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}
+                >
+                  <SelectTrigger id="tx-category">
+                    <SelectValue placeholder="Select category…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {incomeCategoryOptions.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
             ) : (
               <Field label="Category *" id="tx-category">
                 <Input
                   id="tx-category"
                   value={form.category}
                   onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                  placeholder="e.g. Software, Salary, Marketing"
+                  placeholder="e.g. Transfer, Adjustment"
                   required
                 />
               </Field>
@@ -367,16 +441,16 @@ export function TransactionFormDialog({
 
             <Field label="Payment Method *" id="tx-method">
               <Select
-                value={form.paymentMethod}
+                value={resolvePaymentMethodLabel(form.paymentMethod, paymentOptions)}
                 onValueChange={(v) => setForm((f) => ({ ...f, paymentMethod: v }))}
               >
                 <SelectTrigger id="tx-method">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {PAYMENT_METHODS.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>
-                      {m.label}
+                  {paymentOptions.map((method) => (
+                    <SelectItem key={method} value={method}>
+                      {method}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -384,7 +458,6 @@ export function TransactionFormDialog({
             </Field>
           </div>
 
-          {/* Type-Specific Relations */}
           {form.type === "client_payment" || form.type === "refund" ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Related Client" id="tx-client">
@@ -477,23 +550,16 @@ export function TransactionFormDialog({
               id="tx-notes"
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              placeholder="Any additional accounting notes…"
+              placeholder="Optional notes"
               rows={2}
             />
           </Field>
-
-          {transaction?.historical && (
-            <div className="rounded border border-amber-300 bg-amber-500/10 p-2.5 text-xs text-amber-600 dark:text-amber-400">
-              Note: This is a **Historical** transaction. Requirements for supporting
-              proof/attachments are relaxed.
-            </div>
-          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">Save Transaction</Button>
+            <Button type="submit">{isEdit ? "Save Changes" : "Log Transaction"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

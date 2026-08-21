@@ -11,9 +11,8 @@ import {
   X,
 } from "lucide-react";
 import { TransactionFormDialog } from "@/components/operations/TransactionFormDialog";
-import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
+import { OperationsLoading } from "@/components/operations/operations-ui";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -31,6 +30,7 @@ import { calendarMonthKey, formatCalendarMonthLabel, isInCalendarMonth } from "@
 import { paymentSummary } from "@/lib/project-payments";
 import { formatINR } from "@/lib/invoice-calc";
 import type { Project, Transaction, TransactionType } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/accounts/")({ component: AccountsPage });
 
@@ -39,24 +39,49 @@ type MovementFilter = "all" | "income" | "expenses" | "transfers";
 const INFLOW_TYPES: TransactionType[] = ["client_payment", "founder_investment"];
 const OUTFLOW_TYPES: TransactionType[] = ["expense", "founder_withdrawal", "refund"];
 
+const MOVEMENT_OPTIONS: { value: MovementFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "income", label: "Income" },
+  { value: "expenses", label: "Expenses" },
+  { value: "transfers", label: "Transfers" },
+];
+
 function movementAmount(transaction: Transaction): number {
   if (transaction.type === "adjustment") return transaction.amount;
   if (INFLOW_TYPES.includes(transaction.type)) return transaction.amount;
   if (OUTFLOW_TYPES.includes(transaction.type)) return -Math.abs(transaction.amount);
   return 0;
 }
+
 function transactionLabel(transaction: Transaction): string {
   const labels: Record<TransactionType, string> = {
-    client_payment: "Client Payment",
-    founder_investment: "Founder Investment",
-    founder_withdrawal: "Founder Payout",
+    client_payment: "Client payment",
+    founder_investment: "Founder investment",
+    founder_withdrawal: "Founder payout",
     expense: "Expense",
     refund: "Refund",
-    internal_transfer: "Internal Transfer",
+    internal_transfer: "Transfer",
     adjustment: "Adjustment",
   };
   return labels[transaction.type];
 }
+
+function formatDisplayDate(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  if (!y || !m || !d) return ymd;
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(y, m - 1, d));
+}
+
+const dateInputClass =
+  "h-8 w-full rounded-md border border-border/80 bg-transparent px-2 text-xs text-foreground outline-none focus:border-primary [color-scheme:dark]";
+
+const filterSelectClass =
+  "h-8 w-full rounded-md border border-border/80 bg-transparent px-2 text-xs text-foreground outline-none focus:border-primary";
+
 function AccountsPage() {
   const { ops, persist, loading: operationsLoading } = useOperations();
   const [movementFilter, setMovementFilter] = useState<MovementFilter>("all");
@@ -106,16 +131,14 @@ function AccountsPage() {
   };
 
   const monthOptions = useMemo(() => liveCashflowMonths(ops), [ops]);
-  const selectedMonth = month === "all" || monthOptions.includes(month) ? month : (monthOptions.at(-1) ?? month);
+  const selectedMonth =
+    month === "all" || monthOptions.includes(month) ? month : (monthOptions.at(-1) ?? month);
 
-  const filteredTransactions = useMemo(() => {
+  /** Period + search/detail filters — used for KPIs (ignores movement type tabs). */
+  const periodTransactions = useMemo(() => {
     const query = search.trim().toLowerCase();
     return transactions
       .filter((transaction) => {
-        if (movementFilter === "income" && !INFLOW_TYPES.includes(transaction.type)) return false;
-        if (movementFilter === "expenses" && transaction.type !== "expense") return false;
-        if (movementFilter === "transfers" && transaction.type !== "internal_transfer")
-          return false;
         if (selectedMonth !== "all" && !isInCalendarMonth(transaction.date, selectedMonth))
           return false;
         if (clientFilter !== "all" && transaction.relatedClientId !== clientFilter) return false;
@@ -133,7 +156,6 @@ function AccountsPage() {
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [
     transactions,
-    movementFilter,
     clientFilter,
     projectFilter,
     methodFilter,
@@ -142,6 +164,16 @@ function AccountsPage() {
     search,
     selectedMonth,
   ]);
+
+  /** Same period, then narrowed by All / Income / Expenses / Transfers for the table only. */
+  const filteredTransactions = useMemo(() => {
+    return periodTransactions.filter((transaction) => {
+      if (movementFilter === "income" && !INFLOW_TYPES.includes(transaction.type)) return false;
+      if (movementFilter === "expenses" && transaction.type !== "expense") return false;
+      if (movementFilter === "transfers" && transaction.type !== "internal_transfer") return false;
+      return true;
+    });
+  }, [periodTransactions, movementFilter]);
 
   const activeFilterCount = [
     clientFilter !== "all",
@@ -163,152 +195,213 @@ function AccountsPage() {
   if (operationsLoading) return <OperationsLoading />;
 
   return (
-    <div className="space-y-6">
-      <OperationsPageHeader
-        title="Accounts"
-        description="Add money in or out and review the complete transaction history."
-      />
-
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={() => openCreate("client_payment")} className="gap-2">
-          <ArrowDownRight className="h-4 w-4" /> Add Income
-        </Button>
-        <Button variant="outline" onClick={() => openCreate("expense")} className="gap-2">
-          <ArrowUpRight className="h-4 w-4" /> Add Expense
-        </Button>
-        <Button variant="outline" onClick={() => openCreate("internal_transfer")} className="gap-2">
-          <ArrowLeftRight className="h-4 w-4" /> Transfer Funds
-        </Button>
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+            Accounts
+          </h1>
+          <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
+            Money in, money out, and the full ledger.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <Button size="sm" onClick={() => openCreate("client_payment")} className="gap-1.5">
+            <ArrowDownRight className="h-3.5 w-3.5" />
+            Income
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => openCreate("expense")}
+            className="gap-1.5 border-border/80"
+          >
+            <ArrowUpRight className="h-3.5 w-3.5" />
+            Expense
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => openCreate("internal_transfer")}
+            className="gap-1.5 border-border/80"
+          >
+            <ArrowLeftRight className="h-3.5 w-3.5" />
+            Transfer
+          </Button>
+        </div>
       </div>
 
       <section className="space-y-4">
-        <div>
-          <h2 className="text-lg font-bold text-foreground">Transaction history</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Every income, expense, transfer, and adjustment in one ledger.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-2">
-            {(["all", "income", "expenses", "transfers"] as MovementFilter[]).map((filter) => (
-              <Button
-                key={filter}
-                size="sm"
-                variant={movementFilter === filter ? "default" : "outline"}
-                onClick={() => setMovementFilter(filter)}
-                className="capitalize"
-              >
-                {filter}
-              </Button>
-            ))}
-          </div>
-          <Select value={selectedMonth} onValueChange={setMonth}>
-            <SelectTrigger
-              id="accounts-month"
-              aria-label="Month"
-              className="h-8 w-auto shrink-0 gap-1.5 rounded-full border-border bg-muted/50 px-3 text-xs font-medium text-foreground shadow-none"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="end" className="bg-popover text-foreground">
-              <SelectItem value="all" className="text-foreground focus:bg-accent focus:text-foreground">
-                All months
-              </SelectItem>
-              {monthOptions.map((value) => (
-                <SelectItem
-                  key={value}
-                  value={value}
-                  className="text-foreground focus:bg-accent focus:text-foreground"
+        <div className="flex flex-col gap-3 border-y border-border/80 py-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap gap-0.5" role="group" aria-label="Movement type">
+              {MOVEMENT_OPTIONS.map((option) => {
+                const active = movementFilter === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setMovementFilter(option.value)}
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                      active
+                        ? "bg-muted text-foreground"
+                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={selectedMonth} onValueChange={setMonth}>
+                <SelectTrigger
+                  id="accounts-month"
+                  aria-label="Month"
+                  className="h-8 w-auto min-w-[9rem] gap-1.5 rounded-md border-border/80 bg-transparent px-2.5 text-xs font-medium shadow-none"
                 >
-                  {formatCalendarMonthLabel(value)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="end" className="bg-popover text-foreground">
+                  <SelectItem
+                    value="all"
+                    className="text-foreground focus:bg-accent focus:text-foreground"
+                  >
+                    All months
+                  </SelectItem>
+                  {monthOptions.map((value) => (
+                    <SelectItem
+                      key={value}
+                      value={value}
+                      className="text-foreground focus:bg-accent focus:text-foreground"
+                    >
+                      {formatCalendarMonthLabel(value)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs tabular-nums text-muted-foreground">
+                {movementFilter === "all"
+                  ? `${filteredTransactions.length} ${filteredTransactions.length === 1 ? "entry" : "entries"}`
+                  : `${filteredTransactions.length} of ${periodTransactions.length}`}
+              </p>
+            </div>
+          </div>
 
-        <div className="rounded-xl border border-border bg-card p-4">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-[16rem] flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
+            <div className="relative min-w-0 flex-1 sm:max-w-sm">
+              <Search
+                className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                strokeWidth={1.5}
+              />
+              <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search description, category, notes…"
-                className="pl-9"
+                placeholder="Search description, category…"
+                className="w-full border-0 bg-transparent py-1.5 pl-7 pr-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-0"
               />
             </div>
-            <Button
-              variant={filtersOpen || activeFilterCount > 0 ? "default" : "outline"}
+            <button
+              type="button"
               onClick={() => setFiltersOpen((open) => !open)}
-              className="gap-2"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 && (
-                <span className="rounded-full bg-background/20 px-1.5 text-xs font-bold tabular-nums">
-                  {activeFilterCount}
-                </span>
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                filtersOpen || activeFilterCount > 0
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
               )}
-            </Button>
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Filters
+              {activeFilterCount > 0 ? (
+                <span className="tabular-nums text-muted-foreground">{activeFilterCount}</span>
+              ) : null}
+            </button>
             {(activeFilterCount > 0 || search) && (
-              <Button variant="ghost" onClick={clearFilters} className="gap-1.5">
-                <X className="h-4 w-4" /> Clear
-              </Button>
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear
+              </button>
             )}
           </div>
 
           {filtersOpen && (
-            <div className="mt-4 grid gap-4 border-t border-border pt-4 sm:grid-cols-2 lg:grid-cols-3">
-              <FilterField label="Client">
-                <FilterSelect value={clientFilter} onChange={setClientFilter}>
+            <div className="grid gap-3 border-t border-border/80 pt-3 sm:grid-cols-2 lg:grid-cols-3">
+              <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                Client
+                <select
+                  value={clientFilter}
+                  onChange={(e) => setClientFilter(e.target.value)}
+                  className={filterSelectClass}
+                >
                   <option value="all">All clients</option>
                   {clients.map((client) => (
                     <option key={client.id} value={client.id}>
                       {client.companyName}
                     </option>
                   ))}
-                </FilterSelect>
-              </FilterField>
-              <FilterField label="Project">
-                <FilterSelect value={projectFilter} onChange={setProjectFilter}>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                Project
+                <select
+                  value={projectFilter}
+                  onChange={(e) => setProjectFilter(e.target.value)}
+                  className={filterSelectClass}
+                >
                   <option value="all">All projects</option>
                   {projects.map((project) => (
                     <option key={project.id} value={project.id}>
                       {project.name}
                     </option>
                   ))}
-                </FilterSelect>
-              </FilterField>
-              <FilterField label="Payment method">
-                <FilterSelect value={methodFilter} onChange={setMethodFilter}>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                Method
+                <select
+                  value={methodFilter}
+                  onChange={(e) => setMethodFilter(e.target.value)}
+                  className={filterSelectClass}
+                >
                   <option value="all">All methods</option>
                   <option value="upi">UPI</option>
-                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="bank_transfer">Bank transfer</option>
                   <option value="cash">Cash</option>
                   <option value="cheque">Cheque</option>
                   <option value="other">Other</option>
-                </FilterSelect>
-              </FilterField>
-              <FilterField label="From date">
-                <Input
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                From
+                <input
                   type="date"
                   value={dateFrom}
-                  onChange={(event) => setDateFrom(event.target.value)}
+                  max={dateTo || undefined}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className={dateInputClass}
                 />
-              </FilterField>
-              <FilterField label="To date">
-                <Input
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                To
+                <input
                   type="date"
                   value={dateTo}
-                  onChange={(event) => setDateTo(event.target.value)}
+                  min={dateFrom || undefined}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className={dateInputClass}
                 />
-              </FilterField>
+              </label>
             </div>
           )}
         </div>
 
-        <TransactionsTable
+        <TransactionsLedger
           transactions={filteredTransactions}
           clients={clients}
           projects={projects}
@@ -332,36 +425,7 @@ function AccountsPage() {
   );
 }
 
-function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
-      {label}
-      {children}
-    </label>
-  );
-}
-
-function FilterSelect({
-  value,
-  onChange,
-  children,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-    >
-      {children}
-    </select>
-  );
-}
-
-function TransactionsTable({
+function TransactionsLedger({
   transactions,
   clients,
   projects,
@@ -374,103 +438,111 @@ function TransactionsTable({
   onEdit: (transaction: Transaction) => void;
   onDelete: (id: string) => void;
 }) {
+  if (transactions.length === 0) {
+    return (
+      <p className="border-y border-dashed border-border/80 py-12 text-center text-sm text-muted-foreground">
+        No movements match these filters.
+      </p>
+    );
+  }
+
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
-      <table className="w-full min-w-[850px] text-sm">
-        <thead className="border-b border-border bg-muted/70 text-left text-xs uppercase text-muted-foreground">
-          <tr>
-            <th className="px-4 py-3">Date</th>
-            <th className="px-4 py-3">Movement</th>
-            <th className="px-4 py-3">Description</th>
-            <th className="px-4 py-3">Client / Project</th>
-            <th className="px-4 py-3">Method</th>
-            <th className="px-4 py-3 text-right">Amount</th>
-            <th className="px-4 py-3 text-right">Actions</th>
+    <div className="overflow-x-auto border-y border-border/80">
+      <table className="w-full min-w-[720px] text-sm">
+        <thead>
+          <tr className="border-b border-border/80 text-left text-xs text-muted-foreground">
+            <th className="py-3 pr-3 font-medium">Date</th>
+            <th className="px-3 py-3 font-medium">Type</th>
+            <th className="px-3 py-3 font-medium">Details</th>
+            <th className="px-3 py-3 font-medium">Linked</th>
+            <th className="px-3 py-3 font-medium">Method</th>
+            <th className="px-3 py-3 text-right font-medium">Amount</th>
+            <th className="py-3 pl-3 text-right font-medium">
+              <span className="sr-only">Actions</span>
+            </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">
-          {transactions.length === 0 ? (
-            <tr>
-              <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
-                No financial movements match these filters.
-              </td>
-            </tr>
-          ) : (
-            transactions.map((transaction) => {
-              const movement = movementAmount(transaction);
-              const client = clients.find((item) => item.id === transaction.relatedClientId);
-              const project = projects.find((item) => item.id === transaction.relatedProjectId);
-              return (
-                <tr key={transaction.id} className="transition-colors hover:bg-muted/30">
-                  <td className="whitespace-nowrap px-4 py-3 tabular-nums">{transaction.date}</td>
-                  <td className="px-4 py-3">
-                    <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-bold uppercase">
-                      {transactionLabel(transaction)}
-                    </span>
-                    {transaction.historical && (
-                      <span
-                        className="ml-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[10px] font-bold uppercase text-amber-400"
-                        title="Imported pre-migration context — already reflected in the Opening Balance; does not change any totals."
-                      >
-                        Historical
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="font-semibold">{transaction.description}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {transaction.historical && project
-                        ? `Historical received · Current outstanding ${
-                            paymentSummary(project).pending != null
-                              ? formatINR(paymentSummary(project).pending!)
-                              : "not defined"
-                          }`
-                        : transaction.category}
+        <tbody className="divide-y divide-border/60">
+          {transactions.map((transaction) => {
+            const movement = movementAmount(transaction);
+            const client = clients.find((item) => item.id === transaction.relatedClientId);
+            const project = projects.find((item) => item.id === transaction.relatedProjectId);
+            const linked = [client?.companyName, project?.name].filter(Boolean).join(" · ") || "—";
+            const locked = Boolean(transaction.historical || transaction.payrollMonth);
+
+            return (
+              <tr key={transaction.id} className="group transition-colors hover:bg-muted/20">
+                <td className="whitespace-nowrap py-3 pr-3 tabular-nums text-muted-foreground">
+                  {formatDisplayDate(transaction.date)}
+                </td>
+                <td className="px-3 py-3">
+                  <p className="text-xs font-medium text-foreground">
+                    {transactionLabel(transaction)}
+                  </p>
+                  {transaction.historical ? (
+                    <p className="mt-0.5 text-[10px] text-amber-500">Historical</p>
+                  ) : null}
+                </td>
+                <td className="max-w-[16rem] px-3 py-3">
+                  <p className="truncate text-foreground">{transaction.description}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {transaction.historical && project
+                      ? `Historical · outstanding ${
+                          paymentSummary(project).pending != null
+                            ? formatINR(paymentSummary(project).pending!)
+                            : "n/a"
+                        }`
+                      : (transaction.category ?? "—")}
+                  </p>
+                </td>
+                <td className="max-w-[10rem] truncate px-3 py-3 text-xs text-muted-foreground">
+                  {linked}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-xs capitalize text-muted-foreground">
+                  {transaction.paymentMethod.replace("_", " ")}
+                </td>
+                <td
+                  className={cn(
+                    "whitespace-nowrap px-3 py-3 text-right font-medium tabular-nums",
+                    movement > 0
+                      ? "text-emerald-400"
+                      : movement < 0
+                        ? "text-rose-400"
+                        : "text-foreground",
+                  )}
+                >
+                  {movement > 0 ? "+" : movement < 0 ? "−" : ""}
+                  {formatINR(Math.abs(transaction.amount))}
+                </td>
+                <td className="py-3 pl-3">
+                  {locked ? (
+                    <p className="text-right text-[10px] text-muted-foreground">
+                      {transaction.payrollMonth ? "Payroll" : "Locked"}
                     </p>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {client?.companyName || project?.name || "—"}
-                  </td>
-                  <td className="px-4 py-3 capitalize text-muted-foreground">
-                    {transaction.paymentMethod.replace("_", " ")}
-                  </td>
-                  <td
-                    className={`whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums ${
-                      movement > 0
-                        ? "text-emerald-600"
-                        : movement < 0
-                          ? "text-rose-600"
-                          : "text-foreground"
-                    }`}
-                  >
-                    {movement > 0 ? "+" : movement < 0 ? "−" : ""}
-                    {formatINR(Math.abs(transaction.amount))}
-                  </td>
-                  <td className="px-4 py-3">
-                    {transaction.historical || transaction.payrollMonth ? (
-                      <div className="text-right text-[10px] font-medium uppercase text-muted-foreground">
-                        {transaction.payrollMonth ? "Payroll" : "Locked"}
-                      </div>
-                    ) : (
-                      <div className="flex justify-end gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => onEdit(transaction)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => onDelete(transaction.id)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              );
-            })
-          )}
+                  ) : (
+                    <div className="flex justify-end gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => onEdit(transaction)}
+                        className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label="Edit"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDelete(transaction.id)}
+                        className="rounded-md p-1.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-400"
+                        aria-label="Delete"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

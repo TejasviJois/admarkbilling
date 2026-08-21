@@ -32,6 +32,7 @@ import type {
   FinancialBaseline,
   FixedMonthlyExpense,
   FixedMonthlyExpenseKind,
+  FormOptionCatalogs,
   Founder,
   Invoice,
   Lead,
@@ -514,6 +515,15 @@ function parseStringList(value: unknown): string[] | undefined {
     (item): item is string => typeof item === "string" && item.trim().length > 0,
   );
   return labels.length > 0 ? labels : undefined;
+}
+
+function parseFormOptions(value: unknown): FormOptionCatalogs | undefined {
+  if (!isRecord(value)) return undefined;
+  const expenseCategories = parseStringList(value.expenseCategories);
+  const incomeCategories = parseStringList(value.incomeCategories);
+  const paymentMethods = parseStringList(value.paymentMethods);
+  if (!expenseCategories && !incomeCategories && !paymentMethods) return undefined;
+  return { expenseCategories, incomeCategories, paymentMethods };
 }
 
 function pickOne<T extends string>(
@@ -1399,6 +1409,9 @@ export async function loadRelationalCompany(): Promise<CompanySettings> {
         ? settingsRow.application_preferences.customTeamGroups
         : undefined,
     ),
+    formOptions: isRecord(settingsRow?.application_preferences)
+      ? parseFormOptions(settingsRow.application_preferences.formOptions)
+      : undefined,
     teamDirectoryMigrationApplied: true,
     paymentTerms: orUndefined(settingsRow?.default_payment_terms),
     remarks: orUndefined(settingsRow?.default_remarks),

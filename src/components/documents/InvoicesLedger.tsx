@@ -88,7 +88,7 @@ export function InvoicesLedger({
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-border/80 bg-card/20">
         {filtered.length === 0 ? (
           <div className="p-12 text-center text-sm text-muted-foreground">{emptyMessage}</div>
         ) : (

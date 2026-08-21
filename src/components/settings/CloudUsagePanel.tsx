@@ -107,11 +107,11 @@ export function CloudUsagePanel() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-xs font-bold uppercase text-muted-foreground">Cloud usage</h3>
+          <h3 className="text-sm font-medium text-foreground">Cloud usage</h3>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             {overQuota
               ? "A Free Plan quota is full."
-              : "Live database and file storage against the Free Plan caps."}
+              : "Database and file storage vs Free Plan caps."}
           </p>
         </div>
         <Button
@@ -120,7 +120,7 @@ export function CloudUsagePanel() {
           variant="outline"
           onClick={load}
           disabled={loading}
-          className="text-xs font-bold"
+          className="text-xs"
         >
           <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
           {loading ? "Measuring…" : "Refresh"}
@@ -128,16 +128,16 @@ export function CloudUsagePanel() {
       </div>
 
       {snapshot?.error && (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
           {snapshot.error}
         </p>
       )}
 
-      <div className="grid overflow-hidden rounded-xl border border-border sm:grid-cols-2">
+      <div className="grid gap-px overflow-hidden border border-border/80 bg-border/80 sm:grid-cols-2">
         {rows.map((row) => (
           <div
             key={row.key}
-            className="flex items-center justify-between gap-3 border-b border-border px-4 py-3.5 sm:odd:border-r sm:last:border-b-0 sm:[&:nth-last-child(2)]:border-b-0"
+            className="flex items-center justify-between gap-3 bg-background px-4 py-3.5"
           >
             <div className="min-w-0">
               <p className="text-sm font-medium text-foreground">{row.label}</p>
@@ -158,7 +158,7 @@ export function CloudUsagePanel() {
             href={snapshot.dashboardUrl}
             target="_blank"
             rel="noreferrer"
-            className="font-semibold text-sky-400 hover:underline"
+            className="text-sky-400 hover:underline"
           >
             Open Supabase usage
           </a>

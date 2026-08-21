@@ -1,4 +1,5 @@
 import { DEFAULT_COMPANY } from "./constants";
+import { normalizeFormOptions } from "./form-options";
 import {
   applyTeamDirectoryDefaults,
   collectCustomMemberTypes,
@@ -60,6 +61,7 @@ export function normalizeCompanySettings(
     merged.companyMembers,
     raw?.customTeamGroups ?? merged.customTeamGroups,
   );
+  merged.formOptions = normalizeFormOptions(raw?.formOptions ?? merged.formOptions);
   // Replace the old generic Net 30 default with Admark's actual project terms.
   if (!raw?.paymentTerms?.trim() || raw.paymentTerms.trim().toLowerCase() === "net 30") {
     merged.paymentTerms = DEFAULT_COMPANY.paymentTerms;

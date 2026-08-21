@@ -46,6 +46,13 @@ export interface SalaryMonthPayment {
   note?: string;
 }
 
+/** Editable dropdown catalogs for expense/income forms (Settings → Form options). */
+export interface FormOptionCatalogs {
+  expenseCategories?: string[];
+  incomeCategories?: string[];
+  paymentMethods?: string[];
+}
+
 export interface CompanySettings {
   organizationId?: string;
   name: string;
@@ -75,6 +82,8 @@ export interface CompanySettings {
   customMemberTypes?: string[];
   /** Extra working teams created from the Team form (beyond development/marketing). */
   customTeamGroups?: string[];
+  /** Dropdown catalogs for expense/income forms — edited in Settings → Form options. */
+  formOptions?: FormOptionCatalogs;
   /** One-time upgrade from the old partners-only list to the Team directory. */
   teamDirectoryMigrationApplied?: boolean;
   paymentTerms?: string;

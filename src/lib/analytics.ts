@@ -149,6 +149,87 @@ export function ledgerCashflowForMonth(ops: OperationsData, month: string) {
   return { income, expenses };
 }
 
+/** Money in / out for a rolling period (All time, 3 months, …). */
+export function ledgerCashflowForPeriod(ops: OperationsData, period: PeriodKey) {
+  let income = 0;
+  let expenses = 0;
+  for (const transaction of ledgerTransactions(ops)) {
+    if (!isWithinPeriod(transaction.date, period)) continue;
+    if (isMoneyInTransaction(transaction)) income += moneyInAmount(transaction);
+    else if (isMoneyOutTransaction(transaction)) expenses += transaction.amount;
+  }
+  return { income, expenses };
+}
+
+export type SpendByCategoryRow = {
+  category: string;
+  amount: number;
+  count: number;
+  sharePct: number;
+};
+
+function spendCategoryLabel(transaction: Transaction): string {
+  const raw = transaction.category?.trim();
+  if (raw) {
+    // Only remap the four financial ledger kinds — not free-form form categories.
+    if (
+      raw === "company" ||
+      raw === "external_payout" ||
+      raw === "founder_payout" ||
+      raw === "handout"
+    ) {
+      return EXPENSE_CATEGORY_SHORT_LABELS[raw];
+    }
+    return raw;
+  }
+  if (transaction.type === "founder_withdrawal") return "Founder withdrawal";
+  return "Uncategorized";
+}
+
+function spendByCategoryFromTransactions(
+  transactions: Transaction[],
+): SpendByCategoryRow[] {
+  const totals = new Map<string, { amount: number; count: number }>();
+  let grandTotal = 0;
+  for (const transaction of transactions) {
+    if (!isMoneyOutTransaction(transaction)) continue;
+    const category = spendCategoryLabel(transaction);
+    const prev = totals.get(category) ?? { amount: 0, count: 0 };
+    prev.amount += transaction.amount;
+    prev.count += 1;
+    totals.set(category, prev);
+    grandTotal += transaction.amount;
+  }
+  return [...totals.entries()]
+    .map(([category, { amount, count }]) => ({
+      category,
+      amount,
+      count,
+      sharePct: grandTotal > 0 ? Math.round((amount / grandTotal) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.amount - a.amount || a.category.localeCompare(b.category));
+}
+
+/** Money-out totals for a calendar month, grouped by expense/form category. */
+export function spendByCategoryForMonth(
+  ops: OperationsData,
+  month: string,
+): SpendByCategoryRow[] {
+  return spendByCategoryFromTransactions(
+    ledgerTransactions(ops).filter((transaction) => isInCalendarMonth(transaction.date, month)),
+  );
+}
+
+/** Money-out totals for a rolling period, grouped by expense/form category. */
+export function spendByCategoryForPeriod(
+  ops: OperationsData,
+  period: PeriodKey,
+): SpendByCategoryRow[] {
+  return spendByCategoryFromTransactions(
+    ledgerTransactions(ops).filter((transaction) => isWithinPeriod(transaction.date, period)),
+  );
+}
+
 function periodTotalIncome(ops: OperationsData, period: PeriodKey): number {
   if (period === "all") {
     return computeFinancialSummary(ops).totalRevenueReceived;

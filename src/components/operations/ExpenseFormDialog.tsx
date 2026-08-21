@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,47 +18,30 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/operations/operations-ui";
+import { useCompany } from "@/hooks/use-company";
+import {
+  DEFAULT_EXPENSE_CATEGORIES,
+  expenseCategoriesFor,
+  matchCatalogCategory,
+  paymentMethodLabelsFor,
+  resolvePaymentMethodLabel,
+} from "@/lib/form-options";
 import type { Transaction } from "@/lib/types";
 
-export const EXPENSE_CATEGORIES = [
-  "Hosting",
-  "Software",
-  "Salary",
-  "Travel",
-  "Marketing",
-  "Office",
-  "Internet",
-  "Legal",
-  "GST",
-  "Food",
-  "Utilities",
-  "Miscellaneous",
-];
+/** @deprecated Prefer expenseCategoriesFor(company) — kept for callers that need defaults. */
+export const EXPENSE_CATEGORIES = [...DEFAULT_EXPENSE_CATEGORIES];
 
-/** Case-insensitive match to the fixed list; unknown legacy values map to "Miscellaneous". */
+/** Match against defaults; unknown values stay as-is (no longer forced to Miscellaneous). */
 export function matchExpenseCategory(raw: string | undefined): string {
-  const trimmed = raw?.trim();
-  if (!trimmed) return "";
-  return (
-    EXPENSE_CATEGORIES.find((cat) => cat.toLowerCase() === trimmed.toLowerCase()) ??
-    "Miscellaneous"
-  );
+  return matchCatalogCategory(raw, EXPENSE_CATEGORIES);
 }
-
-const PAYMENT_METHODS = [
-  { value: "upi", label: "UPI (GPay / PhonePe / Paytm)" },
-  { value: "bank_transfer", label: "Bank Transfer (NEFT / IMPS / RTGS)" },
-  { value: "cash", label: "Cash" },
-  { value: "cheque", label: "Cheque" },
-  { value: "other", label: "Other" },
-];
 
 const EMPTY_FORM = {
   vendor: "",
-  category: "Miscellaneous",
+  category: "",
   amount: "",
   gst: "",
-  paymentMethod: "bank_transfer",
+  paymentMethod: "",
   date: "",
   notes: "",
   attachmentDataUrl: "",
@@ -73,15 +56,46 @@ export function ExpenseFormDialog({
   onOpenChange: (open: boolean) => void;
   onSave: (tx: Transaction) => void;
 }) {
+  const { company } = useCompany();
+  const expenseCategories = useMemo(() => expenseCategoriesFor(company), [company]);
+  const paymentMethods = useMemo(() => paymentMethodLabelsFor(company), [company]);
   const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
     if (!open) return;
+    const defaultCategory =
+      expenseCategories.find((cat) => cat.toLowerCase() === "miscellaneous") ??
+      expenseCategories[0] ??
+      "Miscellaneous";
     setForm({
       ...EMPTY_FORM,
+      category: defaultCategory,
+      paymentMethod: resolvePaymentMethodLabel("bank_transfer", paymentMethods),
       date: new Date().toISOString().slice(0, 10),
     });
-  }, [open]);
+  }, [open, expenseCategories, paymentMethods]);
+
+  const categoryOptions = useMemo(() => {
+    const current = form.category.trim();
+    if (
+      current &&
+      !expenseCategories.some((cat) => cat.toLowerCase() === current.toLowerCase())
+    ) {
+      return [...expenseCategories, current];
+    }
+    return expenseCategories;
+  }, [expenseCategories, form.category]);
+
+  const paymentOptions = useMemo(() => {
+    const current = form.paymentMethod.trim();
+    if (
+      current &&
+      !paymentMethods.some((method) => method.toLowerCase() === current.toLowerCase())
+    ) {
+      return [...paymentMethods, current];
+    }
+    return paymentMethods;
+  }, [paymentMethods, form.paymentMethod]);
 
   const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -104,6 +118,11 @@ export function ExpenseFormDialog({
 
     if (!form.vendor.trim()) {
       alert("Vendor name is required.");
+      return;
+    }
+
+    if (!form.category.trim()) {
+      alert("Category is required.");
       return;
     }
 
@@ -158,14 +177,14 @@ export function ExpenseFormDialog({
 
             <Field label="Category *" id="exp-category">
               <Select
-                value={form.category}
+                value={matchCatalogCategory(form.category, categoryOptions) || form.category}
                 onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}
               >
                 <SelectTrigger id="exp-category">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {EXPENSE_CATEGORIES.map((cat) => (
+                  {categoryOptions.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
                     </SelectItem>
@@ -203,23 +222,23 @@ export function ExpenseFormDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Payment Method *" id="exp-method">
               <Select
-                value={form.paymentMethod}
+                value={resolvePaymentMethodLabel(form.paymentMethod, paymentOptions)}
                 onValueChange={(v) => setForm((f) => ({ ...f, paymentMethod: v }))}
               >
                 <SelectTrigger id="exp-method">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {PAYMENT_METHODS.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>
-                      {m.label}
+                  {paymentOptions.map((method) => (
+                    <SelectItem key={method} value={method}>
+                      {method}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
 
-            <Field label="Date of Payment *" id="exp-date">
+            <Field label="Date of Expense *" id="exp-date">
               <Input
                 id="exp-date"
                 type="date"
@@ -230,7 +249,7 @@ export function ExpenseFormDialog({
             </Field>
           </div>
 
-          <Field label="Upload Receipt Attachment" id="exp-attachment">
+          <Field label="Upload Invoice / Receipt" id="exp-attachment">
             <Input
               id="exp-attachment"
               type="file"
@@ -257,12 +276,12 @@ export function ExpenseFormDialog({
             )}
           </Field>
 
-          <Field label="Internal Notes / Remarks" id="exp-notes">
+          <Field label="Notes" id="exp-notes">
             <Textarea
               id="exp-notes"
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              placeholder="UTR number, transaction reference, hardware serials…"
+              placeholder="Optional details"
               rows={2}
             />
           </Field>
@@ -271,7 +290,7 @@ export function ExpenseFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">Log Expense</Button>
+            <Button type="submit">Save Expense</Button>
           </DialogFooter>
         </form>
       </DialogContent>

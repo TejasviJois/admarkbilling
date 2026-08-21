@@ -1,6 +1,6 @@
 import type { Project } from "@/lib/types";
 
-export type PeriodKey = "all" | "1mo" | "2mo" | "4mo" | "6mo" | "1y";
+export type PeriodKey = "all" | "1mo" | "2mo" | "3mo" | "4mo" | "6mo" | "1y";
 
 /** Default — show all data until the user narrows the window. */
 export const DEFAULT_PERIOD: PeriodKey = "all";
@@ -8,6 +8,7 @@ export const DEFAULT_PERIOD: PeriodKey = "all";
 const PERIOD_MONTHS: Record<Exclude<PeriodKey, "all">, number> = {
   "1mo": 1,
   "2mo": 2,
+  "3mo": 3,
   "4mo": 4,
   "6mo": 6,
   "1y": 12,
@@ -18,12 +19,20 @@ export const PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = [
   { value: "all", label: "All time" },
   { value: "1mo", label: "1 month" },
   { value: "2mo", label: "2 months" },
+  { value: "3mo", label: "3 months" },
   { value: "4mo", label: "4 months" },
   { value: "6mo", label: "6 months" },
   { value: "1y", label: "12 months" },
 ];
 
-/** Analytics hub — same options as operations filters. */
+/** Analytics hub — All time, rolling windows, then drill into a calendar month in the UI. */
+export const ANALYTICS_RANGE_OPTIONS: { value: PeriodKey; label: string }[] = [
+  { value: "all", label: "All time" },
+  { value: "3mo", label: "3 months" },
+  { value: "6mo", label: "6 months" },
+];
+
+/** @deprecated Prefer ANALYTICS_RANGE_OPTIONS + month picker on Analytics. */
 export const ANALYTICS_PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = PERIOD_OPTIONS;
 
 export function periodMonths(period: PeriodKey): number | null {

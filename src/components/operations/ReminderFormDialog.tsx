@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -70,7 +69,6 @@ export function ReminderFormDialog({
       durationMinutes: 15,
       contact: form.contact.trim() || undefined,
       notes: form.notes.trim() || undefined,
-      // Fire for the whole day starting at the chosen time.
       reminderMinutes: 12 * 60,
       status: reminder?.status ?? "scheduled",
       createdAt: reminder?.createdAt ?? now,
@@ -81,49 +79,51 @@ export function ReminderFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{reminder ? "Edit reminder" : "Add reminder"}</DialogTitle>
-          <DialogDescription>
-            For follow-ups like “call this client after August 3rd” — shown on the dashboard and
-            Reminders page.
-          </DialogDescription>
+      <DialogContent className="gap-0 p-0 sm:max-w-sm">
+        <DialogHeader className="border-b border-border/80 px-5 py-4 text-left">
+          <DialogTitle className="text-base font-semibold tracking-tight">
+            {reminder ? "Edit reminder" : "New reminder"}
+          </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Field label="What to remember *" id="reminder-title">
+        <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
+          <Field label="What to remember" id="reminder-title">
             <Input
               id="reminder-title"
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              placeholder="e.g. Call Alliance Square about next project"
+              placeholder="e.g. Call Alliance Square"
               required
+              className="h-9 border-border/80"
             />
           </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Remind me on *" id="reminder-date">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Date" id="reminder-date">
               <Input
                 id="reminder-date"
                 type="date"
                 value={form.date}
                 onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
                 required
+                className="h-9 border-border/80"
               />
             </Field>
-            <Field label="Around time" id="reminder-time">
+            <Field label="Time" id="reminder-time">
               <Input
                 id="reminder-time"
                 type="time"
                 value={form.startTime}
                 onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
+                className="h-9 border-border/80"
               />
             </Field>
           </div>
-          <Field label="Client / person" id="reminder-contact">
+          <Field label="Person" id="reminder-contact">
             <Input
               id="reminder-contact"
               value={form.contact}
               onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))}
               placeholder="Optional"
+              className="h-9 border-border/80"
             />
           </Field>
           <Field label="Notes" id="reminder-notes">
@@ -131,15 +131,24 @@ export function ReminderFormDialog({
               id="reminder-notes"
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              placeholder="Context for the follow-up…"
-              rows={3}
+              placeholder="Context…"
+              rows={2}
+              className="border-border/80"
             />
           </Field>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <DialogFooter className="gap-1.5 border-t border-border/80 px-0 pb-0 pt-4 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-border/80"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit">{reminder ? "Save" : "Add reminder"}</Button>
+            <Button type="submit" size="sm">
+              {reminder ? "Save" : "Add"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
