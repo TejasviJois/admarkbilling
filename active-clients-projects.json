@@ -1,0 +1,129 @@
+[
+  {
+    "clientId": "cli-avighna",
+    "clientName": "Avighna Speciality Ingredients Pvt Ltd",
+    "contactPerson": "Ashitha Yaji",
+    "phone": "9483389387",
+    "email": "asianapex15@gmail.com",
+    "clientStatus": "active",
+    "projects": [
+      {
+        "id": "proj-lead-lead-80cf81a0",
+        "name": "Asian Apex",
+        "status": "active",
+        "projectType": "Website",
+        "startDate": "2026-08-17",
+        "endDate": null,
+        "monthlyAmount": null,
+        "contractValue": 15000,
+        "budget": 15000
+      },
+      {
+        "id": "proj-lead-lead-420c2451",
+        "name": "Avighna",
+        "status": "active",
+        "projectType": "ERP",
+        "startDate": "2026-08-07",
+        "endDate": null,
+        "monthlyAmount": null,
+        "contractValue": 330000,
+        "budget": 330000
+      }
+    ]
+  },
+  {
+    "clientId": "cli-k-h-kiran",
+    "clientName": "Nidhi Estates",
+    "contactPerson": "k h kiran",
+    "phone": "9986714760",
+    "email": null,
+    "clientStatus": "active",
+    "projects": [
+      {
+        "id": "proj-kh-kiran",
+        "name": "Marketing",
+        "status": "active",
+        "projectType": "Production",
+        "startDate": null,
+        "endDate": null,
+        "monthlyAmount": null,
+        "contractValue": null,
+        "budget": 20000
+      }
+    ]
+  },
+  {
+    "clientId": "cli-relationship-prajwal",
+    "clientName": "Safewheels Group",
+    "contactPerson": "Prajwal",
+    "phone": "7259588826",
+    "email": null,
+    "clientStatus": "active",
+    "projects": [
+      {
+        "id": "proj-kapila-mgmt",
+        "name": "Kapila Management Software",
+        "status": "active",
+        "projectType": "Dashboard",
+        "startDate": null,
+        "endDate": null,
+        "monthlyAmount": 10000,
+        "contractValue": 0,
+        "budget": 0
+      },
+      {
+        "id": "proj-spice-trip",
+        "name": "Safewheels",
+        "status": "active",
+        "projectType": "ERP",
+        "startDate": null,
+        "endDate": null,
+        "monthlyAmount": 20000,
+        "contractValue": null,
+        "budget": 0
+      }
+    ]
+  },
+  {
+    "clientId": "cli-kannan-sirangapalli",
+    "clientName": "Srivatsanka Events",
+    "contactPerson": "Kannan Sharangapanni",
+    "phone": "9945607074",
+    "email": null,
+    "clientStatus": "active",
+    "projects": [
+      {
+        "id": "proj-kannan",
+        "name": "Srivatsanka Events",
+        "status": "active",
+        "projectType": "CRM",
+        "startDate": null,
+        "endDate": null,
+        "monthlyAmount": 8500,
+        "contractValue": 140000,
+        "budget": 0
+      }
+    ]
+  },
+  {
+    "clientId": "cli-tah",
+    "clientName": "Trust and Hope Rad",
+    "contactPerson": "Asim Pasha",
+    "phone": "8867474000",
+    "email": null,
+    "clientStatus": "active",
+    "projects": [
+      {
+        "id": "proj-tah",
+        "name": "Trust and Hope Rad",
+        "status": "active",
+        "projectType": "Website + Billing System",
+        "startDate": null,
+        "endDate": null,
+        "monthlyAmount": null,
+        "contractValue": null,
+        "budget": 110000
+      }
+    ]
+  }
+]

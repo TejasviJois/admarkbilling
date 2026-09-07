@@ -49,7 +49,6 @@ describe("computeBookedRevenue", () => {
           id: "p1",
           amount: 10_000,
           date: "2026-08-08",
-          method: "upi",
           recordedAfterMigration: true,
         },
       ],

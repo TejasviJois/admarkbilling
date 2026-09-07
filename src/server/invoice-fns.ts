@@ -101,6 +101,30 @@ export const upsertInvoiceFn = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     await assertAppSession();
+
+    if (relationalReadsEnabled()) {
+      let candidate: Invoice = data;
+      for (let attempt = 0; attempt < INVOICE_NUMBER_RETRY_ATTEMPTS; attempt++) {
+        try {
+          await upsertRelationalInvoice(candidate);
+          cacheDel(CACHE_KEYS.invoices);
+          return { ok: true as const, invoice: candidate };
+        } catch (error) {
+          if (!isInvoiceNumberUniqueViolation(error) || attempt === INVOICE_NUMBER_RETRY_ATTEMPTS - 1) {
+            throw error;
+          }
+          const existing = await listRelationalInvoices();
+          const nextNumber = reassignInvoiceNumberOnConflict(
+            candidate,
+            existing.map((invoice) => ({ id: invoice.id, number: invoice.number })),
+          );
+          if (nextNumber === candidate.number) throw error;
+          candidate = { ...candidate, number: nextNumber };
+        }
+      }
+      throw new Error("Could not assign a unique invoice number");
+    }
+
     const sb = requireServerSupabase();
     let candidate: Invoice = data;
 
@@ -151,10 +175,17 @@ export const deleteInvoiceFn = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     await assertAppSession();
+
+    if (relationalReadsEnabled()) {
+      await softDeleteRelationalInvoice(data.id);
+      cacheDel(CACHE_KEYS.invoices);
+      return { ok: true as const };
+    }
+
     const sb = requireServerSupabase();
     const { error } = await sb.from("invoices").delete().eq("id", data.id);
     if (error) throw error;
-    if (relationalReadsEnabled() || relationalDualWritesEnabled()) {
+    if (relationalDualWritesEnabled()) {
       await softDeleteRelationalInvoice(data.id);
     }
     cacheDel(CACHE_KEYS.invoices);
@@ -186,6 +217,13 @@ export const saveCompanyFn = createServerFn({ method: "POST" })
   .inputValidator((data: CompanySettings) => data)
   .handler(async ({ data }) => {
     await assertAppSession();
+
+    if (relationalReadsEnabled()) {
+      await saveRelationalCompany(data);
+      cacheDel(CACHE_KEYS.company);
+      return { ok: true as const };
+    }
+
     const sb = requireServerSupabase();
     const encrypted = encryptCompanySettings(data); // Encrypt on save
     const payload = await externalizeCompanySettings(sb, encrypted);

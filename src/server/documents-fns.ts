@@ -13,6 +13,7 @@ import { externalizeDocumentsData } from "./payload-files";
 import { relationalDualWritesEnabled, relationalReadsEnabled } from "./env";
 import { loadRelationalDocuments } from "./relational-read-repository";
 import { saveRelationalDocuments } from "./relational-write-repository";
+import { bumpLegacyVersionToken, readLegacyVersionToken } from "./legacy-version-token";
 
 const DEFAULT_ORG_ID = "org-admark-digitals";
 
@@ -115,6 +116,41 @@ function parseDocumentsPayload(payload: unknown): DocumentsData {
   return { agreements, archiveDocuments };
 }
 
+function mergeDocumentEntities<T extends { id: string }>(
+  current: T[],
+  upserts: T[],
+  deletes: string[],
+): T[] {
+  if (upserts.length === 0 && deletes.length === 0) return current;
+  const remove = new Set(deletes);
+  const byId = new Map(current.filter((item) => !remove.has(item.id)).map((item) => [item.id, item]));
+  for (const item of upserts) byId.set(item.id, item);
+  return [...byId.values()];
+}
+
+function applyDocumentsMutation(current: DocumentsData, input: SaveDocumentsInput): DocumentsData {
+  return {
+    agreements: mergeDocumentEntities(
+      current.agreements,
+      (input.upserts.agreements ?? []) as Agreement[],
+      input.deletes.agreements ?? [],
+    ),
+    archiveDocuments: mergeDocumentEntities(
+      current.archiveDocuments,
+      (input.upserts.archiveDocuments ?? []) as ArchiveDocument[],
+      input.deletes.archiveDocuments ?? [],
+    ),
+  };
+}
+
+function documentsMutationEmpty(input: SaveDocumentsInput): boolean {
+  for (const key of ["agreements", "archiveDocuments"] as const) {
+    if ((input.deletes[key] ?? []).length > 0) return false;
+    if ((input.upserts[key] ?? []).length > 0) return false;
+  }
+  return true;
+}
+
 export const getDocumentsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<VersionedDocuments> => {
     await assertAppSession();
@@ -166,6 +202,31 @@ export const saveDocumentsFn = createServerFn({ method: "POST" })
       }
     }
     const sb = requireServerSupabase();
+
+    if (relationalReadsEnabled()) {
+      const version = await readLegacyVersionToken("documents");
+      if (version !== data.expectedVersion) {
+        const latest = await loadRelationalDocuments();
+        return { ok: false, conflict: true, data: latest, version };
+      }
+      if (documentsMutationEmpty(data)) {
+        return { ok: true, data: await loadRelationalDocuments(), version };
+      }
+
+      const current = await loadRelationalDocuments();
+      const latest = applyDocumentsMutation(current, data);
+      await saveRelationalDocuments(latest);
+
+      const bumped = await bumpLegacyVersionToken("documents", data.expectedVersion);
+      if (!bumped.ok) {
+        const reloaded = await loadRelationalDocuments();
+        return { ok: false, conflict: true, data: reloaded, version: bumped.version };
+      }
+
+      cacheDel(CACHE_KEYS.documents);
+      return { ok: true, data: latest, version: bumped.version };
+    }
+
     const payload = await externalizeDocumentsData(sb, {
       agreements: (data.upserts.agreements ?? []) as Agreement[],
       archiveDocuments: (data.upserts.archiveDocuments ?? []) as ArchiveDocument[],

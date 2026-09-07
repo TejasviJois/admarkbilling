@@ -118,11 +118,12 @@ export default defineConfig({
       server: { entry: "server" },
       // Split route components into async chunks so `/` does not pay for
       // valuation/invoice/recharts/jspdf on first paint.
-      autoCodeSplitting: true,
+      // Plugin option supported at runtime; types lag behind.
+      ...({ autoCodeSplitting: true } as Record<string, unknown>),
     }),
     nitro({
       preset: "vercel",
-      maxRequestBodySize: 20 * 1024 * 1024,
+      ...({ maxRequestBodySize: 20 * 1024 * 1024 } as Record<string, unknown>),
       routeRules: {
         "/**": {
           headers: {

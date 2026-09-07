@@ -878,6 +878,7 @@ for (const expense of array(ops.expenses)) {
 }
 
 const paymentByLegacy = new Map();
+const paymentTransactionIds = new Set();
 const paymentCandidates = [
   ...array(ops.payments).map((payment) => ({ ...payment, source: "payments" })),
   ...array(ops.projects).flatMap((project) =>
@@ -900,9 +901,14 @@ for (const payment of paymentCandidates) {
       transaction.transaction_date === isoDate(payment.date) &&
       Math.abs(Number(transaction.amount) - Number(payment.amount)) < 0.005 &&
       (!candidateProjectId || transaction.project_id === candidateProjectId) &&
-      (!candidateInvoiceId || transaction.invoice_id === candidateInvoiceId),
+      (!candidateInvoiceId || transaction.invoice_id === candidateInvoiceId) &&
+      !paymentTransactionIds.has(transaction.id),
   );
-  const transactionId = transactionByLegacy.get(legacyId) ?? matchingTransaction?.id;
+  let transactionId = transactionByLegacy.get(legacyId) ?? matchingTransaction?.id ?? null;
+  if (transactionId && paymentTransactionIds.has(transactionId)) {
+    transactionId = null;
+  }
+  if (transactionId) paymentTransactionIds.add(transactionId);
   const invoiceId = candidateInvoiceId;
   const projectId = candidateProjectId;
   const project = array(ops.projects).find((candidate) => candidate.id === payment.projectId);
@@ -959,7 +965,8 @@ for (const event of array(ops.scheduleEvents)) {
     project_id: projectByLegacy.get(String(event.projectId)) ?? null,
     team_member_id: teamByLegacy.get(String(event.teamMemberId)) ?? null,
     title: text(event.title) ?? "Calendar item",
-    calendar_type: event.type === "call" ? "call" : "meeting",
+    calendar_type:
+      event.type === "call" ? "call" : event.type === "reminder" ? "reminder" : "meeting",
     event_date: isoDate(event.date) ?? new Date().toISOString().slice(0, 10),
     start_time: isoTime(event.startTime),
     duration_minutes: number(event.durationMinutes) ?? 30,

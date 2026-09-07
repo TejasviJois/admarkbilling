@@ -9,6 +9,7 @@ import { requireServerSupabase } from "./supabase-admin";
 import { relationalDualWritesEnabled, relationalReadsEnabled } from "./env";
 import { loadRelationalActivityLogs } from "./relational-read-repository";
 import { replaceRelationalActivityLogs } from "./relational-write-repository";
+import { bumpLegacyVersionToken, readLegacyVersionToken } from "./legacy-version-token";
 
 const ROW_ID = "activity_logs";
 const DEFAULT_ORG_ID = "org-admark-digitals";
@@ -40,6 +41,18 @@ function parseActivityLogs(payload: unknown): ActivityLogEntry[] {
         typeof (entry as ActivityLogEntry).summary === "string",
     )
     .map((entry) => ({ ...entry, organizationId: DEFAULT_ORG_ID }));
+}
+
+function applyActivityLogMutation(
+  entries: ActivityLogEntry[],
+  input: SaveActivityLogsInput,
+): ActivityLogEntry[] {
+  const deletes = new Set(input.deletes);
+  const upserts = input.upserts.map((entry) => ({ ...entry, organizationId: DEFAULT_ORG_ID }));
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  for (const id of deletes) byId.delete(id);
+  for (const entry of upserts) byId.set(entry.id, entry);
+  return [...byId.values()].sort((left, right) => right.timestamp - left.timestamp);
 }
 
 export async function readActivityLogsCore(): Promise<VersionedActivityLogs> {
@@ -75,6 +88,32 @@ export async function readActivityLogsCore(): Promise<VersionedActivityLogs> {
 export async function saveActivityLogsCore(
   data: SaveActivityLogsInput,
 ): Promise<SaveActivityLogsResult> {
+  if (relationalReadsEnabled()) {
+    const version = await readLegacyVersionToken(ROW_ID);
+    if (version !== data.expectedVersion) {
+      const entries = await loadRelationalActivityLogs();
+      return { ok: false, conflict: true, entries, version };
+    }
+
+    const current = await loadRelationalActivityLogs();
+    const entries =
+      data.upserts.length === 0 && data.deletes.length === 0
+        ? current
+        : applyActivityLogMutation(current, data);
+
+    if (data.upserts.length > 0 || data.deletes.length > 0) {
+      await replaceRelationalActivityLogs(entries);
+      const bumped = await bumpLegacyVersionToken(ROW_ID, data.expectedVersion);
+      if (!bumped.ok) {
+        const latest = await loadRelationalActivityLogs();
+        return { ok: false, conflict: true, entries: latest, version: bumped.version };
+      }
+      return { ok: true, entries, version: bumped.version };
+    }
+
+    return { ok: true, entries, version };
+  }
+
   const sb = requireServerSupabase();
   const entriesWithTenant = data.upserts.map((entry) => ({
     ...entry,

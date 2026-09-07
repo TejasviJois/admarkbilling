@@ -33,6 +33,8 @@ describe("historical expense reconciliation", () => {
           description: "Opening Balance",
           category: "Opening Balance",
           paymentMethod: "bank_transfer",
+          createdAt: 0,
+          updatedAt: 0,
         },
         {
           id: "tx-gz-historical-expense",
@@ -43,6 +45,8 @@ describe("historical expense reconciliation", () => {
           category: "Historical Expense",
           paymentMethod: "bank_transfer",
           historical: true,
+          createdAt: 0,
+          updatedAt: 0,
         },
       ],
     };

@@ -1359,9 +1359,10 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
       (invoiceRowId ? invoiceClientByRowId.get(invoiceRowId) : null) ??
       null;
     if (!clientRowId) {
-      throw new Error(
-        `Failed to write admark.payments: payment "${seed.legacyId}" has no resolvable client — link it to a known project or invoice.`,
+      console.error(
+        `[relational] Skipping payment "${seed.legacyId}" — no resolvable client (link it to a known project or invoice).`,
       );
+      continue;
     }
     const paymentDate = isoDate(seed.date) ?? today();
     // Mirrored ledger entries share the payment's id; otherwise fall back to the

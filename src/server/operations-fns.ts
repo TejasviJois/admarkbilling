@@ -34,9 +34,11 @@ import { encryptOperationsData, decryptOperationsData } from "@/lib/encryption";
 import { applyProductionBillingRepairs } from "@/lib/ground-zero";
 import {
   applyOperationsMutation,
+  isOperationsMutationEmpty,
   type OperationsEntityKey,
   type OperationsMutation,
 } from "@/lib/operations-mutations";
+import { bumpLegacyVersionToken, readLegacyVersionToken } from "./legacy-version-token";
 
 export type VersionedOperations = {
   data: OperationsData;
@@ -642,7 +644,7 @@ function withPersistedBillingRepairs(
   if (changedProjects.length > 0) {
     const byId = new Map((next.upserts.projects ?? []).map((project) => [project.id, project]));
     for (const project of changedProjects) {
-      byId.set(project.id, project as { id: string } & Record<string, unknown>);
+      byId.set(project.id, project as unknown as { id: string } & Record<string, unknown>);
     }
     next.upserts.projects = [...byId.values()];
   }
@@ -656,7 +658,7 @@ function withPersistedBillingRepairs(
       (next.upserts.transactions ?? []).map((transaction) => [transaction.id, transaction]),
     );
     for (const transaction of changedTransactions) {
-      byId.set(transaction.id, transaction as { id: string } & Record<string, unknown>);
+      byId.set(transaction.id, transaction as unknown as { id: string } & Record<string, unknown>);
     }
     next.upserts.transactions = [...byId.values()];
   }
@@ -751,6 +753,33 @@ export const saveOperationsFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<SaveOperationsMutationResult> => {
     await assertAppSession();
     assertDeletesAuthorized(data);
+
+    if (relationalReadsEnabled()) {
+      const version = await readLegacyVersionToken("default");
+      if (version !== data.expectedVersion) {
+        const latest = await loadRelationalOperations();
+        return { ok: false, conflict: true, data: latest, version };
+      }
+      if (isOperationsMutationEmpty(data.mutation)) {
+        return { ok: true, data: await loadRelationalOperations(), version };
+      }
+
+      const current = await loadRelationalOperations();
+      const finalized = applyProductionBillingRepairs(
+        applyOperationsMutation(current, data.mutation),
+      );
+      await saveRelationalOperations(finalized);
+
+      const bumped = await bumpLegacyVersionToken("default", data.expectedVersion);
+      if (!bumped.ok) {
+        const latest = await loadRelationalOperations();
+        return { ok: false, conflict: true, data: latest, version: bumped.version };
+      }
+
+      cacheDel(CACHE_KEYS.operations);
+      return { ok: true, data: finalized, version: bumped.version };
+    }
+
     const sb = requireServerSupabase();
 
     const { data: currentRow, error: currentError } = await sb
