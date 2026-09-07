@@ -108,6 +108,18 @@ export function syncInvoicePaymentToProjects(
       if (without.length === (project.payments ?? []).length) return project;
       return syncPaymentStatusFromPayments({ ...project, payments: without });
     }
+    // Accounts may already have recorded the same receipt as a client_payment.
+    // Prefer that row — adding invoice-recv-* would double outstanding reduction
+    // (Srivatsanka 10k shown vs real 60k).
+    const coveredByAccounts = without.some(
+      (item) =>
+        item.recordedAfterMigration === true &&
+        item.amount === payment.amount &&
+        !item.id.startsWith("invoice-recv-"),
+    );
+    if (coveredByAccounts) {
+      return syncPaymentStatusFromPayments({ ...project, payments: without });
+    }
     return syncPaymentStatusFromPayments({
       ...project,
       payments: [nextPayment, ...without],

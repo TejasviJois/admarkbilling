@@ -140,16 +140,15 @@ export function syncPaymentStatusFromPayments(project: Project): Project {
   }
 
   const total = historical + sumReceivedAfterMigration(project);
-  const target = contractTargetFromProject(project);
+  const target = contractTargetFromProject({
+    ...project,
+    historicalOutstanding:
+      typeof project.historicalOutstanding === "number"
+        ? project.historicalOutstanding
+        : undefined,
+  });
   const parts = [`${formatINRWhole(total)} received`];
-  const pending =
-    project.historicalOutstanding !== undefined
-      ? project.historicalOutstanding == null
-        ? null
-        : Math.max(0, project.historicalOutstanding - sumReceivedAfterMigration(project))
-      : target != null
-        ? Math.max(0, target - total)
-        : null;
+  const pending = outstandingBalance(project);
 
   if (payments.length > 1) parts.push(`${payments.length} payments`);
   if (pending != null && pending > 0) parts.push(`${formatINRWhole(pending)} remaining`);
@@ -205,6 +204,44 @@ export function normalizeAllProjectPayments(projects: Project[]): Project[] {
   return projects.map(normalizeProjectPayments);
 }
 
+/**
+ * Pure monthly retainers (Kapila-style) lock outstanding to `null`.
+ * One-time contracts with SQL NULL historical_outstanding must still use
+ * contract − received — otherwise Projects shows "—" for Avighna etc.
+ */
+function isPureMonthlyRetainer(project: Project): boolean {
+  const monthly = project.billing?.monthlyAmount ?? 0;
+  if (!(monthly > 0)) return false;
+  if (typeof project.historicalOutstanding === "number") return false;
+  const target = contractTargetFromProject({
+    ...project,
+    // Ignore the null lock while probing whether a one-time contract exists.
+    historicalOutstanding: undefined,
+  });
+  return target == null;
+}
+
+/** Outstanding balance for display and KPIs. */
+export function outstandingBalance(project: Project): number | null {
+  const receivedAfterMigration = sumReceivedAfterMigration(project);
+  if (typeof project.historicalOutstanding === "number") {
+    return Math.max(0, project.historicalOutstanding - receivedAfterMigration);
+  }
+  if (project.historicalOutstanding === null && isPureMonthlyRetainer(project)) {
+    return null;
+  }
+  const received = historicalReceived(project) + receivedAfterMigration;
+  const target = contractTargetFromProject({
+    ...project,
+    historicalOutstanding:
+      typeof project.historicalOutstanding === "number"
+        ? project.historicalOutstanding
+        : undefined,
+  });
+  if (target == null) return null;
+  return Math.max(0, target - received);
+}
+
 export function paymentSummary(project: Project): {
   /** Total Received = Historical Received + Received After Migration. */
   received: number;
@@ -218,22 +255,24 @@ export function paymentSummary(project: Project): {
   const receivedAfterMigration = sumReceivedAfterMigration(project);
   const historical = historicalReceived(project);
   const received = historical + receivedAfterMigration;
-  const target = contractTargetFromProject(project);
-  const pending =
-    project.historicalOutstanding !== undefined
-      ? project.historicalOutstanding == null
-        ? null
-        : Math.max(0, project.historicalOutstanding - receivedAfterMigration)
-      : target != null && received < target
-        ? target - received
-        : target != null
-          ? 0
-          : null;
+  const target = contractTargetFromProject({
+    ...project,
+    historicalOutstanding:
+      typeof project.historicalOutstanding === "number"
+        ? project.historicalOutstanding
+        : undefined,
+  });
+  // Prefer GZ numeric lock for the Contract value column when present.
+  const displayTarget =
+    typeof project.historicalOutstanding === "number"
+      ? contractTargetFromProject(project)
+      : target;
+  const pending = outstandingBalance(project);
   return {
     received,
     historicalReceived: historical,
     receivedAfterMigration,
-    target,
+    target: displayTarget ?? target,
     pending,
     count: payments.length,
   };
