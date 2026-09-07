@@ -1,5 +1,5 @@
 /** Browser session cache — instant stale-while-revalidate (CDN-like on the client). */
-const PREFIX = "admark.cache.v2:";
+const PREFIX = "admark.cache.v3:";
 const TTL_MS = 5 * 60_000;
 
 type Entry<T> = { v: T; at: number };

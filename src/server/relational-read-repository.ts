@@ -13,6 +13,7 @@ import {
   decodeArchiveDocumentNotes,
   inferDocumentLibrary,
   isArchiveDocumentType,
+  normalizeCompanyName,
   parseArchiveDocumentType,
 } from "@/lib/document-vault";
 import { decodeLeadNotesFromStorage } from "@/lib/lead-stats";
@@ -1589,6 +1590,34 @@ export async function loadRelationalDocuments(): Promise<DocumentsData> {
   ]);
   const clientLegacyById = new Map(clientRows.map((row) => [row.id, legacyIdOf(row)]));
   const clientNameById = new Map(clientRows.map((row) => [row.id, row.company_name]));
+  const clientIdByNormalizedName = new Map<string, string>();
+  for (const row of clientRows) {
+    const key = normalizeCompanyName(row.company_name).toLowerCase().replace(/[^a-z0-9]+/g, "");
+    if (key && !clientIdByNormalizedName.has(key)) clientIdByNormalizedName.set(key, legacyIdOf(row));
+  }
+  // Renamed CRM clients vs older document uploads.
+  const CLIENT_DOC_ALIASES: Record<string, string> = {
+    "cli-srivatsanka-catering-events-services": "cli-kannan-sirangapalli",
+    "cli-avighna-consultancy-services": "cli-avighna",
+    srivatsankacateringeventsservices: "cli-kannan-sirangapalli",
+    avighnaconsultancyservices: "cli-avighna",
+  };
+  function resolveClientLegacyId(
+    storedClientId: string | undefined,
+    companyName: string | undefined,
+  ): string | undefined {
+    if (storedClientId) {
+      const aliased = CLIENT_DOC_ALIASES[storedClientId] ?? storedClientId;
+      if ([...clientLegacyById.values()].includes(aliased)) return aliased;
+    }
+    const key = normalizeCompanyName(companyName).toLowerCase().replace(/[^a-z0-9]+/g, "");
+    if (!key) return storedClientId;
+    const alias = CLIENT_DOC_ALIASES[key];
+    if (alias && [...clientLegacyById.values()].includes(alias)) return alias;
+    if (clientIdByNormalizedName.has(key)) return clientIdByNormalizedName.get(key);
+    return storedClientId;
+  }
+
   const documentByAgreement = new Map<string, DocumentRow>();
   for (const doc of documentRows) {
     if (doc.agreement_id && !documentByAgreement.has(doc.agreement_id)) {
@@ -1631,29 +1660,35 @@ export async function loadRelationalDocuments(): Promise<DocumentsData> {
       const documentType: ArchiveDocument["documentType"] = isArchiveDocumentType(typeLabel)
         ? typeLabel
         : "other";
-      const clientId = row.client_id
+      const linkedClientLegacy = row.client_id
         ? (clientLegacyById.get(row.client_id) ?? row.client_id)
         : undefined;
       const linkedClientName = row.client_id ? clientNameById.get(row.client_id) : undefined;
       const companyName =
-        meta.companyName || linkedClientName || (clientId ? "Unknown company" : "Admark");
-      const library = inferDocumentLibrary({
+        meta.companyName || linkedClientName || (linkedClientLegacy ? "Unknown company" : "Admark");
+      // Prefer explicit library from type/meta — never let a coincidental client_id
+      // promote a proposal/preclient file into the client library.
+      let library = inferDocumentLibrary({
         library: meta.library ?? encodedLibrary,
-        clientId,
+        clientId: undefined,
         documentType,
       });
+      let clientId: string | undefined;
+      if (library === "client") {
+        clientId = resolveClientLegacyId(linkedClientLegacy, companyName);
+        // Orphan client-library files (CRM id renamed) — keep visible under Proposals.
+        if (!clientId) library = "preclient";
+      }
       return {
         id: legacyIdOf(row).replace(/^archive-document-/, ""),
         organizationId: org.legacyId,
         title: row.title,
         documentType,
         customType:
-          documentType === "other"
-            ? meta.customType || typeLabel || "Other"
-            : undefined,
+          documentType === "other" ? meta.customType || typeLabel || "Other" : undefined,
         library,
         companyName,
-        clientId,
+        clientId: library === "client" ? clientId : undefined,
         clientName: companyName,
         projectId: meta.projectId,
         assignedMemberIds:

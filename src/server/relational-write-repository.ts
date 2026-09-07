@@ -2145,6 +2145,28 @@ export async function saveRelationalDocuments(data: DocumentsData): Promise<void
     if (key && !row.deleted_at && !clientIdByName.has(key)) clientIdByName.set(key, row.id);
   }
   const companyId = companyRow?.id ?? stableUuid("company", org.legacyId);
+  const CLIENT_DOC_ALIASES: Record<string, string> = {
+    "cli-srivatsanka-catering-events-services": "cli-kannan-sirangapalli",
+    "cli-avighna-consultancy-services": "cli-avighna",
+    srivatsankacateringeventsservices: "cli-kannan-sirangapalli",
+    avighnaconsultancyservices: "cli-avighna",
+  };
+  function resolveArchiveClientRowId(document: {
+    clientId?: string;
+    clientName?: string;
+    companyName?: string;
+  }): string | null {
+    const rawId = text(document.clientId);
+    const aliasedLegacy = rawId ? (CLIENT_DOC_ALIASES[rawId] ?? rawId) : null;
+    const byLegacy = aliasedLegacy ? clientIds.lookup(aliasedLegacy) : null;
+    if (byLegacy) return byLegacy;
+    const nameKey = normalizeName(document.clientName || document.companyName);
+    if (nameKey && CLIENT_DOC_ALIASES[nameKey]) {
+      const viaAlias = clientIds.lookup(CLIENT_DOC_ALIASES[nameKey]);
+      if (viaAlias) return viaAlias;
+    }
+    return nameKey ? (clientIdByName.get(nameKey) ?? null) : null;
+  }
 
   const agreementBatch = new RowBatch();
   const documentBatch = new RowBatch();
@@ -2194,12 +2216,10 @@ export async function saveRelationalDocuments(data: DocumentsData): Promise<void
   for (const document of docs.archiveDocuments ?? []) {
     const legacyId = requireLegacyId("archive documents", document.id);
     const library = inferDocumentLibrary(document);
-    const clientRowId =
-      clientIds.lookup(document.clientId) ??
-      clientIdByName.get(normalizeName(document.clientName || document.companyName)) ??
-      null;
-    // Vault / proposals / pre-client files often have no client — own them by company
-    // so the single-owner check passes and soft-delete cannot wipe them on the next save.
+    // Only the client library is owned by a CRM client. Proposals / pre-client /
+    // vault stay company-owned so name collisions with CRM rows cannot pull them
+    // into Clients (or hide them when the old reader required client_id).
+    const clientRowId = library === "client" ? resolveArchiveClientRowId(document) : null;
     const owner = clientRowId ? { client_id: clientRowId } : { company_id: companyId };
     const documentRow = buildDocumentRow(org.id, archiveDocumentIds, {
       legacyId: `archive-document-${legacyId}`,
