@@ -330,3 +330,100 @@ export function displayDocumentDate(timestamp: number): string {
     year: "numeric",
   }).format(new Date(timestamp));
 }
+
+/** Prefix for archive metadata stashed in `admark.documents.notes`. */
+export const ARCHIVE_DOCUMENT_META_PREFIX = "admark-archive-v1:";
+
+export type ArchiveDocumentStoredMeta = {
+  library: DocumentLibrary;
+  companyName?: string;
+  customType?: string;
+  assignedMemberIds?: string[];
+  projectId?: string;
+};
+
+function archiveTypeLabel(
+  documentType: ArchiveDocumentType,
+  customType: string | undefined,
+): string {
+  if (documentType !== "other") return documentType;
+  return (
+    customType
+      ?.trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "other"
+  );
+}
+
+/** `archive:{library}:{type}` so proposals/vault/client survive the relational round-trip. */
+export function encodeArchiveDocumentType(
+  library: DocumentLibrary,
+  documentType: ArchiveDocumentType,
+  customType?: string,
+): string {
+  return `archive:${library}:${archiveTypeLabel(documentType, customType)}`;
+}
+
+export function parseArchiveDocumentType(documentType: string): {
+  library?: DocumentLibrary;
+  typeLabel: string;
+} {
+  if (!documentType.startsWith("archive:")) return { typeLabel: "other" };
+  const rest = documentType.slice("archive:".length);
+  const colon = rest.indexOf(":");
+  if (colon > 0) {
+    const maybeLibrary = rest.slice(0, colon);
+    if (isDocumentLibrary(maybeLibrary)) {
+      return { library: maybeLibrary, typeLabel: rest.slice(colon + 1) || "other" };
+    }
+  }
+  return { typeLabel: rest || "other" };
+}
+
+/** Pack library / assignees / company into notes; human notes follow on the next line. */
+export function encodeArchiveDocumentNotes(doc: ArchiveDocument): string {
+  const library = inferDocumentLibrary(doc);
+  const companyName = normalizeCompanyName(doc.companyName || doc.clientName) || undefined;
+  const meta: ArchiveDocumentStoredMeta = {
+    library,
+    companyName,
+    customType: doc.documentType === "other" ? doc.customType : undefined,
+    assignedMemberIds: doc.assignedMemberIds,
+    projectId: doc.projectId,
+  };
+  const body = (doc.notes ?? "").trim();
+  return `${ARCHIVE_DOCUMENT_META_PREFIX}${JSON.stringify(meta)}${body ? `\n${body}` : ""}`;
+}
+
+export function decodeArchiveDocumentNotes(notes: string | null | undefined): {
+  meta: Partial<ArchiveDocumentStoredMeta>;
+  notes?: string;
+} {
+  const raw = (notes ?? "").trim();
+  if (!raw.startsWith(ARCHIVE_DOCUMENT_META_PREFIX)) {
+    return { meta: {}, notes: raw || undefined };
+  }
+  const rest = raw.slice(ARCHIVE_DOCUMENT_META_PREFIX.length);
+  const nl = rest.indexOf("\n");
+  const jsonPart = nl === -1 ? rest : rest.slice(0, nl);
+  const body = nl === -1 ? "" : rest.slice(nl + 1).trim();
+  try {
+    const parsed = JSON.parse(jsonPart) as ArchiveDocumentStoredMeta;
+    if (!parsed || typeof parsed !== "object") return { meta: {}, notes: body || undefined };
+    return {
+      meta: {
+        library: isDocumentLibrary(parsed.library) ? parsed.library : undefined,
+        companyName: normalizeCompanyName(parsed.companyName) || undefined,
+        customType: typeof parsed.customType === "string" ? parsed.customType : undefined,
+        assignedMemberIds: Array.isArray(parsed.assignedMemberIds)
+          ? parsed.assignedMemberIds.filter((id): id is string => typeof id === "string")
+          : undefined,
+        projectId: typeof parsed.projectId === "string" ? parsed.projectId : undefined,
+      },
+      notes: body || undefined,
+    };
+  } catch {
+    return { meta: {}, notes: raw || undefined };
+  }
+}

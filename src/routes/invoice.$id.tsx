@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { NewInvoiceLink } from "@/components/invoice/NewInvoiceLink";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Download,
@@ -17,6 +17,16 @@ import InvoicePreview from "@/components/invoice/InvoicePreview";
 import { PaymentFormDialog } from "@/components/invoice/PaymentFormDialog";
 import { useOperations } from "@/hooks/use-operations";
 import { deriveInvoiceStatus, calculateInvoicePayments, formatINR } from "@/lib/invoice-calc";
+import {
+  invoiceProjectCandidates,
+  resolveRelatedProject,
+} from "@/lib/invoice-project-link";
+import { paymentSummary } from "@/lib/project-payments";
+import {
+  invoicePaymentProjectPaymentId,
+  removeInvoicePaymentFromProjects,
+  syncInvoicePaymentToProjects,
+} from "@/lib/project-payment-sync";
 import { downloadPaymentReceiptPdf, sharePaymentReceiptPdf } from "@/lib/payment-receipt-pdf";
 import type { CompanySettings, Invoice, Payment } from "@/lib/types";
 
@@ -109,6 +119,61 @@ function InvoicePage() {
     .filter((p) => p.invoiceId === id)
     .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
 
+  const projectOptions = useMemo(() => {
+    if (!invoice) return [];
+    return invoiceProjectCandidates(ops.projects ?? [], invoice).map((project) => ({
+      id: project.id,
+      label: `${project.name} · ${project.client}`,
+      outstanding: paymentSummary(project).pending,
+    }));
+  }, [invoice, ops.projects]);
+
+  const defaultProjectId = useMemo(() => {
+    if (!invoice) return undefined;
+    return resolveRelatedProject(ops.projects ?? [], invoice)?.id;
+  }, [invoice, ops.projects]);
+
+  const backfillDoneFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (phase !== "ready" || !invoice || backfillDoneFor.current === invoice.id) return;
+    const linkedPayments = (ops.payments ?? []).filter(
+      (payment) =>
+        payment.invoiceId === invoice.id &&
+        payment.amount > 0 &&
+        !payment.id.startsWith("invoice-advance-"),
+    );
+    if (linkedPayments.length === 0) {
+      backfillDoneFor.current = invoice.id;
+      return;
+    }
+    let nextProjects = ops.projects ?? [];
+    let changed = false;
+    let unresolved = false;
+    for (const payment of linkedPayments) {
+      const mirrorId = invoicePaymentProjectPaymentId(payment.id);
+      const relatedId =
+        payment.projectId ?? resolveRelatedProject(nextProjects, invoice)?.id;
+      if (!relatedId) {
+        unresolved = true;
+        continue;
+      }
+      const already = nextProjects.some(
+        (project) =>
+          project.id === relatedId &&
+          (project.payments ?? []).some((item) => item.id === mirrorId),
+      );
+      if (already) continue;
+      nextProjects = syncInvoicePaymentToProjects(nextProjects, [invoice], {
+        ...payment,
+        projectId: payment.projectId ?? relatedId,
+      });
+      changed = true;
+    }
+    if (!unresolved) backfillDoneFor.current = invoice.id;
+    if (!changed) return;
+    persistOps({ ...ops, projects: nextProjects });
+  }, [phase, invoice, ops, persistOps]);
+
   const derivedInvoice = invoice
     ? {
         ...invoice,
@@ -129,9 +194,14 @@ function InvoicePage() {
           .filter((p) => p.invoiceId === inv.id)
           .map((p) => p.id);
         if (removedPaymentIds.length > 0) {
+          let projects = ops.projects ?? [];
+          for (const payId of removedPaymentIds) {
+            projects = removeInvoicePaymentFromProjects(projects, payId);
+          }
           persistOps(
             {
               ...ops,
+              projects,
               payments: (ops.payments ?? []).filter((p) => p.invoiceId !== inv.id),
             },
             { deleteIds: { payments: removedPaymentIds } },
@@ -144,9 +214,14 @@ function InvoicePage() {
 
   const handleSavePayment = (payment: Payment) => {
     if (!invoice) return;
+    const withProject: Payment = {
+      ...payment,
+      projectId: payment.projectId ?? defaultProjectId,
+    };
     persistOps({
       ...ops,
-      payments: [...(ops.payments ?? []), payment],
+      payments: [...(ops.payments ?? []), withProject],
+      projects: syncInvoicePaymentToProjects(ops.projects ?? [], [invoice], withProject),
     });
   };
 
@@ -156,6 +231,7 @@ function InvoicePage() {
       {
         ...ops,
         payments: (ops.payments ?? []).filter((p) => p.id !== payId),
+        projects: removeInvoicePaymentFromProjects(ops.projects ?? [], payId),
       },
       { deleteIds: { payments: [payId] } },
     );
@@ -425,6 +501,8 @@ function InvoicePage() {
         invoiceId={invoice.id}
         onSave={handleSavePayment}
         outstandingBalance={outstandingBalance}
+        projectOptions={projectOptions}
+        defaultProjectId={defaultProjectId}
       />
     </div>
   );

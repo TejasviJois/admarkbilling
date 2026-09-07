@@ -23,6 +23,11 @@
  */
 import { createHash } from "node:crypto";
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
+import {
+  encodeArchiveDocumentNotes,
+  encodeArchiveDocumentType,
+  inferDocumentLibrary,
+} from "@/lib/document-vault";
 import { encodeLeadNotesForStorage } from "@/lib/lead-stats";
 import type {
   ActivityLogEntry,
@@ -2103,7 +2108,7 @@ export async function saveRelationalDocuments(data: DocumentsData): Promise<void
   const db = admarkDb(sb);
   const org = await resolveOrganization(db);
 
-  const [agreementRows, documentRows, allDocumentRows, clientRows] = await Promise.all([
+  const [agreementRows, documentRows, allDocumentRows, clientRows, companyRow] = await Promise.all([
     fetchExistingRows<ExistingRow>(db, "agreements", org.id, "id, legacy_id, deleted_at"),
     fetchExistingRows<ExistingRow>(
       db,
@@ -2124,6 +2129,7 @@ export async function saveRelationalDocuments(data: DocumentsData): Promise<void
       org.id,
       "id, legacy_id, deleted_at, company_name",
     ),
+    fetchSingletonRow<{ id: string }>(db, "companies", org.id, "id"),
   ]);
   const archiveDocumentRows = allDocumentRows.filter((row) =>
     String((row as ExistingRow & { document_type?: string }).document_type).startsWith("archive:"),
@@ -2138,9 +2144,12 @@ export async function saveRelationalDocuments(data: DocumentsData): Promise<void
     const key = normalizeName(row.company_name);
     if (key && !row.deleted_at && !clientIdByName.has(key)) clientIdByName.set(key, row.id);
   }
+  const companyId = companyRow?.id ?? stableUuid("company", org.legacyId);
 
   const agreementBatch = new RowBatch();
   const documentBatch = new RowBatch();
+  const agreementDocumentKept = new Set<string>();
+  const archiveDocumentKept = new Set<string>();
   for (const agreement of docs.agreements ?? []) {
     const legacyId = requireLegacyId("agreements", agreement.id);
     const id = agreementIds.resolve(legacyId);
@@ -2177,33 +2186,40 @@ export async function saveRelationalDocuments(data: DocumentsData): Promise<void
       notes: agreement.notes,
       owner: { agreement_id: id },
     });
-    if (documentRow) documentBatch.add(documentRow);
+    if (documentRow) {
+      documentBatch.add(documentRow);
+      agreementDocumentKept.add(documentRow.id);
+    }
   }
   for (const document of docs.archiveDocuments ?? []) {
     const legacyId = requireLegacyId("archive documents", document.id);
+    const library = inferDocumentLibrary(document);
     const clientRowId =
       clientIds.lookup(document.clientId) ??
-      clientIdByName.get(normalizeName(document.clientName)) ??
+      clientIdByName.get(normalizeName(document.clientName || document.companyName)) ??
       null;
-    if (!clientRowId) continue;
-    const typeLabel =
-      document.documentType === "other"
-        ? text(document.customType)
-            ?.toLowerCase()
-            .replace(/[^a-z0-9_-]+/g, "-") || "other"
-        : document.documentType;
+    // Vault / proposals / pre-client files often have no client — own them by company
+    // so the single-owner check passes and soft-delete cannot wipe them on the next save.
+    const owner = clientRowId ? { client_id: clientRowId } : { company_id: companyId };
     const documentRow = buildDocumentRow(org.id, archiveDocumentIds, {
       legacyId: `archive-document-${legacyId}`,
       title: text(document.title) ?? "Untitled document",
-      documentType: `archive:${typeLabel}`,
+      documentType: encodeArchiveDocumentType(library, document.documentType, document.customType),
       fileUrl: document.fileDataUrl,
       externalUrl: document.externalUrl,
       fileName: document.fileName,
       mimeType: document.mimeType,
-      notes: document.notes,
-      owner: { client_id: clientRowId },
+      notes: encodeArchiveDocumentNotes({ ...document, library }),
+      owner,
     });
-    if (documentRow) documentBatch.add(documentRow);
+    if (documentRow) {
+      documentBatch.add(documentRow);
+      archiveDocumentKept.add(documentRow.id);
+    } else {
+      console.error(
+        `[relational] Skipping archive document "${legacyId}" — needs a file_url or external_url.`,
+      );
+    }
   }
 
   await upsertRows(db, "agreements", agreementBatch.rows);
@@ -2212,11 +2228,11 @@ export async function saveRelationalDocuments(data: DocumentsData): Promise<void
   const agreementDocumentActiveIds = new Set(
     documentRows.filter((row) => !row.deleted_at).map((row) => row.id),
   );
-  await softDeleteOmitted(db, "documents", org.id, agreementDocumentActiveIds, documentBatch.ids);
+  await softDeleteOmitted(db, "documents", org.id, agreementDocumentActiveIds, agreementDocumentKept);
   const archiveDocumentActiveIds = new Set(
     archiveDocumentRows.filter((row) => !row.deleted_at).map((row) => row.id),
   );
-  await softDeleteOmitted(db, "documents", org.id, archiveDocumentActiveIds, documentBatch.ids);
+  await softDeleteOmitted(db, "documents", org.id, archiveDocumentActiveIds, archiveDocumentKept);
   await softDeleteOmitted(db, "agreements", org.id, agreementIds.activeIds, agreementBatch.ids);
 }
 

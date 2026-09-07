@@ -9,7 +9,12 @@
  */
 import type { PostgrestError } from "@supabase/supabase-js";
 import { applyProductionBillingRepairs } from "@/lib/ground-zero";
-import { isArchiveDocumentType } from "@/lib/document-vault";
+import {
+  decodeArchiveDocumentNotes,
+  inferDocumentLibrary,
+  isArchiveDocumentType,
+  parseArchiveDocumentType,
+} from "@/lib/document-vault";
 import { decodeLeadNotesFromStorage } from "@/lib/lead-stats";
 import type {
   ActivityAction,
@@ -1619,29 +1624,47 @@ export async function loadRelationalDocuments(): Promise<DocumentsData> {
     })
     .sort((a, b) => a.createdAt - b.createdAt);
   const archiveDocuments = documentRows
-    .filter((row) => row.document_type.startsWith("archive:") && row.client_id)
+    .filter((row) => row.document_type.startsWith("archive:"))
     .map((row): ArchiveDocument => {
-      const storedType = row.document_type.slice("archive:".length);
-      const documentType: ArchiveDocument["documentType"] = isArchiveDocumentType(storedType)
-        ? storedType
+      const { library: encodedLibrary, typeLabel } = parseArchiveDocumentType(row.document_type);
+      const { meta, notes } = decodeArchiveDocumentNotes(row.notes);
+      const documentType: ArchiveDocument["documentType"] = isArchiveDocumentType(typeLabel)
+        ? typeLabel
         : "other";
-      const clientId = clientLegacyById.get(row.client_id!) ?? row.client_id!;
-      const clientName = clientNameById.get(row.client_id!) ?? "Unknown company";
+      const clientId = row.client_id
+        ? (clientLegacyById.get(row.client_id) ?? row.client_id)
+        : undefined;
+      const linkedClientName = row.client_id ? clientNameById.get(row.client_id) : undefined;
+      const companyName =
+        meta.companyName || linkedClientName || (clientId ? "Unknown company" : "Admark");
+      const library = inferDocumentLibrary({
+        library: meta.library ?? encodedLibrary,
+        clientId,
+        documentType,
+      });
       return {
         id: legacyIdOf(row).replace(/^archive-document-/, ""),
         organizationId: org.legacyId,
         title: row.title,
         documentType,
-        customType: documentType === "other" ? storedType || "Other" : undefined,
-        library: "client",
-        companyName: clientName,
+        customType:
+          documentType === "other"
+            ? meta.customType || typeLabel || "Other"
+            : undefined,
+        library,
+        companyName,
         clientId,
-        clientName,
+        clientName: companyName,
+        projectId: meta.projectId,
+        assignedMemberIds:
+          meta.assignedMemberIds && meta.assignedMemberIds.length > 0
+            ? meta.assignedMemberIds
+            : undefined,
         fileDataUrl: orUndefined(row.file_url),
         fileName: orUndefined(row.file_name),
         mimeType: orUndefined(row.mime_type),
         externalUrl: orUndefined(row.external_url),
-        notes: orUndefined(row.notes),
+        notes,
         createdAt: toMillis(row.created_at, Date.now()),
         updatedAt: toMillis(row.updated_at, Date.now()),
       };
