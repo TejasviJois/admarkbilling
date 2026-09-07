@@ -26,7 +26,7 @@ import {
   syncAccountTransactionToProjects,
 } from "@/lib/project-payment-sync";
 import { liveCashflowMonths } from "@/lib/analytics";
-import { calendarMonthKey, formatCalendarMonthLabel, isInCalendarMonth } from "@/lib/date-range-filter";
+import { formatCalendarMonthLabel, isInCalendarMonth } from "@/lib/date-range-filter";
 import { paymentSummary } from "@/lib/project-payments";
 import { formatINR } from "@/lib/invoice-calc";
 import type { Project, Transaction, TransactionType } from "@/lib/types";
@@ -85,7 +85,7 @@ const filterSelectClass =
 function AccountsPage() {
   const { ops, persist, loading: operationsLoading } = useOperations();
   const [movementFilter, setMovementFilter] = useState<MovementFilter>("all");
-  const [month, setMonth] = useState(() => calendarMonthKey());
+  const [month, setMonth] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [clientFilter, setClientFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");

@@ -18,7 +18,7 @@ import { isServerApiConfigured } from "@/lib/backend-status-cache";
 import { safeLocalStorageSet } from "./browser-storage";
 import type { OperationsMutation, OperationsPersistOptions } from "./operations-mutations";
 
-const OPERATIONS_KEY = "admark.operations";
+const OPERATIONS_KEY = "admark.operations.v2";
 
 function isBrowser() {
   return typeof window !== "undefined" && typeof localStorage !== "undefined";

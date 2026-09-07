@@ -1,7 +1,7 @@
 export const queryKeys = {
-  operations: ["operations"] as const,
-  documents: ["documents"] as const,
-  invoices: ["invoices"] as const,
-  company: ["company"] as const,
+  operations: ["operations", "v2"] as const,
+  documents: ["documents", "v2"] as const,
+  invoices: ["invoices", "v2"] as const,
+  company: ["company", "v2"] as const,
   backendStatus: ["backend-status"] as const,
 };
