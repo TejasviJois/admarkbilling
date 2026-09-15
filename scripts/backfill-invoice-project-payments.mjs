@@ -3,6 +3,8 @@
  *
  * Usage: node scripts/backfill-invoice-project-payments.mjs
  */
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck(import.meta.url);
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";

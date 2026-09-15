@@ -23,15 +23,13 @@ import { DEFAULT_FINANCIAL_BASELINE } from "@/lib/default-financial-baseline";
 import { parseSalaryMonthPayments } from "@/lib/team-payroll";
 import { normalizeValuationSettings } from "@/lib/valuation-engine";
 import { requireServerSupabase } from "./supabase-admin";
-import { relationalDualWritesEnabled, relationalReadsEnabled } from "./env";
+import { assertRelationalMode } from "./env";
 import { loadRelationalOperations } from "./relational-read-repository";
 import { saveRelationalOperations } from "./relational-write-repository";
 import { assertAppSession } from "./app-session";
-import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
-import { externalizeOperationsData } from "./payload-files";
-import { relinkOrphanedPaymentProofs } from "./relink-payment-proofs";
-import { encryptOperationsData, decryptOperationsData } from "@/lib/encryption";
+import { CACHE_KEYS, cacheSet, cacheThrough } from "./data-cache";
 import { applyProductionBillingRepairs } from "@/lib/ground-zero";
+import { parseOpsExpenseNotes } from "@/lib/ops-costs";
 import {
   applyOperationsMutation,
   isOperationsMutationEmpty,
@@ -102,6 +100,29 @@ function parseFixedMonthlyExpense(raw: unknown): FixedMonthlyExpense | null {
   ) {
     return null;
   }
+  const fromNotes = parseOpsExpenseNotes(typeof e.notes === "string" ? e.notes : undefined);
+  const totalAmount =
+    typeof e.totalAmount === "number" && Number.isFinite(e.totalAmount) && e.totalAmount > 0
+      ? e.totalAmount
+      : typeof e.totalAmount === "string" && Number(e.totalAmount) > 0
+        ? Number(e.totalAmount)
+        : fromNotes.meta.totalAmount;
+  const priorPaidAmount =
+    typeof e.priorPaidAmount === "number" &&
+    Number.isFinite(e.priorPaidAmount) &&
+    e.priorPaidAmount > 0
+      ? e.priorPaidAmount
+      : typeof e.priorPaidAmount === "string" && Number(e.priorPaidAmount) > 0
+        ? Number(e.priorPaidAmount)
+        : fromNotes.meta.priorPaidAmount;
+  const priorPaidInstallments =
+    typeof e.priorPaidInstallments === "number" &&
+    Number.isFinite(e.priorPaidInstallments) &&
+    e.priorPaidInstallments > 0
+      ? Math.floor(e.priorPaidInstallments)
+      : typeof e.priorPaidInstallments === "string" && Number(e.priorPaidInstallments) > 0
+        ? Math.floor(Number(e.priorPaidInstallments))
+        : fromNotes.meta.priorPaidInstallments;
   return {
     id: e.id,
     label: e.label,
@@ -114,6 +135,9 @@ function parseFixedMonthlyExpense(raw: unknown): FixedMonthlyExpense | null {
       typeof e.totalMonths === "number" && e.totalMonths > 0
         ? Math.floor(e.totalMonths)
         : undefined,
+    totalAmount,
+    priorPaidInstallments,
+    priorPaidAmount,
     reminderDay:
       typeof e.reminderDay === "number" && e.reminderDay >= 1 && e.reminderDay <= 31
         ? Math.floor(e.reminderDay)
@@ -130,8 +154,20 @@ function parseFixedMonthlyExpense(raw: unknown): FixedMonthlyExpense | null {
         : e.active === false
           ? "paused"
           : "active",
-    notes: e.notes,
+    notes: fromNotes.notes,
     active: e.status === "completed" || e.status === "paused" ? false : e.active !== false,
+    nextDueDate:
+      typeof e.nextDueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(e.nextDueDate)
+        ? e.nextDueDate
+        : fromNotes.meta.nextDueDate,
+    billingCycle:
+      e.billingCycle === "yearly" || e.billingCycle === "monthly"
+        ? e.billingCycle
+        : fromNotes.meta.billingCycle,
+    vendor:
+      typeof e.vendor === "string" && e.vendor.trim()
+        ? e.vendor.trim()
+        : fromNotes.meta.vendor,
   };
 }
 
@@ -614,103 +650,20 @@ function parseOperationsPayload(
   return applyBillingRepairs ? applyProductionBillingRepairs(parsed) : parsed;
 }
 
-function withPersistedBillingRepairs(
-  raw: OperationsData,
-  finalized: OperationsData,
-  mutation: OperationsMutation,
-): OperationsMutation {
-  const needsPersist =
-    !raw.kapilaRetainerRepairApplied ||
-    !raw.rentManagementContractRepairApplied ||
-    !raw.historicalExpenseReconciliationApplied;
-  if (!needsPersist) return mutation;
-
-  const next: OperationsMutation = {
-    upserts: { ...mutation.upserts },
-    deletes: { ...mutation.deletes },
-    sets: {
-      ...mutation.sets,
-      kapilaRetainerRepairApplied: true,
-      rentManagementContractRepairApplied: true,
-      historicalExpenseReconciliationApplied: true,
-      financialBaseline: finalized.financialBaseline,
-    },
-  };
-
-  const rawById = new Map(raw.projects.map((project) => [project.id, project]));
-  const changedProjects = finalized.projects.filter(
-    (project) => JSON.stringify(project) !== JSON.stringify(rawById.get(project.id)),
-  );
-  if (changedProjects.length > 0) {
-    const byId = new Map((next.upserts.projects ?? []).map((project) => [project.id, project]));
-    for (const project of changedProjects) {
-      byId.set(project.id, project as unknown as { id: string } & Record<string, unknown>);
-    }
-    next.upserts.projects = [...byId.values()];
-  }
-
-  const rawTxById = new Map((raw.transactions ?? []).map((transaction) => [transaction.id, transaction]));
-  const changedTransactions = (finalized.transactions ?? []).filter(
-    (transaction) => JSON.stringify(transaction) !== JSON.stringify(rawTxById.get(transaction.id)),
-  );
-  if (changedTransactions.length > 0) {
-    const byId = new Map(
-      (next.upserts.transactions ?? []).map((transaction) => [transaction.id, transaction]),
-    );
-    for (const transaction of changedTransactions) {
-      byId.set(transaction.id, transaction as unknown as { id: string } & Record<string, unknown>);
-    }
-    next.upserts.transactions = [...byId.values()];
-  }
-  return next;
-}
-
 export const getOperationsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<VersionedOperations> => {
     await assertAppSession();
+    assertRelationalMode();
     const sb = requireServerSupabase();
-    if (relationalReadsEnabled()) {
-      const [{ data: versionRow, error }, operations] = await Promise.all([
-        sb.from("operations_data").select("updated_at").eq("id", "default").maybeSingle(),
-        loadRelationalOperations(),
-      ]);
-      if (error) throw error;
-      if (!versionRow?.updated_at) {
-        throw new Error("operations_data/default is missing a concurrency version.");
-      }
-      return { data: operations, version: versionRow.updated_at };
-    }
-    // Do not cache the concurrency token: every browser must receive the current
-    // database version or its first mutation could overwrite a newer save.
-    const { data, error } = await sb
-      .from("operations_data")
-      .select("payload, updated_at")
-      .eq("id", "default")
-      .maybeSingle();
+    const [{ data: versionRow, error }, operations] = await Promise.all([
+      sb.from("operations_data").select("updated_at").eq("id", "default").maybeSingle(),
+      cacheThrough(CACHE_KEYS.operations, loadRelationalOperations),
+    ]);
     if (error) throw error;
-    if (!data?.payload || !data.updated_at) {
-      // First run — initialize the row so versioned saves have a CAS token.
-      const { data: created, error: initError } = await sb
-        .from("operations_data")
-        .upsert({ id: "default", payload: EMPTY_OPERATIONS, updated_at: new Date().toISOString() })
-        .select("payload, updated_at")
-        .single();
-      if (initError) throw initError;
-      return {
-        data: decryptOperationsData(parseOperationsPayload(created.payload)),
-        version: created.updated_at,
-      };
+    if (!versionRow?.updated_at) {
+      throw new Error("operations_data/default is missing a concurrency version.");
     }
-
-    let ops = parseOperationsPayload(data.payload);
-    try {
-      const relinked = await relinkOrphanedPaymentProofs(sb, ops);
-      if (relinked.changed) ops = relinked.data;
-    } catch (relinkError) {
-      console.error("[operations] payment proof relink failed:", relinkError);
-    }
-
-    return { data: decryptOperationsData(ops), version: data.updated_at };
+    return { data: operations, version: versionRow.updated_at };
   },
 );
 
@@ -727,146 +680,37 @@ function assertDeletesAuthorized(input: SaveOperationsMutationInput): void {
   }
 }
 
-function preparedMutation(
-  mutation: OperationsMutation,
-  prepared: OperationsData,
-): OperationsMutation {
-  const upserts: OperationsMutation["upserts"] = {};
-  for (const [rawKey, items] of Object.entries(mutation.upserts)) {
-    const key = rawKey as OperationsEntityKey;
-    const wanted = new Set((items ?? []).map((item) => item.id));
-    const preparedItems = (prepared[key] ?? []) as unknown as Array<
-      { id: string } & Record<string, unknown>
-    >;
-    upserts[key] = preparedItems.filter((item) => wanted.has(item.id));
-  }
-
-  const sets: OperationsMutation["sets"] = {};
-  for (const key of Object.keys(mutation.sets) as Array<keyof typeof mutation.sets>) {
-    sets[key] = prepared[key] as never;
-  }
-  return { upserts, deletes: mutation.deletes, sets };
-}
-
 export const saveOperationsFn = createServerFn({ method: "POST" })
   .inputValidator((data: SaveOperationsMutationInput) => data)
   .handler(async ({ data }): Promise<SaveOperationsMutationResult> => {
     await assertAppSession();
+    assertRelationalMode();
     assertDeletesAuthorized(data);
 
-    if (relationalReadsEnabled()) {
-      const version = await readLegacyVersionToken("default");
-      if (version !== data.expectedVersion) {
-        const latest = await loadRelationalOperations();
-        return { ok: false, conflict: true, data: latest, version };
-      }
-      if (isOperationsMutationEmpty(data.mutation)) {
-        return { ok: true, data: await loadRelationalOperations(), version };
-      }
-
-      const current = await loadRelationalOperations();
-      const finalized = applyProductionBillingRepairs(
-        applyOperationsMutation(current, data.mutation),
-      );
-      await saveRelationalOperations(finalized);
-
-      const bumped = await bumpLegacyVersionToken("default", data.expectedVersion);
-      if (!bumped.ok) {
-        const latest = await loadRelationalOperations();
-        return { ok: false, conflict: true, data: latest, version: bumped.version };
-      }
-
-      cacheDel(CACHE_KEYS.operations);
-      return { ok: true, data: finalized, version: bumped.version };
+    const version = await readLegacyVersionToken("default");
+    if (version !== data.expectedVersion) {
+      const latest = await loadRelationalOperations();
+      cacheSet(CACHE_KEYS.operations, latest);
+      return { ok: false, conflict: true, data: latest, version };
+    }
+    if (isOperationsMutationEmpty(data.mutation)) {
+      const cached = await cacheThrough(CACHE_KEYS.operations, loadRelationalOperations);
+      return { ok: true, data: cached, version };
     }
 
-    const sb = requireServerSupabase();
-
-    const { data: currentRow, error: currentError } = await sb
-      .from("operations_data")
-      .select("payload")
-      .eq("id", "default")
-      .maybeSingle();
-    if (currentError) throw currentError;
-    if (!currentRow?.payload) throw new Error("operations_data/default is missing.");
-
-    const raw = decryptOperationsData(
-      parseOperationsPayload(currentRow.payload, { applyBillingRepairs: false }),
+    const current = await loadRelationalOperations();
+    const finalized = applyProductionBillingRepairs(
+      applyOperationsMutation(current, data.mutation),
     );
-    const current = applyProductionBillingRepairs(raw);
-    const merged = applyOperationsMutation(current, data.mutation);
-    const finalized = applyProductionBillingRepairs(merged);
-    const externalized = await externalizeOperationsData(sb, finalized);
-    const encrypted = encryptOperationsData(externalized);
-    let mutation = preparedMutation(data.mutation, encrypted);
-    mutation = withPersistedBillingRepairs(raw, encrypted, mutation);
-    if (
-      Object.keys(mutation.upserts).length === 0 &&
-      Object.keys(mutation.deletes).length === 0 &&
-      Object.keys(mutation.sets).length === 0
-    ) {
-      // No-op: return the current row so callers never cache an empty snapshot.
-      const { data: row, error: rowError } = await sb
-        .from("operations_data")
-        .select("payload, updated_at")
-        .eq("id", "default")
-        .maybeSingle();
-      if (rowError) throw rowError;
-      if (!row?.payload || !row.updated_at) throw new Error("operations_data/default is missing.");
-      return {
-        ok: true,
-        data: decryptOperationsData(parseOperationsPayload(row.payload)),
-        version: row.updated_at,
-      };
+    await saveRelationalOperations(finalized);
+
+    const bumped = await bumpLegacyVersionToken("default", data.expectedVersion);
+    if (!bumped.ok) {
+      const latest = await loadRelationalOperations();
+      cacheSet(CACHE_KEYS.operations, latest);
+      return { ok: false, conflict: true, data: latest, version: bumped.version };
     }
 
-    const { data: rows, error } = await sb.rpc("mutate_operations_data", {
-      p_expected_updated_at: data.expectedVersion,
-      p_upserts: mutation.upserts,
-      p_deletes: mutation.deletes,
-      p_sets: mutation.sets,
-    });
-    if (error) {
-      const migrationHint =
-        error.code === "PGRST202"
-          ? " Apply migration 20260719100000_safe_operations_mutations.sql."
-          : "";
-      throw new Error(`Safe operations mutation failed: ${error.message}.${migrationHint}`);
-    }
-    const result = (
-      rows as Array<{
-        success: boolean;
-        is_conflict: boolean;
-        result_payload: unknown;
-        result_updated_at: string;
-      }> | null
-    )?.[0];
-    if (!result?.result_payload || !result.result_updated_at) {
-      throw new Error("Safe operations mutation returned no result.");
-    }
-
-    const latest = decryptOperationsData(parseOperationsPayload(result.result_payload));
-    if (!result.success || result.is_conflict) {
-      return {
-        ok: false,
-        conflict: true,
-        data: latest,
-        version: result.result_updated_at,
-      };
-    }
-
-    if (relationalReadsEnabled() || relationalDualWritesEnabled()) {
-      try {
-        await saveRelationalOperations(latest);
-      } catch (relationalError) {
-        console.error("[operations] relational dual-write failed:", relationalError);
-      }
-    }
-
-    cacheDel(CACHE_KEYS.operations);
-    return {
-      ok: true,
-      data: latest,
-      version: result.result_updated_at,
-    };
+    cacheSet(CACHE_KEYS.operations, finalized);
+    return { ok: true, data: finalized, version: bumped.version };
   });

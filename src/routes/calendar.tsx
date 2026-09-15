@@ -1,24 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  BellRing,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  ExternalLink,
-  MapPin,
-  Phone,
-  Plus,
-  Trash2,
-  Users,
-} from "lucide-react";
+import { BellRing, CalendarDays, CheckCircle2, Trash2 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { OperationsLoading } from "@/components/operations/operations-ui";
 import { ReminderFormDialog } from "@/components/operations/ReminderFormDialog";
-import { ScheduleEventDialog } from "@/components/operations/ScheduleEventDialog";
 import { useOperations } from "@/hooks/use-operations";
 import { formatScheduleDateTime, sortScheduleEvents } from "@/lib/schedule";
-import { cn, safeHref } from "@/lib/utils";
 import type { ScheduleEvent } from "@/lib/types";
 
 export const Route = createFileRoute("/calendar")({
@@ -32,7 +19,7 @@ export const Route = createFileRoute("/calendar")({
   }),
 });
 
-const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+const DONE_REMINDER_RETAIN_MS = 10 * 24 * 60 * 60 * 1000;
 
 function dateKey(date: Date): string {
   const year = date.getFullYear();
@@ -41,136 +28,44 @@ function dateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function typeLabel(type: ScheduleEvent["type"]): string {
-  if (type === "call") return "Call";
-  if (type === "reminder") return "Reminder";
-  return "Meeting";
-}
-
-function formatHour(hour: number): string {
-  if (hour === 0) return "12 AM";
-  if (hour === 12) return "12 PM";
-  if (hour < 12) return `${hour} AM`;
-  return `${hour - 12} PM`;
-}
-
-function parseStartHour(event: ScheduleEvent): number | null {
-  const raw = event.startTime?.trim();
-  if (!raw) return null;
-  const match = /^(\d{1,2}):(\d{2})$/.exec(raw);
-  if (!match) return null;
-  const hour = Number(match[1]);
-  if (Number.isNaN(hour) || hour < 0 || hour > 23) return null;
-  return hour;
-}
-
-function startOfWeek(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  d.setDate(d.getDate() - day);
-  d.setHours(12, 0, 0, 0);
-  return d;
-}
-
-function addDays(date: Date, days: number): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-
 function CalendarPage() {
   const { ops, persist, loading } = useOperations();
   const { new: openNewOnArrival, reminder: openReminderOnArrival } = Route.useSearch();
   const navigate = Route.useNavigate();
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [view, setView] = useState<"day" | "week">("day");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<ScheduleEvent | null>(null);
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<ScheduleEvent | null>(null);
 
   useEffect(() => {
-    if (!openNewOnArrival) return;
-    setEditing(null);
-    setDialogOpen(true);
-    navigate({ search: {}, replace: true });
-  }, [openNewOnArrival, navigate]);
-
-  useEffect(() => {
-    if (!openReminderOnArrival) return;
+    // Legacy ?new=true used to open the meeting scheduler — open a reminder instead.
+    if (!openNewOnArrival && !openReminderOnArrival) return;
     setEditingReminder(null);
     setReminderDialogOpen(true);
     navigate({ search: {}, replace: true });
-  }, [openReminderOnArrival, navigate]);
+  }, [openNewOnArrival, openReminderOnArrival, navigate]);
 
   const events = useMemo(() => ops.scheduleEvents ?? [], [ops.scheduleEvents]);
   const selectedKey = dateKey(selectedDate);
-
-  const selectedEvents = useMemo(
-    () =>
-      sortScheduleEvents(
-        events.filter((event) => event.date === selectedKey && event.type !== "reminder"),
-      ),
-    [events, selectedKey],
-  );
-
-  const weekDays = useMemo(() => {
-    const start = startOfWeek(selectedDate);
-    return Array.from({ length: 7 }, (_, i) => addDays(start, i));
-  }, [selectedDate]);
-
-  const weekEvents = useMemo(() => {
-    const keys = new Set(weekDays.map(dateKey));
-    return sortScheduleEvents(
-      events.filter((event) => keys.has(event.date) && event.type !== "reminder"),
-    );
-  }, [events, weekDays]);
 
   const reminders = useMemo(
     () => sortScheduleEvents(events.filter((event) => event.type === "reminder")),
     [events],
   );
   const openReminders = reminders.filter((event) => event.status === "scheduled");
-  const doneReminders = reminders.filter((event) => event.status !== "scheduled");
-  const eventDates = useMemo(
-    () =>
-      events
-        .filter((event) => event.status === "scheduled")
-        .map((event) => new Date(`${event.date}T12:00:00`)),
-    [events],
-  );
-
-  const timedEvents = selectedEvents.filter((event) => parseStartHour(event) != null);
-  const allDayEvents = selectedEvents.filter((event) => parseStartHour(event) == null);
-
-  const saveEvent = (saved: ScheduleEvent) => {
-    const next = editing
-      ? events.map((event) => (event.id === saved.id ? saved : event))
-      : [...events, saved];
-    persist({ ...ops, scheduleEvents: next });
-  };
-
-  const updateStatus = (event: ScheduleEvent, status: ScheduleEvent["status"]) => {
-    persist({
-      ...ops,
-      scheduleEvents: events.map((item) =>
-        item.id === event.id ? { ...item, status, updatedAt: Date.now() } : item,
-      ),
+  const recoverableDoneReminders = useMemo(() => {
+    const cutoff = Date.now() - DONE_REMINDER_RETAIN_MS;
+    return reminders.filter((event) => {
+      if (event.status === "scheduled") return false;
+      const completedAt = event.updatedAt || event.createdAt || 0;
+      return completedAt >= cutoff;
     });
-  };
+  }, [reminders]);
 
-  const deleteEvent = (event: ScheduleEvent) => {
-    if (!confirm(`Delete "${event.title}"?`)) return;
-    persist(
-      { ...ops, scheduleEvents: events.filter((item) => item.id !== event.id) },
-      { deleteIds: { scheduleEvents: [event.id] } },
-    );
-  };
-
-  const openNew = () => {
-    setEditing(null);
-    setDialogOpen(true);
-  };
+  const reminderDates = useMemo(
+    () =>
+      openReminders.map((event) => new Date(`${event.date}T12:00:00`)),
+    [openReminders],
+  );
 
   const openNewReminder = () => {
     setEditingReminder(null);
@@ -203,15 +98,7 @@ function CalendarPage() {
 
   if (loading) return <OperationsLoading />;
 
-  const selectedLabel = selectedDate.toLocaleDateString("en-IN", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-
-  const dayCount = selectedEvents.length;
-  const weekCount = weekEvents.length;
+  const selectedDayReminders = openReminders.filter((event) => event.date === selectedKey);
 
   return (
     <div className="space-y-8">
@@ -222,306 +109,168 @@ function CalendarPage() {
               <CalendarDays className="h-5 w-5" strokeWidth={1.75} />
             </span>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
-              Schedule
+              Reminders
             </h1>
           </div>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-            Meetings, calls, and follow-ups.
+            Follow-ups and tasks. Completed items stay recoverable for 10 days.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={openNewReminder}
-            className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-border/80 px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted/40"
-          >
-            <BellRing className="h-4 w-4" />
-            Reminder
-          </button>
-          <button
-            type="button"
-            onClick={openNew}
-            className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" />
-            Schedule
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={openNewReminder}
+          className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+        >
+          <BellRing className="h-4 w-4" />
+          Reminder
+        </button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]">
-        {/* Left rail */}
-        <div className="space-y-4">
-          <div className="rounded-xl border border-border/80 bg-card/40 p-4">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
-              modifiers={{ hasEvent: eventDates }}
-              modifiersClassNames={{
-                hasEvent:
-                  "after:absolute after:bottom-0.5 after:left-1/2 after:h-1 after:w-1 after:-translate-x-1/2 after:rounded-full after:bg-primary",
-              }}
-              className="w-full rounded-none border-0 bg-transparent p-0"
-            />
-            <p className="mt-3 text-[11px] text-muted-foreground">
-              Dot = scheduled item that day.
-            </p>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_220px] xl:grid-cols-[minmax(0,1.5fr)_240px]">
+        <div className="rounded-xl border border-border/80 bg-card/40 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">Open</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {selectedDayReminders.length > 0
+                  ? `${selectedDayReminders.length} on the selected day · ${openReminders.length} total`
+                  : `${openReminders.length} open reminder${openReminders.length === 1 ? "" : "s"}`}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={openNewReminder}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border/80 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/40"
+            >
+              <BellRing className="h-4 w-4" />
+              Add reminder
+            </button>
           </div>
 
-          <div className="rounded-xl border border-border/80 bg-card/40 p-4">
-            <h2 className="text-sm font-semibold tracking-tight text-foreground">Reminders</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">Follow-ups that aren’t meetings</p>
+          {openReminders.length === 0 ? (
+            <div className="relative mt-8 overflow-hidden py-10 text-center">
+              <CheckCircle2
+                className="pointer-events-none absolute -right-2 -top-1 h-28 w-28 text-muted-foreground/10"
+                strokeWidth={1}
+                aria-hidden
+              />
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/10 text-rose-400">
+                <BellRing className="h-6 w-6" />
+              </span>
+              <p className="mt-4 text-base text-muted-foreground">
+                No open reminders. You’re all caught up!
+              </p>
+            </div>
+          ) : (
+            <ul className="mt-5 divide-y divide-border/80">
+              {openReminders.map((event) => (
+                <li key={event.id} className="flex items-start justify-between gap-3 py-4">
+                  <div className="min-w-0">
+                    <p className="text-base font-medium text-foreground">{event.title}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {formatScheduleDateTime(event)}
+                      {event.contact ? ` · ${event.contact}` : ""}
+                    </p>
+                    {event.notes ? (
+                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground/90">
+                        {event.notes}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => updateReminderStatus(event, "completed")}
+                      className="rounded-md px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                      title="Done"
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Done
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingReminder(event);
+                        setReminderDialogOpen(true);
+                      }}
+                      className="rounded-md px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteReminder(event)}
+                      className="rounded-md p-2 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-400"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
 
-            {openReminders.length === 0 ? (
-              <div className="relative mt-6 overflow-hidden py-6 text-center">
-                <CheckCircle2
-                  className="pointer-events-none absolute -right-2 -top-1 h-24 w-24 text-muted-foreground/10"
-                  strokeWidth={1}
-                  aria-hidden
-                />
-                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-400">
-                  <BellRing className="h-5 w-5" />
-                </span>
-                <p className="mt-3 text-sm text-muted-foreground">
-                  No open reminders. You’re all caught up!
-                </p>
-              </div>
-            ) : (
-              <ul className="mt-4 divide-y divide-border/80">
-                {openReminders.map((event) => (
-                  <li key={event.id} className="flex items-start justify-between gap-2 py-3">
+          {recoverableDoneReminders.length > 0 ? (
+            <div className="mt-6 border-t border-border/80 pt-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Done · recoverable for 10 days · {recoverableDoneReminders.length}
+              </p>
+              <ul className="mt-3 space-y-2">
+                {recoverableDoneReminders.map((event) => (
+                  <li
+                    key={event.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/40 px-3 py-2.5 text-sm"
+                  >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">{event.title}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
+                      <p className="truncate font-medium text-foreground/90">{event.title}</p>
+                      <p className="truncate text-xs text-muted-foreground">
                         {formatScheduleDateTime(event)}
-                        {event.contact ? ` · ${event.contact}` : ""}
                       </p>
                     </div>
-                    <div className="flex shrink-0 gap-0.5">
+                    <div className="flex shrink-0 gap-2">
                       <button
                         type="button"
-                        onClick={() => updateReminderStatus(event, "completed")}
-                        className="rounded-md p-1.5 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-                        title="Done"
+                        className="text-sm font-medium text-primary hover:underline"
+                        onClick={() => updateReminderStatus(event, "scheduled")}
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Restore
                       </button>
                       <button
                         type="button"
+                        className="text-sm text-rose-400 hover:text-rose-300"
                         onClick={() => deleteReminder(event)}
-                        className="rounded-md p-1.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-400"
-                        title="Delete"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
                       </button>
                     </div>
                   </li>
                 ))}
               </ul>
-            )}
-
-            {doneReminders.length > 0 ? (
-              <div className="mt-4 border-t border-border/80 pt-3">
-                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Done · {doneReminders.length}
-                </p>
-                <ul className="mt-2 space-y-1.5">
-                  {doneReminders.slice(0, 5).map((event) => (
-                    <li
-                      key={event.id}
-                      className="flex items-center justify-between gap-2 text-xs text-muted-foreground"
-                    >
-                      <span className="min-w-0 truncate">{event.title}</span>
-                      <button
-                        type="button"
-                        className="shrink-0 text-rose-400 hover:text-rose-300"
-                        onClick={() => deleteReminder(event)}
-                      >
-                        Delete
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
 
-        {/* Main day / week panel */}
-        <section className="min-w-0 rounded-xl border border-border/80 bg-card/40">
-          <div className="flex flex-col gap-3 border-b border-border/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold tracking-tight text-foreground">
-                {selectedLabel}
-              </h2>
-              <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-                {view === "day"
-                  ? `${dayCount} item${dayCount === 1 ? "" : "s"} scheduled`
-                  : `${weekCount} item${weekCount === 1 ? "" : "s"} this week`}
-              </p>
-            </div>
-            <div className="inline-flex items-center rounded-lg border border-border/80 bg-background/40 p-0.5">
-              <button
-                type="button"
-                aria-pressed={view === "day"}
-                onClick={() => setView("day")}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                  view === "day"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                Day
-              </button>
-              <button
-                type="button"
-                aria-pressed={view === "week"}
-                onClick={() => setView("week")}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                  view === "week"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                Week
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedDate(new Date())}
-                className="rounded-md p-1.5 text-muted-foreground hover:text-foreground"
-                title="Jump to today"
-                aria-label="Jump to today"
-              >
-                <CalendarDays className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {view === "day" ? (
-            <div className="relative min-h-[420px] px-2 py-2 sm:px-4">
-              {/* All day */}
-              <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2 border-b border-border/60 py-2">
-                <span className="pt-1 text-right text-[11px] text-muted-foreground">All day</span>
-                <div className="min-h-8 space-y-1.5">
-                  {allDayEvents.map((event) => (
-                    <EventChip
-                      key={event.id}
-                      event={event}
-                      onEdit={() => {
-                        setEditing(event);
-                        setDialogOpen(true);
-                      }}
-                      onDone={() => updateStatus(event, "completed")}
-                      onDelete={() => deleteEvent(event)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {HOURS.map((hour) => {
-                const slotEvents = timedEvents.filter((event) => parseStartHour(event) === hour);
-                return (
-                  <div
-                    key={hour}
-                    className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2 border-b border-border/40 py-2 last:border-b-0"
-                  >
-                    <span className="pt-1 text-right text-[11px] tabular-nums text-muted-foreground">
-                      {formatHour(hour)}
-                    </span>
-                    <div className="min-h-10 space-y-1.5">
-                      {slotEvents.map((event) => (
-                        <EventChip
-                          key={event.id}
-                          event={event}
-                          onEdit={() => {
-                            setEditing(event);
-                            setDialogOpen(true);
-                          }}
-                          onDone={() => updateStatus(event, "completed")}
-                          onDelete={() => deleteEvent(event)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {selectedEvents.length === 0 ? (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
-                  <div className="pointer-events-auto max-w-sm text-center">
-                    <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted/40 text-muted-foreground">
-                      <CalendarDays className="h-6 w-6" strokeWidth={1.5} />
-                    </span>
-                    <p className="mt-4 text-sm text-muted-foreground">
-                      Nothing on this day. Schedule a meeting or add a task to get started.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={openNew}
-                      className="mt-4 inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Schedule
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="p-4">
-              {weekEvents.length === 0 ? (
-                <div className="flex min-h-[280px] flex-col items-center justify-center px-6 text-center">
-                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-muted/40 text-muted-foreground">
-                    <CalendarDays className="h-6 w-6" strokeWidth={1.5} />
-                  </span>
-                  <p className="mt-4 text-sm text-muted-foreground">
-                    Nothing scheduled this week.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={openNew}
-                    className="mt-4 inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Schedule
-                  </button>
-                </div>
-              ) : (
-                <ul className="divide-y divide-border/80 border-y border-border/80">
-                  {weekEvents.map((event) => (
-                    <li key={event.id} className="py-3">
-                      <EventChip
-                        event={event}
-                        showDate
-                        onEdit={() => {
-                          setEditing(event);
-                          setDialogOpen(true);
-                        }}
-                        onDone={() => updateStatus(event, "completed")}
-                        onDelete={() => deleteEvent(event)}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </section>
+        <div className="rounded-xl border border-border/80 bg-card/40 p-3">
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={(date) => date && setSelectedDate(date)}
+            modifiers={{ hasEvent: reminderDates }}
+            modifiersClassNames={{
+              hasEvent:
+                "after:absolute after:bottom-0.5 after:left-1/2 after:h-1 after:w-1 after:-translate-x-1/2 after:rounded-full after:bg-primary",
+            }}
+            className="mx-auto w-full max-w-[220px] rounded-none border-0 bg-transparent p-0 [--cell-size:1.65rem] text-xs"
+          />
+          <p className="mt-2 text-center text-[10px] text-muted-foreground">
+            Dot = open reminder that day
+          </p>
+        </div>
       </div>
 
-      <ScheduleEventDialog
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) setEditing(null);
-        }}
-        event={editing}
-        initialDate={selectedKey}
-        onSave={saveEvent}
-      />
       <ReminderFormDialog
         open={reminderDialogOpen}
         onOpenChange={(open) => {
@@ -531,101 +280,6 @@ function CalendarPage() {
         reminder={editingReminder}
         onSave={saveReminder}
       />
-    </div>
-  );
-}
-
-function EventChip({
-  event,
-  showDate,
-  onEdit,
-  onDone,
-  onDelete,
-}: {
-  event: ScheduleEvent;
-  showDate?: boolean;
-  onEdit: () => void;
-  onDone: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-lg border border-border/80 bg-background/50 px-3 py-2",
-        event.status === "cancelled" && "opacity-55",
-        event.status === "completed" && "opacity-80",
-      )}
-    >
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="text-[11px] font-medium text-rose-400">{typeLabel(event.type)}</span>
-            {event.status !== "scheduled" ? (
-              <span className="text-[11px] capitalize text-muted-foreground">· {event.status}</span>
-            ) : null}
-          </div>
-          <p className="mt-0.5 text-sm font-medium text-foreground">{event.title}</p>
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <Clock3 className="h-3 w-3" />
-              {showDate ? formatScheduleDateTime(event) : `${event.startTime || "All day"} · ${event.durationMinutes} min`}
-            </span>
-            {event.contact ? (
-              <span className="inline-flex items-center gap-1">
-                {event.type === "call" ? (
-                  <Phone className="h-3 w-3" />
-                ) : (
-                  <Users className="h-3 w-3" />
-                )}
-                {event.contact}
-              </span>
-            ) : null}
-            {event.location ? (
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                {event.location}
-              </span>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-0.5">
-          {safeHref(event.meetingUrl) && event.status === "scheduled" ? (
-            <a
-              href={safeHref(event.meetingUrl)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-            >
-              Join <ExternalLink className="h-3 w-3" />
-            </a>
-          ) : null}
-          {event.status === "scheduled" ? (
-            <button
-              type="button"
-              onClick={onDone}
-              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-            >
-              <CheckCircle2 className="h-3 w-3" />
-              Done
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={onEdit}
-            className="inline-flex h-7 items-center rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            className="inline-flex h-7 items-center rounded-md px-2 text-xs text-rose-400 transition-colors hover:bg-rose-500/10"
-            aria-label={`Delete ${event.title}`}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

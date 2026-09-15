@@ -2,6 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { resolve } from "path";
 import { decrypt, encrypt } from "../shared/encryption-core.mjs";
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck("full-restore-from-backup.mjs");
 
 const ORG = "org-admark-digitals";
 const BACKUP_PATH =

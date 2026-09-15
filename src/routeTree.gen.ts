@@ -14,7 +14,9 @@ import { Route as TeamRouteImport } from './routes/team'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as PipelineHistoryRouteImport } from './routes/pipeline-history'
 import { Route as PartnershipsRouteImport } from './routes/partnerships'
+import { Route as OpsRouteImport } from './routes/ops'
 import { Route as NewRouteImport } from './routes/new'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as LoginRouteImport } from './routes/login'
@@ -78,9 +80,19 @@ const ProjectsRoute = ProjectsRouteImport.update({
   path: '/projects',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PipelineHistoryRoute = PipelineHistoryRouteImport.update({
+  id: '/pipeline-history',
+  path: '/pipeline-history',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PartnershipsRoute = PartnershipsRouteImport.update({
   id: '/partnerships',
   path: '/partnerships',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OpsRoute = OpsRouteImport.update({
+  id: '/ops',
+  path: '/ops',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NewRoute = NewRouteImport.update({
@@ -287,7 +299,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
+  '/ops': typeof OpsRoute
   '/partnerships': typeof PartnershipsRoute
+  '/pipeline-history': typeof PipelineHistoryRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reminders': typeof RemindersRoute
   '/settings': typeof SettingsRoute
@@ -330,7 +344,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
+  '/ops': typeof OpsRoute
   '/partnerships': typeof PartnershipsRoute
+  '/pipeline-history': typeof PipelineHistoryRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reminders': typeof RemindersRoute
   '/settings': typeof SettingsRoute
@@ -376,7 +392,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
   '/new': typeof NewRoute
+  '/ops': typeof OpsRoute
   '/partnerships': typeof PartnershipsRoute
+  '/pipeline-history': typeof PipelineHistoryRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reminders': typeof RemindersRoute
   '/settings': typeof SettingsRoute
@@ -423,7 +441,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/logs'
     | '/new'
+    | '/ops'
     | '/partnerships'
+    | '/pipeline-history'
     | '/projects'
     | '/reminders'
     | '/settings'
@@ -466,7 +486,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/logs'
     | '/new'
+    | '/ops'
     | '/partnerships'
+    | '/pipeline-history'
     | '/projects'
     | '/reminders'
     | '/settings'
@@ -511,7 +533,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/logs'
     | '/new'
+    | '/ops'
     | '/partnerships'
+    | '/pipeline-history'
     | '/projects'
     | '/reminders'
     | '/settings'
@@ -557,7 +581,9 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   LogsRoute: typeof LogsRoute
   NewRoute: typeof NewRoute
+  OpsRoute: typeof OpsRoute
   PartnershipsRoute: typeof PartnershipsRoute
+  PipelineHistoryRoute: typeof PipelineHistoryRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   RemindersRoute: typeof RemindersRoute
   SettingsRoute: typeof SettingsRoute
@@ -623,11 +649,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pipeline-history': {
+      id: '/pipeline-history'
+      path: '/pipeline-history'
+      fullPath: '/pipeline-history'
+      preLoaderRoute: typeof PipelineHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/partnerships': {
       id: '/partnerships'
       path: '/partnerships'
       fullPath: '/partnerships'
       preLoaderRoute: typeof PartnershipsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ops': {
+      id: '/ops'
+      path: '/ops'
+      fullPath: '/ops'
+      preLoaderRoute: typeof OpsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/new': {
@@ -944,7 +984,9 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   LogsRoute: LogsRoute,
   NewRoute: NewRoute,
+  OpsRoute: OpsRoute,
   PartnershipsRoute: PartnershipsRoute,
+  PipelineHistoryRoute: PipelineHistoryRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   RemindersRoute: RemindersRoute,
   SettingsRoute: SettingsRoute,

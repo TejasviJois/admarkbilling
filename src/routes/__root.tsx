@@ -47,10 +47,7 @@ function NotFoundComponent() {
   // Stale bookmarks / phone home-screen URLs land on paths that no longer
   // exist — bounce straight to the dashboard instead of a dead-end 404.
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void router.navigate({ to: "/", replace: true });
-    }, 1200);
-    return () => window.clearTimeout(timer);
+    void router.navigate({ to: "/", replace: true });
   }, [router]);
 
   return (
@@ -59,7 +56,7 @@ function NotFoundComponent() {
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          This page doesn't exist — taking you to the dashboard.
+          This page doesn't exist — redirecting to the dashboard.
         </p>
         <div className="mt-6">
           <Link
@@ -214,6 +211,7 @@ const NAV_GROUPS: NavGroup[] = [
     section: "Daily Work",
     items: [
       { to: "/accounts", label: "Accounts" },
+      { to: "/ops", label: "Office & Ops" },
       { to: "/invoices", label: "Invoices" },
     ],
   },

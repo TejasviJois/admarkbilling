@@ -11,7 +11,6 @@ import {
   upsertInvoiceFn,
 } from "@/server/invoice-fns";
 import {
-  getServerApiConfiguredCached,
   isServerApiConfigured,
 } from "@/lib/backend-status-cache";
 import { safeLocalStorageSet } from "./browser-storage";
@@ -65,11 +64,6 @@ async function recordActivity(draft: LogDraft) {
 
 async function serverApiEnabled(): Promise<boolean> {
   return isServerApiConfigured();
-}
-
-/** @deprecated Prefer checking getDataBackendStatus in UI — kept for quick sync reads if needed */
-export function usesRemoteDatabase(): boolean {
-  return getServerApiConfiguredCached() === true;
 }
 
 export async function loadInvoices(): Promise<Invoice[]> {

@@ -41,7 +41,9 @@ export function encrypt(text, env = process.env) {
     return iv.toString("hex") + ":" + encrypted;
   } catch (err) {
     console.error("Encryption error:", err);
-    return text;
+    throw new Error(
+      `Encryption failed — refusing to store plaintext. ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 }
 

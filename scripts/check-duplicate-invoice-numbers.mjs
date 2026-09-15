@@ -1,4 +1,6 @@
 /* Read-only: report duplicate invoice numbers in public.invoices. */
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck(import.meta.url);
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";

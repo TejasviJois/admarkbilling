@@ -1,4 +1,6 @@
 /* Read-only verification: prove invoices_payload_number_uidx rejects duplicates. */
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck(import.meta.url);
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";

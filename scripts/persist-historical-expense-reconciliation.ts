@@ -10,6 +10,9 @@ import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { applyProductionBillingRepairs } from "../src/lib/ground-zero.ts";
 import { computeFinancialSummary } from "../src/lib/financial.ts";
+import { requireEgressAck } from "./lib/egress-guard.ts";
+
+requireEgressAck("persist-historical-expense-reconciliation.ts");
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 for (const line of readFileSync(resolve(root, ".env"), "utf8").split(/\r?\n/)) {

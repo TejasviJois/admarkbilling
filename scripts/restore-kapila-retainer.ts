@@ -7,6 +7,9 @@ import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { buildRevenueValueFromBilling } from "../src/lib/project-billing.ts";
 import { sumActiveMrr, sumPipelineBookedRevenue, computeBookedRevenue } from "../src/lib/project-billing.ts";
+import { requireEgressAck } from "./lib/egress-guard.ts";
+
+requireEgressAck("restore-kapila-retainer.ts");
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 for (const line of readFileSync(resolve(root, ".env"), "utf8").split(/\r?\n/)) {

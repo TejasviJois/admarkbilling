@@ -2,50 +2,82 @@ import { deleteCookie, getCookie, setCookie, getRequest } from "@tanstack/react-
 import { resolveEncryptionSecret } from "../../shared/encryption-secret.mjs";
 
 export const APP_SESSION_COOKIE = "admark_gate";
-const COOKIE_PAYLOAD = "admark-billing-gate-v1";
+const SESSION_TTL_MS = 60 * 60 * 24 * 7; // 7 days
+const SESSION_VERSION = 1;
 
-// In-memory rate limiting by IP
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-const MAX_REQUESTS_PER_WINDOW = 120; // Max requests per window
+/** General API abuse limit (per IP). */
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const MAX_REQUESTS_PER_WINDOW = 120;
+
+/** Stricter failed-login / login attempt limit. */
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const MAX_LOGIN_ATTEMPTS = 10;
+
 const ipTracker = new Map<string, { count: number; start: number }>();
+const loginTracker = new Map<string, { count: number; start: number }>();
 
-export function rateLimitIp(): void {
+function clientIp(): string {
   let req: Request | undefined;
   try {
     req = getRequest();
   } catch {
-    // Return early if not in a web request context
-    return;
+    return "127.0.0.1";
   }
-  if (!req) return;
+  if (!req) return "127.0.0.1";
+  // Prefer right-most / last proxy hop when present; fall back to first entry.
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
+    return parts[parts.length - 1] || "127.0.0.1";
+  }
+  return req.headers.get("x-real-ip")?.trim() || "127.0.0.1";
+}
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "127.0.0.1";
+function bumpCounter(
+  map: Map<string, { count: number; start: number }>,
+  key: string,
+  windowMs: number,
+  max: number,
+  message: string,
+): void {
   const now = Date.now();
-  const userRecord = ipTracker.get(ip);
-
-  if (!userRecord) {
-    ipTracker.set(ip, { count: 1, start: now });
+  const record = map.get(key);
+  if (!record || now - record.start > windowMs) {
+    map.set(key, { count: 1, start: now });
     return;
   }
-
-  if (now - userRecord.start > RATE_LIMIT_WINDOW_MS) {
-    userRecord.count = 1;
-    userRecord.start = now;
-    return;
+  record.count += 1;
+  if (record.count > max) {
+    throw new Error(message);
   }
+}
 
-  userRecord.count++;
-  if (userRecord.count > MAX_REQUESTS_PER_WINDOW) {
-    throw new Error("Rate limit exceeded. Too many requests from this IP address.");
-  }
+export function rateLimitIp(): void {
+  bumpCounter(
+    ipTracker,
+    clientIp(),
+    RATE_LIMIT_WINDOW_MS,
+    MAX_REQUESTS_PER_WINDOW,
+    "Rate limit exceeded. Too many requests from this IP address.",
+  );
+}
+
+/** Call at the start of login attempts (success or fail). */
+export function rateLimitLogin(): void {
+  bumpCounter(
+    loginTracker,
+    `login:${clientIp()}`,
+    LOGIN_WINDOW_MS,
+    MAX_LOGIN_ATTEMPTS,
+    "Too many login attempts. Wait 15 minutes and try again.",
+  );
 }
 
 function sessionSecret(): string {
-  // Same policy as client-data encryption — one fallback, one production gate.
   return resolveEncryptionSecret();
 }
 
-function timingSafeEqual(a: string, b: string): boolean {
+export function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let out = 0;
   for (let i = 0; i < a.length; i++) {
@@ -54,35 +86,73 @@ function timingSafeEqual(a: string, b: string): boolean {
   return out === 0;
 }
 
-async function signedGateToken(): Promise<string> {
+function bytesToHex(buf: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buf), (x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+function toBase64Url(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function fromBase64Url(value: string): string {
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = padded.length % 4 === 0 ? "" : "=".repeat(4 - (padded.length % 4));
+  const bin = atob(padded + pad);
+  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+async function hmacHex(message: string): Promise<string> {
   const enc = new TextEncoder();
-  const secret = sessionSecret();
   const key = await crypto.subtle.importKey(
     "raw",
-    enc.encode(secret),
+    enc.encode(sessionSecret()),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],
   );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(COOKIE_PAYLOAD));
-  return Array.from(new Uint8Array(sig), (x) => x.toString(16).padStart(2, "0")).join("");
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+  return bytesToHex(sig);
+}
+
+type SessionBody = { v: number; jti: string; exp: number };
+
+export async function mintSessionCookieValue(): Promise<string> {
+  const body: SessionBody = {
+    v: SESSION_VERSION,
+    jti: crypto.randomUUID(),
+    exp: Date.now() + SESSION_TTL_MS,
+  };
+  const payload = toBase64Url(JSON.stringify(body));
+  const sig = await hmacHex(payload);
+  return `${payload}.${sig}`;
 }
 
 export async function sessionCookieValid(): Promise<boolean> {
   const cookie = getCookie(APP_SESSION_COOKIE);
-  if (!cookie) return false;
-  const expected = await signedGateToken();
-  return timingSafeEqual(cookie, expected);
+  if (!cookie || !cookie.includes(".")) return false;
+  const [payload, sig] = cookie.split(".");
+  if (!payload || !sig) return false;
+  const expected = await hmacHex(payload);
+  if (!timingSafeEqual(sig, expected)) return false;
+  try {
+    const body = JSON.parse(fromBase64Url(payload)) as SessionBody;
+    if (body.v !== SESSION_VERSION) return false;
+    if (typeof body.jti !== "string" || !body.jti) return false;
+    if (typeof body.exp !== "number" || body.exp < Date.now()) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function assertAppSession(): Promise<void> {
   if (!(await sessionCookieValid())) {
     throw new Error("Unauthorized access detected. Session expired.");
   }
-}
-
-export async function mintSessionCookieValue(): Promise<string> {
-  return signedGateToken();
 }
 
 export function writeSessionCookie(token: string): void {
@@ -92,7 +162,7 @@ export function writeSessionCookie(token: string): void {
     secure: isProd,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: Math.floor(SESSION_TTL_MS / 1000),
   });
 }
 

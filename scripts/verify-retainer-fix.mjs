@@ -7,6 +7,8 @@ import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
 import ws from "ws";
 import { createClient } from "@supabase/supabase-js";
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck("verify-retainer-fix.mjs");
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 

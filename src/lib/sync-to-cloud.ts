@@ -10,7 +10,7 @@ import type { OperationsData as Ops } from "./types";
 const KEYS = {
   invoices: "admark.invoices",
   company: "admark.company",
-  operations: "admark.operations",
+  operations: "admark.operations.v2",
   documents: "admark.documents",
   activityLogs: "admark.activity-logs",
 } as const;

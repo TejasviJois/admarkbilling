@@ -86,41 +86,65 @@ export function useOperations() {
         queryClient.setQueryData(queryKeys.operations, latest);
         writeClientCache(CACHE_KEY, latest);
 
-        toast.error("Newer data exists on the server", {
-          description:
-            "Your stale save was rejected. Reload the server version or explicitly merge your change.",
-          action: {
-            label: "Merge change",
-            onClick: () => {
-              const merged = applyOperationsMutation(latest, error.mutation);
-              queryClient.setQueryData(queryKeys.operations, merged);
-              writeClientCache(CACHE_KEY, merged);
-              void saveOperations(merged, error.mutation, error.version, {
-                deleteIds: error.mutation.deletes,
-              })
-                .then((saved) => {
-                  queryClient.setQueryData(queryKeys.operations, saved);
-                  writeClientCache(CACHE_KEY, saved);
-                  toast.success("Changes merged safely");
+        // Most CRM/calendar clicks race a background bump — auto-merge once
+        // onto the server snapshot instead of blocking every subsequent action.
+        try {
+          const merged = applyOperationsMutation(latest, error.mutation);
+          const saved = await saveOperations(merged, error.mutation, error.version, {
+            deleteIds: error.mutation.deletes,
+          });
+          queryClient.setQueryData(queryKeys.operations, saved);
+          writeClientCache(CACHE_KEY, saved);
+          return;
+        } catch (mergeError) {
+          if (!(mergeError instanceof OperationsConflictError)) {
+            logClientError("useOperations.autoMerge", mergeError);
+            toast.error("Could not save changes", {
+              description: mergeError instanceof Error ? mergeError.message : "Please try again.",
+            });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.operations });
+            return;
+          }
+
+          queryClient.setQueryData(queryKeys.operations, mergeError.latest);
+          writeClientCache(CACHE_KEY, mergeError.latest);
+
+          toast.error("Newer data exists on the server", {
+            description:
+              "Your stale save was rejected. Reload the server version or explicitly merge your change.",
+            action: {
+              label: "Merge change",
+              onClick: () => {
+                const merged = applyOperationsMutation(mergeError.latest, mergeError.mutation);
+                queryClient.setQueryData(queryKeys.operations, merged);
+                writeClientCache(CACHE_KEY, merged);
+                void saveOperations(merged, mergeError.mutation, mergeError.version, {
+                  deleteIds: mergeError.mutation.deletes,
                 })
-                .catch((mergeError) => {
-                  logClientError("useOperations.merge", mergeError);
-                  toast.error("Merge needs review", {
-                    description:
-                      "The server changed again. Reload the page and review the latest data.",
+                  .then((saved) => {
+                    queryClient.setQueryData(queryKeys.operations, saved);
+                    writeClientCache(CACHE_KEY, saved);
+                    toast.success("Changes merged safely");
+                  })
+                  .catch((retryError) => {
+                    logClientError("useOperations.merge", retryError);
+                    toast.error("Merge needs review", {
+                      description:
+                        "The server changed again. Reload the page and review the latest data.",
+                    });
+                    void queryClient.invalidateQueries({ queryKey: queryKeys.operations });
                   });
-                  void queryClient.invalidateQueries({ queryKey: queryKeys.operations });
-                });
+              },
             },
-          },
-          cancel: {
-            label: "Reload",
-            onClick: () => {
-              void queryClient.invalidateQueries({ queryKey: queryKeys.operations });
+            cancel: {
+              label: "Reload",
+              onClick: () => {
+                void queryClient.invalidateQueries({ queryKey: queryKeys.operations });
+              },
             },
-          },
-          duration: 15_000,
-        });
+            duration: 15_000,
+          });
+        }
       }
     };
 

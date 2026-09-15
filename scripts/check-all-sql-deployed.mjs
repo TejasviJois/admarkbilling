@@ -2,6 +2,8 @@
  * Verifies which of the 5 SQL files have actually been applied to the live
  * Supabase database. Read-only. Run: node scripts/check-all-sql-deployed.mjs
  */
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck(import.meta.url);
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
 

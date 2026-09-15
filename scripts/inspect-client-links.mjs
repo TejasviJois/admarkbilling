@@ -6,6 +6,8 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import ws from "ws";
 import { createClient } from "@supabase/supabase-js";
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck("inspect-client-links.mjs");
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 

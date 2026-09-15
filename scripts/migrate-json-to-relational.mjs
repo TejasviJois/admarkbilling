@@ -2,8 +2,12 @@
  * Idempotent migration from legacy JSON payloads to the admark relational schema.
  *
  * Usage:
- *   node scripts/migrate-json-to-relational.mjs             # dry-run
- *   node scripts/migrate-json-to-relational.mjs --apply     # write rows
+ *   ALLOW_HEAVY_SUPABASE_SCRIPTS=1 node scripts/migrate-json-to-relational.mjs
+ *   node scripts/migrate-json-to-relational.mjs --allow-egress --apply
+ *
+ * Or via package.json (still needs ack):
+ *   ALLOW_HEAVY_SUPABASE_SCRIPTS=1 npm run db:migrate:dry-run
+ *   npm run db:migrate:apply -- --allow-egress
  *
  * Prerequisites:
  *   1. Run supabase/migrations/20260718120000_create_admark_relational_schema.sql.
@@ -18,6 +22,8 @@ import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import ws from "ws";
 import { decrypt } from "../shared/encryption-core.mjs";
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck("migrate-json-to-relational.mjs");
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const apply = process.argv.includes("--apply");

@@ -32,9 +32,6 @@ export const ANALYTICS_RANGE_OPTIONS: { value: PeriodKey; label: string }[] = [
   { value: "6mo", label: "6 months" },
 ];
 
-/** @deprecated Prefer ANALYTICS_RANGE_OPTIONS + month picker on Analytics. */
-export const ANALYTICS_PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = PERIOD_OPTIONS;
-
 export function periodMonths(period: PeriodKey): number | null {
   if (period === "all") return null;
   return PERIOD_MONTHS[period];

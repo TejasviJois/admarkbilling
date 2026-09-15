@@ -12,6 +12,7 @@ export const OPERATIONS_ENTITY_KEYS = [
   "payments",
   "transactions",
   "founders",
+  "projectCommissions",
   "notifications",
   "scheduleEvents",
   "valuationSnapshots",

@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import ws from "ws";
 import { encrypt } from "../shared/encryption-core.mjs";
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck("import-directory-contacts.mjs");
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 

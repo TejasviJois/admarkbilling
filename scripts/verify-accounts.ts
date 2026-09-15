@@ -18,6 +18,9 @@ import {
 } from "../src/lib/project-billing.ts";
 import { computeFinancialSummary } from "../src/lib/financial.ts";
 import { paymentSummary, totalReceived } from "../src/lib/project-payments.ts";
+import { requireEgressAck } from "./lib/egress-guard.ts";
+
+requireEgressAck("verify-accounts.ts");
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 for (const line of readFileSync(resolve(root, ".env"), "utf8").split(/\r?\n/)) {

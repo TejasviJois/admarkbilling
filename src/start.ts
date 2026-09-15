@@ -33,11 +33,29 @@ function checkSecurityEnvironmentVariables() {
     );
   }
   if (!process.env.APP_SESSION_SECRET?.trim() && process.env.NODE_ENV !== "production") {
-    console.log("Dev notice: Using fallback development session secret.");
-  }
-  if (process.env.NODE_ENV === "production" && (!password || password === "HTRP@2026")) {
     console.warn(
-      "SECURITY WARNING: Running production with default or unconfigured admin password.",
+      "SECURITY: APP_SESSION_SECRET unset — using the development fallback. Set a unique secret before any shared deploy.",
+    );
+  }
+  if (process.env.NODE_ENV === "production") {
+    if (!password) {
+      throw new Error(
+        "FATAL: ADMARK_APP_PASSWORD must be set in production (Vercel → Environment Variables).",
+      );
+    }
+    if (
+      password === "HTRP@2026" ||
+      password === "Admin@123" ||
+      password === "password" ||
+      password === "admin"
+    ) {
+      throw new Error(
+        "FATAL: ADMARK_APP_PASSWORD is a known insecure default. Set a unique strong password.",
+      );
+    }
+  } else if (!password) {
+    console.warn(
+      "SECURITY: ADMARK_APP_PASSWORD unset — login will fail until it is set in .env.",
     );
   }
 }

@@ -2,6 +2,8 @@
  * Export clients with ongoing (active) projects only.
  * Usage: node scripts/export-active-client-projects.mjs
  */
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck(import.meta.url);
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

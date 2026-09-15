@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Eye, EyeOff, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,15 +26,16 @@ const BADGE_ORDER: Record<ProjectBadge, number> = {
 };
 
 function ClientsPage() {
-  const { ops, persist, loading } = useOperations();
+  const { ops, persist, loading, ready } = useOperations();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
   const [showDetails, setShowDetails] = useState(false);
+  const purgedOrphans = useRef(false);
 
   const clients = ops.clients ?? [];
 
-  // "Active" wins over "Completed"; clients with no revenue projects show "No Projects".
+  // "Active" wins over "Completed"; clients with no revenue projects are not rostered.
   const projectStatsById = useMemo(() => {
     const badge = new Map<string, ProjectBadge>();
     const counts = new Map<string, ClientProjectCounts>();
@@ -54,10 +55,49 @@ function ClientsPage() {
   const projectBadgeById = projectStatsById.badge;
   const projectCountsById = projectStatsById.counts;
 
+  // Drop empty "No Projects" shells from storage once (Blue Blocks, Go Holiday, etc.).
+  useEffect(() => {
+    if (!ready || purgedOrphans.current) return;
+    const orphanIds = clients
+      .filter((client) => !client.parentClientId)
+      .filter((client) => {
+        const counts = projectCountsById.get(client.id);
+        return (counts?.active ?? 0) + (counts?.completed ?? 0) === 0;
+      })
+      .map((client) => client.id);
+    if (orphanIds.length === 0) {
+      purgedOrphans.current = true;
+      return;
+    }
+    purgedOrphans.current = true;
+    const remove = new Set(orphanIds);
+    for (const client of clients) {
+      if (client.parentClientId && remove.has(client.parentClientId)) remove.add(client.id);
+    }
+    persist(
+      {
+        ...ops,
+        clients: clients.filter((client) => !remove.has(client.id)),
+        projects: ops.projects.map((project) =>
+          project.clientId && remove.has(project.clientId)
+            ? { ...project, clientId: undefined }
+            : project,
+        ),
+      },
+      { deleteIds: { clients: [...remove] } },
+    );
+  }, [ready, clients, projectCountsById, ops, persist]);
+
   const visibleClients = useMemo(() => {
     const query = search.trim().toLowerCase();
     return clients
       .filter((client) => !client.parentClientId)
+      .filter((client) => {
+        const revenueCount =
+          (projectCountsById.get(client.id)?.active ?? 0) +
+          (projectCountsById.get(client.id)?.completed ?? 0);
+        return revenueCount > 0;
+      })
       .filter((client) => {
         if (!query) return true;
         return [client.companyName, client.contactPerson, client.email, client.phone, client.status]
@@ -75,7 +115,7 @@ function ClientsPage() {
         if (byClientStatus !== 0) return byClientStatus;
         return a.companyName.localeCompare(b.companyName);
       });
-  }, [clients, search, projectBadgeById]);
+  }, [clients, search, projectBadgeById, projectCountsById]);
 
   const openAdd = () => {
     setEditing(null);
@@ -127,7 +167,7 @@ function ClientsPage() {
     <div className="space-y-4">
       <OperationsPageHeader
         title="Clients"
-        description="Centralized directory of companies, contacts, billing profiles, and client relationship logs."
+        description="Companies with ongoing or completed work. Empty prospect shells are removed automatically."
         action={
           <div className="flex items-center gap-2">
             <Button
@@ -179,7 +219,7 @@ function ClientsPage() {
         emptyMessage={
           search.trim()
             ? "No clients match your search."
-            : "No clients configured. Add your first client profile to get started."
+            : "No clients with projects yet. Profiles appear here when a deal is Won and work is ongoing or completed."
         }
       />
     </div>

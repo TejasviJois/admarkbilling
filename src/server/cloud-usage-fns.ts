@@ -3,7 +3,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CloudUsageSnapshot } from "@/lib/cloud-usage";
 import { assertAppSession } from "./app-session";
 import { getSupabaseServerConfig } from "./env";
-import { ADMARK_FILES_BUCKET } from "./file-storage";
 import { requireServerSupabase } from "./supabase-admin";
 
 function dashboardUsageUrl(supabaseUrl: string): string | null {
@@ -64,63 +63,10 @@ async function usageFromRpc(sb: SupabaseClient): Promise<{
   return parseUsageRow(data);
 }
 
-async function sumStorageObjects(sb: SupabaseClient): Promise<{ bytes: number; files: number } | null> {
-  let bytes = 0;
-  let files = 0;
-  let from = 0;
-  const page = 1000;
-  while (true) {
-    const { data, error } = await sb
-      .schema("storage")
-      .from("objects")
-      .select("metadata")
-      .eq("bucket_id", ADMARK_FILES_BUCKET)
-      .range(from, from + page - 1);
-    if (error) return null;
-    const rows = data ?? [];
-    for (const row of rows) {
-      const size = Number((row as { metadata?: { size?: number } | null }).metadata?.size ?? 0);
-      if (Number.isFinite(size)) bytes += size;
-      files += 1;
-    }
-    if (rows.length < page) break;
-    from += page;
-  }
-  return { bytes, files };
-}
-
-async function sumBucketByList(
-  sb: SupabaseClient,
-  prefix = "",
-): Promise<{ bytes: number; files: number }> {
-  let bytes = 0;
-  let files = 0;
-  let offset = 0;
-  const limit = 1000;
-  while (true) {
-    const { data, error } = await sb.storage.from(ADMARK_FILES_BUCKET).list(prefix, {
-      limit,
-      offset,
-    });
-    if (error || !data?.length) break;
-    for (const item of data) {
-      const isFolder = item.id == null;
-      const path = prefix ? `${prefix}/${item.name}` : item.name;
-      if (isFolder) {
-        const nested = await sumBucketByList(sb, path);
-        bytes += nested.bytes;
-        files += nested.files;
-      } else {
-        bytes += Number(item.metadata?.size ?? 0) || 0;
-        files += 1;
-      }
-    }
-    if (data.length < limit) break;
-    offset += limit;
-  }
-  return { bytes, files };
-}
-
+/**
+ * Cloud usage is RPC-only. Never list or download Storage buckets here —
+ * recursive storage.list previously burned multi-GB egress.
+ */
 export const getCloudUsageFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<CloudUsageSnapshot> => {
     const cfg = getSupabaseServerConfig();
@@ -135,39 +81,25 @@ export const getCloudUsageFn = createServerFn({ method: "GET" }).handler(
     } catch {
       return emptySnapshot({
         configured: true,
-        dashboardUrl: dashboardUsageUrl(cfg.url),
+        dashboardUrl: null,
         error: "Sign in again to read live usage.",
       });
     }
 
     const sb = requireServerSupabase();
     const fromRpc = await usageFromRpc(sb);
-    let storageBytes = fromRpc.storageBytes;
-    let storageFileCount: number | null = null;
-
-    if (storageBytes == null) {
-      const fromTable = await sumStorageObjects(sb);
-      if (fromTable) {
-        storageBytes = fromTable.bytes;
-        storageFileCount = fromTable.files;
-      } else {
-        const fromList = await sumBucketByList(sb);
-        storageBytes = fromList.bytes;
-        storageFileCount = fromList.files;
-      }
-    } else {
-      const fromTable = await sumStorageObjects(sb);
-      storageFileCount = fromTable?.files ?? null;
-    }
 
     return {
       configured: true,
       databaseBytes: fromRpc.databaseBytes,
-      storageBytes,
-      storageFileCount,
+      storageBytes: fromRpc.storageBytes,
+      storageFileCount: null,
       dashboardUrl: dashboardUsageUrl(cfg.url),
       measuredAt: new Date().toISOString(),
-      error: null,
+      error:
+        fromRpc.databaseBytes == null && fromRpc.storageBytes == null
+          ? "Usage RPC unavailable. Check Supabase dashboard billing for live numbers."
+          : null,
     };
   },
 );

@@ -135,20 +135,20 @@ function DirectoryPage() {
 
       <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full table-auto border-collapse text-left text-sm">
+          <table className="w-full table-fixed border-collapse text-left text-sm leading-snug">
             <thead>
-              <tr className="border-b border-border bg-muted/40 font-medium text-muted-foreground">
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Company</th>
-                <th className="px-4 py-3">Phone</th>
-                <th className="px-4 py-3">Contact through</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+              <tr className="border-b border-border bg-muted/40 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <th className="w-[22%] px-3 py-2">Name</th>
+                <th className="w-[22%] px-3 py-2">Company</th>
+                <th className="w-[16%] px-3 py-2">Phone</th>
+                <th className="w-[18%] px-3 py-2">Contact through</th>
+                <th className="w-[22%] px-3 py-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {visibleContacts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
                     {query
                       ? "No matches in the directory."
                       : "Directory is empty. Add the people you want to reach out to."}
@@ -157,46 +157,46 @@ function DirectoryPage() {
               ) : (
                 visibleContacts.map((contact) => (
                   <tr key={contact.id} className="hover:bg-muted/30">
-                    <td className="max-w-[14rem] px-4 py-3 font-semibold text-foreground break-words">
+                    <td className="truncate px-3 py-1.5 font-medium text-foreground" title={contact.personName}>
                       {contact.personName}
                     </td>
-                    <td className="max-w-[14rem] px-4 py-3 text-muted-foreground break-words">
+                    <td className="truncate px-3 py-1.5 text-muted-foreground" title={contact.companyName || undefined}>
                       {contact.companyName || "—"}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                    <td className="truncate px-3 py-1.5 text-muted-foreground">
                       {contact.phone || "—"}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                    <td className="truncate px-3 py-1.5 text-muted-foreground" title={contact.contactVia || undefined}>
                       {contact.contactVia || "—"}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-3 py-1.5 text-right">
+                      <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
                           onClick={() => moveToLeads(contact)}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-card px-2.5 text-xs font-medium text-foreground hover:bg-secondary"
+                          className="inline-flex h-7 items-center gap-1 rounded-md border border-input bg-card px-2 text-[11px] font-medium text-foreground hover:bg-secondary"
                           title="Contacted — move to Leads"
                         >
                           Add to leads
-                          <ArrowRight className="h-3.5 w-3.5" />
+                          <ArrowRight className="h-3 w-3" />
                         </button>
                         <button
                           type="button"
                           onClick={() => openEdit(contact)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-muted-foreground hover:bg-secondary"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-input bg-card text-muted-foreground hover:bg-secondary"
                           title="Edit contact"
                           aria-label="Edit contact"
                         >
-                          <Edit2 className="h-4 w-4" />
+                          <Edit2 className="h-3.5 w-3.5" />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleRemove(contact)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-destructive hover:bg-destructive/10"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-input bg-card text-destructive hover:bg-destructive/10"
                           title="Remove from directory"
                           aria-label="Remove from directory"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </td>

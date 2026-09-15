@@ -3,6 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 /** Single bucket for logos, proofs, agreements, compliance PDFs, etc. */
 export const ADMARK_FILES_BUCKET = "admark-files";
 
+/** Signed URL lifetime for newly uploaded private objects (1 year). */
+const SIGNED_URL_TTL_SEC = 60 * 60 * 24 * 365;
+/** Short refresh TTL when resolving stored public/signed URLs on read. */
+const REFRESH_SIGNED_TTL_SEC = 60 * 60;
+
 const MIME_EXT: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -55,6 +60,60 @@ function objectPath(folder: string, fileName: string | undefined, mimeType: stri
   return `${safeFolder}/${id}-${base}.${ext}`;
 }
 
+/** Extract object path from a public or signed Supabase storage URL for this bucket. */
+export function extractAdmarkFilesPath(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith(`${ADMARK_FILES_BUCKET}/`)) {
+    return trimmed.slice(ADMARK_FILES_BUCKET.length + 1);
+  }
+  try {
+    const parsed = new URL(trimmed);
+    const publicMarker = `/storage/v1/object/public/${ADMARK_FILES_BUCKET}/`;
+    const signMarker = `/storage/v1/object/sign/${ADMARK_FILES_BUCKET}/`;
+    const authMarker = `/storage/v1/object/authenticated/${ADMARK_FILES_BUCKET}/`;
+    for (const marker of [publicMarker, signMarker, authMarker]) {
+      const idx = parsed.pathname.indexOf(marker);
+      if (idx >= 0) {
+        const path = decodeURIComponent(parsed.pathname.slice(idx + marker.length));
+        return path.split("?")[0] || null;
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+export async function createAdmarkSignedUrl(
+  sb: SupabaseClient,
+  path: string,
+  expiresIn = REFRESH_SIGNED_TTL_SEC,
+): Promise<string> {
+  const { data, error } = await sb.storage
+    .from(ADMARK_FILES_BUCKET)
+    .createSignedUrl(path, expiresIn);
+  if (error || !data?.signedUrl) {
+    throw new Error(`Could not sign file URL: ${error?.message ?? "unknown error"}`);
+  }
+  return data.signedUrl;
+}
+
+/** Refresh access for a stored admark-files URL; leave other URLs unchanged. */
+export async function resolveStoredFileUrl(
+  sb: SupabaseClient,
+  value: string | undefined | null,
+): Promise<string | undefined> {
+  if (!value?.trim()) return value ?? undefined;
+  const path = extractAdmarkFilesPath(value);
+  if (!path) return value;
+  try {
+    return await createAdmarkSignedUrl(sb, path, REFRESH_SIGNED_TTL_SEC);
+  } catch {
+    return value;
+  }
+}
+
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/jpg",
@@ -90,8 +149,14 @@ export async function uploadDataUrlToStorage(
   });
   if (error) throw new Error(`Storage upload failed: ${error.message}`);
 
-  const { data } = sb.storage.from(ADMARK_FILES_BUCKET).getPublicUrl(path);
-  return data.publicUrl;
+  // Prefer signed URLs so the bucket can be private. Long TTL for stored refs.
+  try {
+    return await createAdmarkSignedUrl(sb, path, SIGNED_URL_TTL_SEC);
+  } catch {
+    // Fallback if signed URLs unavailable (legacy public bucket).
+    const { data } = sb.storage.from(ADMARK_FILES_BUCKET).getPublicUrl(path);
+    return data.publicUrl;
+  }
 }
 
 /** Upload embedded data URLs; leave https URLs unchanged. */

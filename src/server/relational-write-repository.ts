@@ -29,6 +29,7 @@ import {
   inferDocumentLibrary,
 } from "@/lib/document-vault";
 import { encodeLeadNotesForStorage } from "@/lib/lead-stats";
+import { formatOpsExpenseNotes, metaFromFixed } from "@/lib/ops-costs";
 import type {
   ActivityLogEntry,
   CompanySettings,
@@ -1013,7 +1014,7 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
         RECURRING_STATUSES,
         fixed.active === false ? "paused" : "active",
       ),
-      notes: text(fixed.notes),
+      notes: text(formatOpsExpenseNotes(fixed.notes, metaFromFixed(fixed))),
       deleted_at: null,
     });
   }
@@ -1598,6 +1599,31 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
         legacyValuationSettings: ops.valuationSettings ?? null,
         legacyAssets: ops.assets ?? [],
         legacySalarySchedules: salarySchedules,
+        legacyRecurringExpenseExtras: Object.fromEntries(
+          (ops.fixedMonthlyExpenses ?? [])
+            .filter((fixed) => fixed.kind !== "salary")
+            .filter(
+              (fixed) =>
+                fixed.nextDueDate ||
+                fixed.billingCycle ||
+                fixed.vendor ||
+                fixed.totalAmount != null ||
+                fixed.priorPaidInstallments != null ||
+                fixed.priorPaidAmount != null,
+            )
+            .map((fixed) => [
+              fixed.id,
+              {
+                nextDueDate: fixed.nextDueDate ?? null,
+                billingCycle: fixed.billingCycle ?? null,
+                vendor: fixed.vendor ?? null,
+                totalAmount: fixed.totalAmount ?? null,
+                priorPaidInstallments: fixed.priorPaidInstallments ?? null,
+                priorPaidAmount: fixed.priorPaidAmount ?? null,
+              },
+            ]),
+        ),
+        legacyProjectCommissions: ops.projectCommissions ?? [],
         // Expense proofs that could not be attached to a mirrored transaction document
         // (externalized to URLs above) are preserved here instead of being dropped.
         legacyExpenseProofs: leftoverExpenseProofs,

@@ -199,7 +199,7 @@ export function LeadFormDialog({
                     }))
                   }
                 />
-                New client
+                New prospect
               </label>
               <label className="inline-flex items-center gap-2 cursor-pointer">
                 <input
@@ -211,6 +211,11 @@ export function LeadFormDialog({
                 Existing client&apos;s project
               </label>
             </div>
+            {form.clientMode === "new" ? (
+              <p className="text-xs text-muted-foreground">
+                A Clients profile is created only when this deal reaches Won.
+              </p>
+            ) : null}
             {form.clientMode === "existing" && (
               <Field label="Select client *" id="crm-existing-client">
                 <Select

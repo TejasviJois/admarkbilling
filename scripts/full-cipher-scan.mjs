@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import ws from "ws";
 import { createClient } from "@supabase/supabase-js";
 import { decrypt } from "../shared/encryption-core.mjs";
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck("full-cipher-scan.mjs");
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 for (const line of readFileSync(resolve(root, ".env"), "utf8").split(/\r?\n/)) {

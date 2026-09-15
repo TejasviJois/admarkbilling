@@ -7,6 +7,8 @@ import ws from "ws";
 import { createClient } from "@supabase/supabase-js";
 import { decrypt } from "../shared/encryption-core.mjs";
 import { DEV_FALLBACK_SECRET } from "../shared/encryption-secret.mjs";
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck("diagnose-encryption-keys.mjs");
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 

@@ -3,6 +3,8 @@
  * supabase/migrations/20260719100000_safe_operations_mutations.sql exist.
  * Run: node scripts/check-safe-mutation-rpcs.mjs
  */
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck(import.meta.url);
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
 

@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync, writeFileSync } from "fs";
 import { decrypt } from "../shared/encryption-core.mjs";
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck("verify-full-restore.mjs");
 
 const env = Object.fromEntries(
   readFileSync(".env", "utf8")

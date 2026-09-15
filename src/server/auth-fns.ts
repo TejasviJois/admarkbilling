@@ -11,6 +11,7 @@ import {
   sessionCookieValid,
   writeSessionCookie,
   rateLimitIp,
+  rateLimitLogin,
 } from "./app-session";
 import { appendServerAuditLog } from "./activity-log-core";
 
@@ -39,6 +40,7 @@ export const loginFn = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data }) => {
+    rateLimitLogin();
     rateLimitIp();
     await ensurePortalPasswordLoaded();
 

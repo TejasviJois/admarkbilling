@@ -1,5 +1,14 @@
 const DEFAULT_USERNAME = "Admark Digitals";
-const DEFAULT_PASSWORD = "HTRP@2026";
+
+/** Passwords that must never be used in production (and are refused as env defaults). */
+export const KNOWN_INSECURE_PASSWORDS = [
+  "HTRP@2026",
+  "Admin@123",
+  "admin",
+  "password",
+  "Password1",
+  "12345678",
+] as const;
 
 /** In-memory override hydrated from file / cloud on the server. */
 let passwordOverride: string | undefined;
@@ -9,28 +18,57 @@ export function expectedUsername(): string {
   return process.env.ADMARK_APP_USERNAME?.trim() || DEFAULT_USERNAME;
 }
 
-export function expectedPassword(): string {
-  if (passwordOverride?.trim()) return passwordOverride.trim();
+export function isKnownInsecurePassword(password: string): boolean {
+  const normalized = password.trim();
+  return KNOWN_INSECURE_PASSWORDS.some((p) => p === normalized);
+}
 
-  const env = process.env.ADMARK_APP_PASSWORD;
-  if (process.env.NODE_ENV === "production") {
-    if (!env?.trim()) {
+export function expectedPassword(): string {
+  if (passwordOverride?.trim()) {
+    const override = passwordOverride.trim();
+    if (process.env.NODE_ENV === "production" && isKnownInsecurePassword(override)) {
       throw new Error(
-        "ADMARK_APP_PASSWORD must be set in production (Vercel → Environment Variables).",
+        "Portal password override is a known insecure default. Change it in Settings.",
       );
     }
-    return env;
+    return override;
   }
-  return env ?? DEFAULT_PASSWORD;
+
+  const env = process.env.ADMARK_APP_PASSWORD?.trim();
+  if (!env) {
+    throw new Error(
+      "ADMARK_APP_PASSWORD must be set (Vercel / .env). Hardcoded defaults were removed.",
+    );
+  }
+  if (process.env.NODE_ENV === "production" && isKnownInsecurePassword(env)) {
+    throw new Error(
+      "ADMARK_APP_PASSWORD must not be a known default (e.g. HTRP@2026 / Admin@123).",
+    );
+  }
+  return env;
 }
 
 export function normalizeUsername(input: string): string {
   return input.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i++) {
+    out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return out === 0;
+}
+
 export function credentialsValid(username: string, password: string): boolean {
   const userOk = normalizeUsername(username) === normalizeUsername(expectedUsername());
-  const passOk = password === expectedPassword();
+  let passOk = false;
+  try {
+    passOk = timingSafeEqual(password, expectedPassword());
+  } catch {
+    passOk = false;
+  }
   return userOk && passOk;
 }
 
@@ -48,7 +86,6 @@ export async function ensurePortalPasswordLoaded(): Promise<void> {
     const fromCloud = await store.readPortalPasswordFromCloud();
     if (fromCloud) {
       passwordOverride = fromCloud;
-      // Mirror to local file so cold starts without another cloud round-trip still work.
       try {
         store.writePortalAuthOverride({ password: fromCloud });
       } catch {
@@ -56,7 +93,7 @@ export async function ensurePortalPasswordLoaded(): Promise<void> {
       }
     }
   } catch {
-    // Missing/unreadable override — fall back to env/defaults.
+    // Missing/unreadable override — fall back to env.
   }
 }
 
@@ -66,8 +103,11 @@ export async function setPortalPassword(
   newPassword: string,
 ): Promise<void> {
   await ensurePortalPasswordLoaded();
-  if (currentPassword !== expectedPassword()) {
+  if (!timingSafeEqual(currentPassword, expectedPassword())) {
     throw new Error("Current password is incorrect.");
+  }
+  if (isKnownInsecurePassword(newPassword)) {
+    throw new Error("Choose a stronger password — that value is a known insecure default.");
   }
   const store = await import("./portal-auth-store");
   store.writePortalAuthOverride({ password: newPassword });

@@ -10,6 +10,7 @@ import { DEFAULT_PROJECTS, withDefaultProjects } from "@/lib/default-projects";
 import { DEFAULT_PARTNERSHIPS, withDefaultPartnerships } from "@/lib/default-partnerships";
 import { withDefaultFinancialBaseline } from "@/lib/default-financial-baseline";
 import { withDefaultLeads } from "@/lib/default-leads";
+import { isRevenueProject } from "./project-status";
 import { normalizeAllProjectPayments } from "./project-payments";
 import { mergeAllProjectBilling } from "./project-billing";
 import { logClientError } from "./client-logger";
@@ -33,10 +34,12 @@ function needsPartnershipSeed(partnerships: OperationsData["partnerships"]): boo
   return partnerships.length === 0;
 }
 
+/** Seed clients only from won/revenue work — never from pipeline discussion projects. */
 function seedClientsFromProjects(projects: Project[]): Client[] {
   const seen = new Set<string>();
   const list: Client[] = [];
   for (const p of projects) {
+    if (!isRevenueProject(p.status)) continue;
     const name = p.client.trim();
     if (!name || seen.has(name.toLowerCase())) continue;
     seen.add(name.toLowerCase());
@@ -301,7 +304,10 @@ export async function saveOperations(
       operationsVersion = conflictVersion;
       blockedConflict = null;
     } else if (blockedConflict) {
-      throw blockedConflict;
+      // Drop the sticky lock: the CAS token was already advanced to the server
+      // version. Re-throwing forever made every later CRM click show the same toast.
+      blockedConflict = null;
+      expectedVersion = operationsVersion ?? expectedVersion;
     }
     if (!expectedVersion) {
       // First save raced ahead of the initial load — fetch the current server

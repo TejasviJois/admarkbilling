@@ -189,7 +189,12 @@ export function syncLeadLifecycle(ops: OperationsData, lead: Lead): OperationsDa
   const targetStatus = projectStatusForLead(lead.status);
   if (!targetStatus) return next;
 
-  let clientId = lead.convertedClientId ?? findClientForLead(next.clients ?? [], lead)?.id;
+  // Client profiles are created only on Won. Before that, discussion projects
+  // may optionally reference an *existing* convertedClientId but never invent one.
+  let clientId: string | undefined =
+    lead.status === "won"
+      ? lead.convertedClientId ?? findClientForLead(next.clients ?? [], lead)?.id
+      : lead.convertedClientId;
 
   if (lead.status === "won") {
     next = ensureClientForWonLead(next, lead);
@@ -210,9 +215,10 @@ export function syncLeadLifecycle(ops: OperationsData, lead: Lead): OperationsDa
 
   if (!matched) {
     // Only create when entering a stage that needs a project; never for New/Contacted.
+    // Pass clientId only after Won (or when the deal is explicitly linked to an existing client).
     const created = buildDiscussionProject(
       { ...lead, convertedClientId: clientId ?? lead.convertedClientId },
-      clientId,
+      lead.status === "won" || lead.convertedClientId ? clientId : undefined,
     );
     created.status = targetStatus;
     if (lead.status === "won" && clientId) {
@@ -231,7 +237,10 @@ export function syncLeadLifecycle(ops: OperationsData, lead: Lead): OperationsDa
     email: matched.email || lead.email,
   };
 
-  if (clientId) {
+  if (lead.status === "won" && clientId) {
+    patched.clientId = matched.clientId ?? clientId;
+    patched.client = leadDisplayName(lead);
+  } else if (lead.convertedClientId && clientId) {
     patched.clientId = matched.clientId ?? clientId;
     if (!matched.client?.trim()) patched.client = leadDisplayName(lead);
   }

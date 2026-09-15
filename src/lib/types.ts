@@ -512,6 +512,8 @@ export interface OperationsData {
   payments?: Payment[];
   transactions?: Transaction[];
   founders?: Founder[];
+  /** Office & Ops — per-project commission splits (fixed ₹). */
+  projectCommissions?: ProjectCommission[];
   notifications?: AppNotification[];
   /** Notification ids the user cleared — sync must not resurrect them. */
   dismissedNotificationIds?: string[];
@@ -625,6 +627,8 @@ export type FixedMonthlyExpenseKind =
   | "utility"
   | "other";
 
+export type OpsBillingCycle = "monthly" | "yearly";
+
 export interface FixedMonthlyExpense {
   id: string;
   label: string;
@@ -639,6 +643,12 @@ export interface FixedMonthlyExpense {
   startDate: string;
   /** Fixed number of installments; blank means ongoing until manually completed. */
   totalMonths?: number;
+  /** Full obligation / loan principal (e.g. laptop EMI total). */
+  totalAmount?: number;
+  /** Installments already paid before tracking started in Ops. */
+  priorPaidInstallments?: number;
+  /** Rupees already paid toward totalAmount before tracking (preferred for EMI). */
+  priorPaidAmount?: number;
   /** Calendar day (1–31) to remind the user each month. */
   reminderDay?: number;
   /** Checked-off installment months, stored as YYYY-MM. Kept in sync with `monthPayments`. */
@@ -649,6 +659,36 @@ export interface FixedMonthlyExpense {
   status?: "active" | "paused" | "completed";
   notes?: string;
   active: boolean;
+  /** Next bill or domain expiry (YYYY-MM-DD) — Office & Ops renewals. */
+  nextDueDate?: string;
+  /** How often this renews; domains are often yearly. */
+  billingCycle?: OpsBillingCycle;
+  /** Provider / registrar (AWS, Cursor, GoDaddy, etc.). */
+  vendor?: string;
+}
+
+/** Per-person split on a project commission plan (Office & Ops). */
+export interface ProjectCommissionSplit {
+  id: string;
+  personName: string;
+  teamMemberId?: string;
+  amount: number;
+  notes?: string;
+}
+
+export type ProjectCommissionStatus = "planned" | "partial" | "paid";
+
+/** Project commission plan — fixed ₹ splits; does not alter project billing maths. */
+export interface ProjectCommission {
+  id: string;
+  projectId: string;
+  label?: string;
+  splits: ProjectCommissionSplit[];
+  status: ProjectCommissionStatus;
+  paidAt?: string;
+  notes?: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export type AgreementCounterpartyType = "client" | "partner" | "vendor" | "other";

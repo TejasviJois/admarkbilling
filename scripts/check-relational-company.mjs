@@ -1,5 +1,7 @@
 /* Read-only: check admark.organizations for recoverable company/bank details.
    Masked previews only. */
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck(import.meta.url);
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";

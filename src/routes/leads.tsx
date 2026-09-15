@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { History, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LeadFormDialog } from "@/components/operations/LeadFormDialog";
 import { CRMKanbanBoard } from "@/components/crm/CRMKanbanBoard";
@@ -95,9 +95,16 @@ function LeadsPage() {
         title="Sales CRM Pipeline"
         description="Kanban pipeline board tracking prospects, deal probabilities, and sales closing forecasts."
         action={
-          <Button type="button" onClick={openAdd} className="inline-flex items-center gap-2">
-            <Plus className="h-4 w-4" /> Add Deal
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" asChild className="inline-flex items-center gap-2">
+              <Link to="/pipeline-history">
+                <History className="h-4 w-4" /> History
+              </Link>
+            </Button>
+            <Button type="button" onClick={openAdd} className="inline-flex items-center gap-2">
+              <Plus className="h-4 w-4" /> Add Deal
+            </Button>
+          </div>
         }
       />
 

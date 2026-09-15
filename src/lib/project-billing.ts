@@ -400,11 +400,6 @@ export function sumPipelineBookedRevenue(projects: Project[], asOfDate?: string)
   );
 }
 
-/** @deprecated Use sumPipelineBookedRevenue */
-export function sumActivePipelineBooked(projects: Project[], asOfDate?: string): number {
-  return sumPipelineBookedRevenue(projects, asOfDate);
-}
-
 export function sumActiveMrr(projects: Project[], asOfDate?: string): number {
   const asOf = asOfDate ?? new Date().toISOString().slice(0, 10);
   return projects.reduce((s, p) => s + activeMrr(p, asOf), 0);

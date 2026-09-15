@@ -4,6 +4,8 @@
  *
  * Usage: node scripts/dedupe-invoice-recv-mirrors.mjs --apply
  */
+import { requireEgressAck } from './lib/egress-guard.mjs';
+requireEgressAck(import.meta.url);
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

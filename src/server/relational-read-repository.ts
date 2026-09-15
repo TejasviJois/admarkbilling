@@ -17,6 +17,7 @@ import {
   parseArchiveDocumentType,
 } from "@/lib/document-vault";
 import { decodeLeadNotesFromStorage } from "@/lib/lead-stats";
+import { parseOpsExpenseNotes } from "@/lib/ops-costs";
 import type {
   ActivityAction,
   ActivityEntity,
@@ -780,6 +781,18 @@ interface ParsedApplicationPreferences {
   valuationSettings: ValuationSettings | undefined;
   assets: AssetEntry[];
   salarySchedules: FixedMonthlyExpense[];
+  recurringExtras: Record<
+    string,
+    {
+      nextDueDate?: string;
+      billingCycle?: "monthly" | "yearly";
+      vendor?: string;
+      totalAmount?: number;
+      priorPaidInstallments?: number;
+      priorPaidAmount?: number;
+    }
+  >;
+  projectCommissions: import("@/lib/types").ProjectCommission[];
   migrationState: LegacyMigrationState;
 }
 
@@ -788,6 +801,52 @@ function parseApplicationPreferences(raw: unknown): ParsedApplicationPreferences
   const legacyAssets = Array.isArray(preferences.legacyAssets) ? preferences.legacyAssets : [];
   const legacySalarySchedules = Array.isArray(preferences.legacySalarySchedules)
     ? preferences.legacySalarySchedules
+    : [];
+  const extrasRaw = isRecord(preferences.legacyRecurringExpenseExtras)
+    ? preferences.legacyRecurringExpenseExtras
+    : {};
+  const recurringExtras: ParsedApplicationPreferences["recurringExtras"] = {};
+  for (const [id, value] of Object.entries(extrasRaw)) {
+    if (!isRecord(value)) continue;
+    recurringExtras[id] = {
+      nextDueDate:
+        typeof value.nextDueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.nextDueDate)
+          ? value.nextDueDate
+          : undefined,
+      billingCycle:
+        value.billingCycle === "yearly" || value.billingCycle === "monthly"
+          ? value.billingCycle
+          : undefined,
+      vendor: typeof value.vendor === "string" ? value.vendor : undefined,
+      totalAmount:
+        typeof value.totalAmount === "number" &&
+        Number.isFinite(value.totalAmount) &&
+        value.totalAmount > 0
+          ? value.totalAmount
+          : typeof value.totalAmount === "string" && Number(value.totalAmount) > 0
+            ? Number(value.totalAmount)
+            : undefined,
+      priorPaidInstallments:
+        typeof value.priorPaidInstallments === "number" &&
+        Number.isFinite(value.priorPaidInstallments) &&
+        value.priorPaidInstallments > 0
+          ? Math.floor(value.priorPaidInstallments)
+          : typeof value.priorPaidInstallments === "string" &&
+              Number(value.priorPaidInstallments) > 0
+            ? Math.floor(Number(value.priorPaidInstallments))
+            : undefined,
+      priorPaidAmount:
+        typeof value.priorPaidAmount === "number" &&
+        Number.isFinite(value.priorPaidAmount) &&
+        value.priorPaidAmount > 0
+          ? value.priorPaidAmount
+          : typeof value.priorPaidAmount === "string" && Number(value.priorPaidAmount) > 0
+            ? Number(value.priorPaidAmount)
+            : undefined,
+    };
+  }
+  const legacyCommissions = Array.isArray(preferences.legacyProjectCommissions)
+    ? preferences.legacyProjectCommissions
     : [];
   return {
     financialBaseline:
@@ -804,6 +863,50 @@ function parseApplicationPreferences(raw: unknown): ParsedApplicationPreferences
     salarySchedules: legacySalarySchedules
       .map(parseLegacySalarySchedule)
       .filter((schedule): schedule is FixedMonthlyExpense => schedule !== null),
+    recurringExtras,
+    projectCommissions: legacyCommissions
+      .map((item) => {
+        try {
+          // Lazy import shape — parse inline to avoid circular deps
+          if (!item || typeof item !== "object") return null;
+          const c = item as Record<string, unknown>;
+          if (typeof c.id !== "string" || typeof c.projectId !== "string") return null;
+          const splits = Array.isArray(c.splits)
+            ? c.splits
+                .map((split) => {
+                  if (!split || typeof split !== "object") return null;
+                  const s = split as Record<string, unknown>;
+                  if (typeof s.id !== "string" || typeof s.personName !== "string") return null;
+                  if (typeof s.amount !== "number") return null;
+                  return {
+                    id: s.id,
+                    personName: s.personName,
+                    teamMemberId: typeof s.teamMemberId === "string" ? s.teamMemberId : undefined,
+                    amount: s.amount,
+                    notes: typeof s.notes === "string" ? s.notes : undefined,
+                  };
+                })
+                .filter(Boolean)
+            : [];
+          return {
+            id: c.id,
+            projectId: c.projectId,
+            label: typeof c.label === "string" ? c.label : undefined,
+            splits: splits as import("@/lib/types").ProjectCommissionSplit[],
+            status:
+              c.status === "paid" || c.status === "partial" || c.status === "planned"
+                ? c.status
+                : "planned",
+            paidAt: typeof c.paidAt === "string" ? c.paidAt : undefined,
+            notes: typeof c.notes === "string" ? c.notes : undefined,
+            createdAt: typeof c.createdAt === "number" ? c.createdAt : Date.now(),
+            updatedAt: typeof c.updatedAt === "number" ? c.updatedAt : Date.now(),
+          } as import("@/lib/types").ProjectCommission;
+        } catch {
+          return null;
+        }
+      })
+      .filter((c): c is import("@/lib/types").ProjectCommission => c != null),
     migrationState: parseLegacyMigrationState(preferences.legacyMigrationState),
   };
 }
@@ -1209,6 +1312,8 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
   // --- Recurring costs + salary schedules kept in settings preferences ------------
   const recurringExpenses: FixedMonthlyExpense[] = recurringRows.map((row) => {
     const status = pickOne(row.status, RECURRING_STATUSES, "active");
+    const extras = preferences.recurringExtras[legacyIdOf(row)];
+    const { notes, meta } = parseOpsExpenseNotes(row.notes);
     return {
       id: legacyIdOf(row),
       label: row.label,
@@ -1220,8 +1325,14 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
       reminderDay: asNumber(row.reminder_day),
       paidMonths: row.paid_months ?? [],
       status,
-      notes: orUndefined(row.notes),
+      notes,
       active: status === "active",
+      nextDueDate: meta.nextDueDate ?? extras?.nextDueDate,
+      billingCycle: meta.billingCycle ?? extras?.billingCycle,
+      vendor: meta.vendor ?? extras?.vendor,
+      totalAmount: meta.totalAmount ?? extras?.totalAmount,
+      priorPaidInstallments: meta.priorPaidInstallments ?? extras?.priorPaidInstallments,
+      priorPaidAmount: meta.priorPaidAmount ?? extras?.priorPaidAmount,
     };
   });
   const fixedMonthlyExpenses = [...preferences.salarySchedules, ...recurringExpenses];
@@ -1310,6 +1421,7 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
     payments: topLevelPayments,
     transactions,
     founders,
+    projectCommissions: preferences.projectCommissions,
     notifications,
     scheduleEvents,
     valuationSettings: preferences.valuationSettings,
