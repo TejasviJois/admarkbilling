@@ -149,14 +149,8 @@ export async function uploadDataUrlToStorage(
   });
   if (error) throw new Error(`Storage upload failed: ${error.message}`);
 
-  // Prefer signed URLs so the bucket can be private. Long TTL for stored refs.
-  try {
-    return await createAdmarkSignedUrl(sb, path, SIGNED_URL_TTL_SEC);
-  } catch {
-    // Fallback if signed URLs unavailable (legacy public bucket).
-    const { data } = sb.storage.from(ADMARK_FILES_BUCKET).getPublicUrl(path);
-    return data.publicUrl;
-  }
+  // Bucket is private — always return a signed URL (no public URL fallback).
+  return createAdmarkSignedUrl(sb, path, SIGNED_URL_TTL_SEC);
 }
 
 /** Upload embedded data URLs; leave https URLs unchanged. */

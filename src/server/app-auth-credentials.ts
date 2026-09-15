@@ -47,7 +47,7 @@ export function expectedPassword(): string {
   }
   if (readEnv("NODE_ENV") === "production" && isKnownInsecurePassword(fromEnv)) {
     throw new Error(
-      "ADMARK_APP_PASSWORD must not be a known default (e.g. HTRP@2026 / Admin@123).",
+      "ADMARK_APP_PASSWORD must not be a known insecure default (e.g. HTRP@2026).",
     );
   }
   return fromEnv;

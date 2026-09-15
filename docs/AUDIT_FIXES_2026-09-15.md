@@ -4,13 +4,10 @@ Document of changes applied after the full-software security / performance / dea
 
 ## Action required from you
 
-1. **Set strong secrets in `.env` / Vercel**
-   - `ADMARK_APP_PASSWORD` — required everywhere now (no hardcoded `HTRP@2026`).
-   - `APP_SESSION_SECRET` — min 16 chars; mandatory in production.
-   - **Rotate** `SUPABASE_SERVICE_ROLE_KEY` if this machine/chat may have exposed it.
-2. **Apply migration** `supabase/migrations/20260915150000_private_admark_files_bucket.sql` so `admark-files` is private.
-3. **Re-login** after deploy — session cookies are no longer a static shared token.
-4. Existing file URLs may need a page reload / re-upload after the bucket is private (new uploads use signed URLs).
+1. **Secrets** — `ADMARK_APP_PASSWORD` and `APP_SESSION_SECRET` must be set in `.env` / Vercel (done for solo deploy).
+2. **Private files** — migration `20260915150000_private_admark_files_bucket.sql` / bucket `public: false` (confirmed applied).
+3. **Re-login** after deploy — session cookies are per-login HMAC tokens.
+4. See also `docs/SOLO_PRODUCTION_READY_2026-09-15.md` for the solo-operator checklist.
 
 ---
 
