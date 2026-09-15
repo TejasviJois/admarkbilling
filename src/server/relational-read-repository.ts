@@ -1537,6 +1537,7 @@ export async function loadRelationalCompany(): Promise<CompanySettings> {
     paymentProofUploadsEnabled: featureToggles.paymentProofUploadsEnabled === true,
     companyValuationEnabled: featureToggles.companyValuationEnabled === true,
     projectAssignmentsEnabled: featureToggles.projectAssignmentsEnabled === true,
+    partnershipsEnabled: featureToggles.partnershipsEnabled === true,
   });
   return normalizeCompanySettings(raw);
 }

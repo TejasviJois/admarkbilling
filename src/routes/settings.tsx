@@ -735,6 +735,20 @@ function SettingsPage() {
                     className="mt-0.5"
                   />
                 </div>
+                <div className="flex items-start justify-between gap-4 py-4">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Partnerships</p>
+                    <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                      Show Partnerships under Delivery. Keep off until you need it.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={c.partnershipsEnabled === true}
+                    onCheckedChange={(checked) => set("partnershipsEnabled", checked)}
+                    aria-label="Toggle Partnerships module"
+                    className="mt-0.5"
+                  />
+                </div>
               </div>
               <p className="text-xs text-muted-foreground">Save after changing rules.</p>
             </div>

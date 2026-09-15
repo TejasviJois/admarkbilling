@@ -123,8 +123,6 @@ export function ProjectsPipelineSummary({
     completed: projects.filter((p) => p.status === "completed").length,
     active: projects.filter((p) => p.status === "active").length,
     planning: projects.filter((p) => p.status === "planning").length,
-    on_hold: projects.filter((p) => p.status === "on_hold").length,
-    cancelled: projects.filter((p) => p.status === "cancelled").length,
   };
 
   const items: { label: string; count: number; className: string; status: Project["status"] }[] = [
@@ -136,17 +134,10 @@ export function ProjectsPipelineSummary({
       className: "text-sky-400",
       status: "planning",
     },
-    { label: "On hold", count: counts.on_hold, className: "text-rose-400", status: "on_hold" },
-    {
-      label: "Not interested",
-      count: counts.cancelled,
-      className: "text-rose-300",
-      status: "cancelled",
-    },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {items.map((item) => {
         const isActive = selected === item.status;
         const baseClass = "rounded-lg border px-4 py-3 text-center shadow-sm transition-colors";

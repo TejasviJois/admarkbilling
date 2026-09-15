@@ -1810,6 +1810,7 @@ export async function saveRelationalCompany(data: CompanySettings): Promise<void
         paymentProofUploadsEnabled: settings.paymentProofUploadsEnabled === true,
         companyValuationEnabled: settings.companyValuationEnabled === true,
         projectAssignmentsEnabled: settings.projectAssignmentsEnabled === true,
+        partnershipsEnabled: settings.partnershipsEnabled === true,
       },
       application_preferences: {
         ...existingPreferences,

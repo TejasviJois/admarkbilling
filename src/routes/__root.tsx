@@ -234,19 +234,23 @@ function SidebarNavigation({
   expandedGroups,
   onToggleGroup,
   showValuation,
+  showPartnerships,
   onNavigate,
 }: {
   path: string;
   expandedGroups: NavGroupId[];
   onToggleGroup: (id: NavGroupId, keepOthers: boolean) => void;
   showValuation: boolean;
+  showPartnerships: boolean;
   onNavigate?: () => void;
 }) {
   const isActive = (to: string, exact?: boolean) =>
     exact ? path === to : path === to || path.startsWith(`${to}/`);
 
   const renderGroup = (group: NavGroup) => {
-    const items = group.items;
+    const items = group.items.filter(
+      (item) => item.to !== "/partnerships" || showPartnerships,
+    );
     const expanded = expandedGroups.includes(group.id);
     const active = items.some((item) => isActive(item.to, item.exact));
     const GroupIcon = group.icon;
@@ -499,6 +503,7 @@ function AppShell() {
             expandedGroups={expandedNavGroups}
             onToggleGroup={toggleNavGroup}
             showValuation={company.companyValuationEnabled === true}
+            showPartnerships={company.partnershipsEnabled === true}
           />
         </div>
       </aside>
@@ -564,6 +569,7 @@ function AppShell() {
                     expandedGroups={expandedNavGroups}
                     onToggleGroup={toggleNavGroup}
                     showValuation={company.companyValuationEnabled === true}
+                    showPartnerships={company.partnershipsEnabled === true}
                     onNavigate={() => setMobileMenuOpen(false)}
                   />
                   <div className="border-t border-border pt-4">

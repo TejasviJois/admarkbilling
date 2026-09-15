@@ -48,6 +48,7 @@ export const DEFAULT_COMPANY: CompanySettings = {
   paymentProofUploadsEnabled: false,
   companyValuationEnabled: false,
   projectAssignmentsEnabled: false,
+  partnershipsEnabled: false,
   companyMembers: [
     {
       id: "member-harshith",

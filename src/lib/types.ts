@@ -95,6 +95,8 @@ export interface CompanySettings {
   companyValuationEnabled?: boolean;
   /** Feature flag for Project Assignments (/team/assignments). Off until you need it. */
   projectAssignmentsEnabled?: boolean;
+  /** Feature flag for Partnerships (/partnerships) nav + page. Off until you need it. */
+  partnershipsEnabled?: boolean;
 }
 
 /** Saved with company settings — file as data URL and/or a trusted https link only. */
