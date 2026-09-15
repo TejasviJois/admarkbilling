@@ -1,6 +1,5 @@
 import { createStart, createMiddleware, createCsrfMiddleware } from "@tanstack/react-start";
 import { renderErrorPage } from "./lib/error-page";
-import { resolveEncryptionSecret } from "../shared/encryption-secret.mjs";
 
 const csrfMiddleware = createCsrfMiddleware({
   filter: (ctx) => ctx.handlerType === "serverFn",
@@ -21,45 +20,12 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
   }
 });
 
-// Startup Security Checks — secret policy lives in shared/encryption-secret.mjs.
-function checkSecurityEnvironmentVariables() {
-  const password = process.env.ADMARK_APP_PASSWORD?.trim();
-  try {
-    resolveEncryptionSecret();
-  } catch (err) {
-    throw new Error(
-      `FATAL: ${err instanceof Error ? err.message : String(err)} ` +
-        "Set APP_SESSION_SECRET in Vercel → Project → Settings → Environment Variables.",
-    );
-  }
-  if (!process.env.APP_SESSION_SECRET?.trim() && process.env.NODE_ENV !== "production") {
-    console.warn(
-      "SECURITY: APP_SESSION_SECRET unset — using the development fallback. Set a unique secret before any shared deploy.",
-    );
-  }
-  if (process.env.NODE_ENV === "production") {
-    if (!password) {
-      throw new Error(
-        "FATAL: ADMARK_APP_PASSWORD must be set in production (Vercel → Environment Variables).",
-      );
-    }
-    if (
-      password === "HTRP@2026" ||
-      password === "password" ||
-      password === "admin"
-    ) {
-      throw new Error(
-        "FATAL: ADMARK_APP_PASSWORD is a known insecure default. Set a unique strong password.",
-      );
-    }
-  } else if (!password) {
-    console.warn(
-      "SECURITY: ADMARK_APP_PASSWORD unset — login will fail until it is set in .env.",
-    );
-  }
-}
-checkSecurityEnvironmentVariables();
-
+/**
+ * Do NOT run env FATAL checks here. `start.ts` is evaluated in the client graph;
+ * Vite replaces `process.env` with `{}` in the browser, which falsely trips
+ * "password must be set" and breaks login. Server boot checks live in
+ * `src/server/production-env.ts` (called from `src/server.ts`).
+ */
 export const startInstance = createStart(() => ({
   requestMiddleware: [csrfMiddleware, errorMiddleware],
 }));

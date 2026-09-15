@@ -2,7 +2,16 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
-import { warnMissingProductionEnv } from "./server/production-env";
+import {
+  assertProductionSecurityEnv,
+  warnMissingProductionEnv,
+} from "./server/production-env";
+
+try {
+  assertProductionSecurityEnv();
+} catch (error) {
+  console.error(error);
+}
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;

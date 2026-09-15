@@ -12,8 +12,15 @@ export const KNOWN_INSECURE_PASSWORDS = [
 let passwordOverride: string | undefined;
 let overrideLoaded = false;
 
+function readEnv(name: string): string | undefined {
+  // Dynamic key — avoids Vite replacing process.env.NAME with undefined in bundles.
+  const value = typeof process !== "undefined" ? process.env[name] : undefined;
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  return trimmed || undefined;
+}
+
 export function expectedUsername(): string {
-  return process.env.ADMARK_APP_USERNAME?.trim() || DEFAULT_USERNAME;
+  return readEnv("ADMARK_APP_USERNAME") || DEFAULT_USERNAME;
 }
 
 export function isKnownInsecurePassword(password: string): boolean {
@@ -24,7 +31,7 @@ export function isKnownInsecurePassword(password: string): boolean {
 export function expectedPassword(): string {
   if (passwordOverride?.trim()) {
     const override = passwordOverride.trim();
-    if (process.env.NODE_ENV === "production" && isKnownInsecurePassword(override)) {
+    if (readEnv("NODE_ENV") === "production" && isKnownInsecurePassword(override)) {
       throw new Error(
         "Portal password override is a known insecure default. Change it in Settings.",
       );
@@ -32,18 +39,18 @@ export function expectedPassword(): string {
     return override;
   }
 
-  const env = process.env.ADMARK_APP_PASSWORD?.trim();
-  if (!env) {
+  const fromEnv = readEnv("ADMARK_APP_PASSWORD");
+  if (!fromEnv) {
     throw new Error(
       "ADMARK_APP_PASSWORD must be set (Vercel / .env). Hardcoded defaults were removed.",
     );
   }
-  if (process.env.NODE_ENV === "production" && isKnownInsecurePassword(env)) {
+  if (readEnv("NODE_ENV") === "production" && isKnownInsecurePassword(fromEnv)) {
     throw new Error(
       "ADMARK_APP_PASSWORD must not be a known default (e.g. HTRP@2026 / Admin@123).",
     );
   }
-  return env;
+  return fromEnv;
 }
 
 export function normalizeUsername(input: string): string {
