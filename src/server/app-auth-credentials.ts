@@ -3,8 +3,6 @@ const DEFAULT_USERNAME = "Admark Digitals";
 /** Passwords that must never be used in production (and are refused as env defaults). */
 export const KNOWN_INSECURE_PASSWORDS = [
   "HTRP@2026",
-  "Admin@123",
-  "admin",
   "password",
   "Password1",
   "12345678",

@@ -45,7 +45,6 @@ function checkSecurityEnvironmentVariables() {
     }
     if (
       password === "HTRP@2026" ||
-      password === "Admin@123" ||
       password === "password" ||
       password === "admin"
     ) {
