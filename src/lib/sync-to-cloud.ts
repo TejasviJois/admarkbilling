@@ -5,6 +5,7 @@ import { DEFAULT_COMPANY } from "./constants";
 import { normalizeCompanySettings } from "./company-settings";
 import { DEFAULT_FINANCIAL_BASELINE } from "./default-financial-baseline";
 import { logClientError } from "./client-logger";
+import { countDocumentsRecords, countOperationsRecords } from "./stabilize-file-refs";
 import type { OperationsData as Ops } from "./types";
 
 const KEYS = {
@@ -29,23 +30,50 @@ function readJson<T>(key: string, fallback: T): T {
   }
 }
 
+function hasOperationsKey(): boolean {
+  return isBrowser() && localStorage.getItem(KEYS.operations) != null;
+}
+
+function hasDocumentsKey(): boolean {
+  return isBrowser() && localStorage.getItem(KEYS.documents) != null;
+}
+
 export async function pushLocalDataToCloud(): Promise<{ synced: string[] }> {
   if (!(await isServerApiConfigured())) {
     throw new Error("Supabase is not configured on the server. Add env vars and redeploy.");
   }
 
+  const operations = hasOperationsKey()
+    ? readJson<Ops>(KEYS.operations, {
+        projects: [],
+        partnerships: [],
+        expenses: [],
+        financialBaseline: DEFAULT_FINANCIAL_BASELINE,
+      })
+    : undefined;
+  const documents = hasDocumentsKey()
+    ? readJson<DocumentsData>(KEYS.documents, {
+        agreements: [],
+        archiveDocuments: [],
+      })
+    : undefined;
+
+  // Never push an empty ops/docs snapshot — that soft-deletes live cloud rows.
+  if (operations && countOperationsRecords(operations) === 0) {
+    throw new Error(
+      "Local operations data is empty. Sync refused to avoid wiping cloud CRM / billing records.",
+    );
+  }
+  if (documents && countDocumentsRecords(documents) === 0) {
+    throw new Error(
+      "Local documents data is empty. Sync refused to avoid wiping cloud vault files.",
+    );
+  }
+
   const payload = {
     company: normalizeCompanySettings(readJson(KEYS.company, DEFAULT_COMPANY)),
-    operations: readJson<Ops>(KEYS.operations, {
-      projects: [],
-      partnerships: [],
-      expenses: [],
-      financialBaseline: DEFAULT_FINANCIAL_BASELINE,
-    }),
-    documents: readJson<DocumentsData>(KEYS.documents, {
-      agreements: [],
-      archiveDocuments: [],
-    }),
+    ...(operations ? { operations } : {}),
+    ...(documents ? { documents } : {}),
     invoices: readJson<Invoice[]>(KEYS.invoices, []),
     activityLogs: readJson<ActivityLogEntry[]>(KEYS.activityLogs, []),
   };

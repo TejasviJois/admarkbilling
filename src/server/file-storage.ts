@@ -1,12 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  ADMARK_FILES_BUCKET,
+  extractAdmarkFilesPath,
+  toStableAdmarkFileRef,
+} from "@/lib/admark-file-ref";
 
-/** Single bucket for logos, proofs, agreements, compliance PDFs, etc. */
-export const ADMARK_FILES_BUCKET = "admark-files";
+export { ADMARK_FILES_BUCKET, extractAdmarkFilesPath, toStableAdmarkFileRef };
 
 /** Signed URL lifetime for newly uploaded private objects (1 year). */
 const SIGNED_URL_TTL_SEC = 60 * 60 * 24 * 365;
-/** Short refresh TTL when resolving stored public/signed URLs on read. */
-const REFRESH_SIGNED_TTL_SEC = 60 * 60;
+/** Display TTL for URLs handed to the client after a private-bucket read. */
+const DISPLAY_SIGNED_TTL_SEC = 60 * 60 * 24 * 7; // 7 days
 
 const MIME_EXT: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -19,7 +23,7 @@ const MIME_EXT: Record<string, string> = {
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
 };
 
-export function isDataUrl(value: string | undefined | null): value is string {
+export function isDataUrl(value: string | undefined | null): boolean {
   return typeof value === "string" && value.startsWith("data:");
 }
 
@@ -60,35 +64,10 @@ function objectPath(folder: string, fileName: string | undefined, mimeType: stri
   return `${safeFolder}/${id}-${base}.${ext}`;
 }
 
-/** Extract object path from a public or signed Supabase storage URL for this bucket. */
-export function extractAdmarkFilesPath(url: string): string | null {
-  const trimmed = url.trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith(`${ADMARK_FILES_BUCKET}/`)) {
-    return trimmed.slice(ADMARK_FILES_BUCKET.length + 1);
-  }
-  try {
-    const parsed = new URL(trimmed);
-    const publicMarker = `/storage/v1/object/public/${ADMARK_FILES_BUCKET}/`;
-    const signMarker = `/storage/v1/object/sign/${ADMARK_FILES_BUCKET}/`;
-    const authMarker = `/storage/v1/object/authenticated/${ADMARK_FILES_BUCKET}/`;
-    for (const marker of [publicMarker, signMarker, authMarker]) {
-      const idx = parsed.pathname.indexOf(marker);
-      if (idx >= 0) {
-        const path = decodeURIComponent(parsed.pathname.slice(idx + marker.length));
-        return path.split("?")[0] || null;
-      }
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 export async function createAdmarkSignedUrl(
   sb: SupabaseClient,
   path: string,
-  expiresIn = REFRESH_SIGNED_TTL_SEC,
+  expiresIn = DISPLAY_SIGNED_TTL_SEC,
 ): Promise<string> {
   const { data, error } = await sb.storage
     .from(ADMARK_FILES_BUCKET)
@@ -103,12 +82,13 @@ export async function createAdmarkSignedUrl(
 export async function resolveStoredFileUrl(
   sb: SupabaseClient,
   value: string | undefined | null,
+  expiresIn = DISPLAY_SIGNED_TTL_SEC,
 ): Promise<string | undefined> {
   if (!value?.trim()) return value ?? undefined;
   const path = extractAdmarkFilesPath(value);
   if (!path) return value;
   try {
-    return await createAdmarkSignedUrl(sb, path, REFRESH_SIGNED_TTL_SEC);
+    return await createAdmarkSignedUrl(sb, path, expiresIn);
   } catch {
     return value;
   }
@@ -149,11 +129,11 @@ export async function uploadDataUrlToStorage(
   });
   if (error) throw new Error(`Storage upload failed: ${error.message}`);
 
-  // Bucket is private — always return a signed URL (no public URL fallback).
+  // Long-lived signed URL for immediate client preview; save paths stabilize to path refs.
   return createAdmarkSignedUrl(sb, path, SIGNED_URL_TTL_SEC);
 }
 
-/** Upload embedded data URLs; leave https URLs unchanged. */
+/** Upload embedded data URLs; leave https / stable refs unchanged (stabilize signed URLs). */
 export async function externalizeDataUrl(
   sb: SupabaseClient,
   value: string | undefined,
@@ -161,7 +141,7 @@ export async function externalizeDataUrl(
   fileName?: string,
 ): Promise<string | undefined> {
   if (!value?.trim()) return value;
-  if (!isDataUrl(value)) return value;
+  if (!isDataUrl(value)) return toStableAdmarkFileRef(value) ?? value;
   return uploadDataUrlToStorage(sb, value, folder, fileName);
 }
 

@@ -3,6 +3,10 @@ import { logClientError } from "./client-logger";
 import { getDocumentsFn, saveDocumentsFn, EMPTY_DOCUMENTS } from "@/server/documents-fns";
 import { isServerApiConfigured } from "@/lib/backend-status-cache";
 import { safeLocalStorageSet } from "./browser-storage";
+import {
+  countDocumentsRecords,
+  stabilizeDocumentsFileRefs,
+} from "./stabilize-file-refs";
 
 const DOCUMENTS_KEY = "admark.documents";
 type DocumentKey = "agreements" | "archiveDocuments";
@@ -78,7 +82,18 @@ function loadDocumentsLocal(): DocumentsData {
 
 function saveDocumentsLocal(data: DocumentsData) {
   if (!isBrowser()) return;
-  safeLocalStorageSet(DOCUMENTS_KEY, JSON.stringify(data));
+  safeLocalStorageSet(DOCUMENTS_KEY, JSON.stringify(stabilizeDocumentsFileRefs(data)));
+}
+
+function readDocumentsLocalRaw(): DocumentsData | null {
+  if (!isBrowser()) return null;
+  try {
+    const raw = localStorage.getItem(DOCUMENTS_KEY);
+    if (!raw) return null;
+    return normalizeDocuments(JSON.parse(raw) as DocumentsData);
+  } catch {
+    return null;
+  }
 }
 
 export async function loadDocuments(): Promise<DocumentsData> {
@@ -88,13 +103,29 @@ export async function loadDocuments(): Promise<DocumentsData> {
       const remote = await getDocumentsFn();
       if (pendingWrites === 0) {
         documentsVersion = remote.version;
-        documentsSnapshot = normalizeDocuments(remote.data);
+        const normalized = stabilizeDocumentsFileRefs(normalizeDocuments(remote.data));
+        const localRaw = readDocumentsLocalRaw();
+        if (
+          localRaw &&
+          countDocumentsRecords(normalized) === 0 &&
+          countDocumentsRecords(localRaw) > 0
+        ) {
+          logClientError(
+            "documents.load.remote.emptyGuard",
+            new Error(
+              `Refusing empty remote overwrite of local documents (${countDocumentsRecords(localRaw)} records).`,
+            ),
+          );
+          documentsSnapshot = localRaw;
+          return localRaw;
+        }
+        documentsSnapshot = normalized;
         blockedConflict = null;
         saveDocumentsLocal(documentsSnapshot);
         return documentsSnapshot;
       }
       if (!documentsVersion) documentsVersion = remote.version;
-      return normalizeDocuments(remote.data);
+      return stabilizeDocumentsFileRefs(normalizeDocuments(remote.data));
     }
   } catch (e) {
     logClientError("documents.load.remote", e);
@@ -163,7 +194,7 @@ export async function saveDocuments(
           allowAllDeletes: options.allowAllDeletes === true,
         },
       });
-      const authoritative = normalizeDocuments(result.data);
+      const authoritative = stabilizeDocumentsFileRefs(normalizeDocuments(result.data));
       documentsVersion = result.version;
       documentsSnapshot = authoritative;
       saveDocumentsLocal(authoritative);

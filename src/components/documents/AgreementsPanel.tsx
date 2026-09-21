@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { fileFromUpload } from "@/components/documents/proof-ui";
+import { useResolvedFileUrl } from "@/hooks/use-resolved-file-url";
 import { logClientError } from "@/lib/client-logger";
 import type { DocumentsPersistOptions } from "@/lib/documents-storage";
 import { safeHref } from "@/lib/utils";
@@ -43,6 +44,27 @@ function isSafeHttpUrl(u: string): boolean {
 
 const btnRow =
   "inline-flex items-center gap-1.5 rounded-md border border-input bg-card px-2.5 py-1.5 text-xs font-medium hover:bg-secondary";
+
+function AgreementFileLinks({
+  fileDataUrl,
+  fileName,
+}: {
+  fileDataUrl: string;
+  fileName?: string;
+}) {
+  const resolved = useResolvedFileUrl(fileDataUrl);
+  const href = resolved || fileDataUrl;
+  return (
+    <>
+      <a href={href} target="_blank" rel="noopener noreferrer" className={btnRow}>
+        <FileText className="h-3 w-3" /> Open
+      </a>
+      <a href={href} download={fileName || "agreement"} className={btnRow}>
+        <FileText className="h-3 w-3" /> Download
+      </a>
+    </>
+  );
+}
 
 const emptyForm = (): Omit<Agreement, "id" | "createdAt" | "updatedAt"> => ({
   title: "",
@@ -399,21 +421,9 @@ export function AgreementsPanel({
                     <Link2 className="h-3 w-3" /> Open link
                   </a>
                 )}
-                {a.fileDataUrl && (
-                  <>
-                    <a
-                      href={a.fileDataUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={btnRow}
-                    >
-                      <FileText className="h-3 w-3" /> Open
-                    </a>
-                    <a href={a.fileDataUrl} download={a.fileName || "agreement"} className={btnRow}>
-                      <FileText className="h-3 w-3" /> Download
-                    </a>
-                  </>
-                )}
+                {a.fileDataUrl ? (
+                  <AgreementFileLinks fileDataUrl={a.fileDataUrl} fileName={a.fileName} />
+                ) : null}
               </div>
             </li>
           ))}

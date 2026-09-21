@@ -2,7 +2,8 @@ import { deleteCookie, getCookie, setCookie, getRequest } from "@tanstack/react-
 import { resolveEncryptionSecret } from "../../shared/encryption-secret.mjs";
 
 export const APP_SESSION_COOKIE = "admark_gate";
-const SESSION_TTL_MS = 60 * 60 * 24 * 7; // 7 days
+/** Solo internal app — stay signed in until explicit Sign out (no practical auto-logout). */
+const SESSION_TTL_MS = 60 * 60 * 24 * 365 * 10; // 10 years
 const SESSION_VERSION = 1;
 
 /** General API abuse limit (per IP). */
@@ -142,7 +143,7 @@ export async function sessionCookieValid(): Promise<boolean> {
     const body = JSON.parse(fromBase64Url(payload)) as SessionBody;
     if (body.v !== SESSION_VERSION) return false;
     if (typeof body.jti !== "string" || !body.jti) return false;
-    if (typeof body.exp !== "number" || body.exp < Date.now()) return false;
+    // No time-based expiry check — session lasts until the user clicks Sign out.
     return true;
   } catch {
     return false;

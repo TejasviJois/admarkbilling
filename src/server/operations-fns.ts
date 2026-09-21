@@ -37,6 +37,7 @@ import {
   type OperationsMutation,
 } from "@/lib/operations-mutations";
 import { bumpLegacyVersionToken, readLegacyVersionToken } from "./legacy-version-token";
+import { resolveStoredFileUrl } from "./file-storage";
 
 export type VersionedOperations = {
   data: OperationsData;
@@ -650,6 +651,61 @@ function parseOperationsPayload(
   return applyBillingRepairs ? applyProductionBillingRepairs(parsed) : parsed;
 }
 
+/** Sign private storage refs so proofs/attachments open in the browser. */
+async function withSignedOperationsFileUrls(data: OperationsData): Promise<OperationsData> {
+  const sb = requireServerSupabase();
+  const [payments, transactions, expenses] = await Promise.all([
+    Promise.all(
+      (data.payments ?? []).map(async (payment) => ({
+        ...payment,
+        screenshotDataUrl: await resolveStoredFileUrl(sb, payment.screenshotDataUrl),
+      })),
+    ),
+    Promise.all(
+      (data.transactions ?? []).map(async (tx) => ({
+        ...tx,
+        attachmentDataUrl: await resolveStoredFileUrl(sb, tx.attachmentDataUrl),
+      })),
+    ),
+    Promise.all(
+      (data.expenses ?? []).map(async (expense) => ({
+        ...expense,
+        proof: expense.proof
+          ? {
+              ...expense.proof,
+              imageDataUrl:
+                (await resolveStoredFileUrl(sb, expense.proof.imageDataUrl)) ??
+                expense.proof.imageDataUrl,
+            }
+          : expense.proof,
+      })),
+    ),
+  ]);
+
+  const projects = await Promise.all(
+    (data.projects ?? []).map(async (project) => ({
+      ...project,
+      payments: project.payments
+        ? await Promise.all(
+            project.payments.map(async (payment) => ({
+              ...payment,
+              proof: payment.proof
+                ? {
+                    ...payment.proof,
+                    imageDataUrl:
+                      (await resolveStoredFileUrl(sb, payment.proof.imageDataUrl)) ??
+                      payment.proof.imageDataUrl,
+                  }
+                : payment.proof,
+            })),
+          )
+        : project.payments,
+    })),
+  );
+
+  return { ...data, payments, transactions, expenses, projects };
+}
+
 export const getOperationsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<VersionedOperations> => {
     await assertAppSession();
@@ -663,7 +719,11 @@ export const getOperationsFn = createServerFn({ method: "GET" }).handler(
     if (!versionRow?.updated_at) {
       throw new Error("operations_data/default is missing a concurrency version.");
     }
-    return { data: operations, version: versionRow.updated_at };
+    // Sign after cache — never store expiring tokens in the LRU blob.
+    return {
+      data: await withSignedOperationsFileUrls(operations),
+      version: versionRow.updated_at,
+    };
   },
 );
 
@@ -691,11 +751,16 @@ export const saveOperationsFn = createServerFn({ method: "POST" })
     if (version !== data.expectedVersion) {
       const latest = await loadRelationalOperations();
       cacheSet(CACHE_KEYS.operations, latest);
-      return { ok: false, conflict: true, data: latest, version };
+      return {
+        ok: false,
+        conflict: true,
+        data: await withSignedOperationsFileUrls(latest),
+        version,
+      };
     }
     if (isOperationsMutationEmpty(data.mutation)) {
       const cached = await cacheThrough(CACHE_KEYS.operations, loadRelationalOperations);
-      return { ok: true, data: cached, version };
+      return { ok: true, data: await withSignedOperationsFileUrls(cached), version };
     }
 
     const current = await loadRelationalOperations();
@@ -708,9 +773,18 @@ export const saveOperationsFn = createServerFn({ method: "POST" })
     if (!bumped.ok) {
       const latest = await loadRelationalOperations();
       cacheSet(CACHE_KEYS.operations, latest);
-      return { ok: false, conflict: true, data: latest, version: bumped.version };
+      return {
+        ok: false,
+        conflict: true,
+        data: await withSignedOperationsFileUrls(latest),
+        version: bumped.version,
+      };
     }
 
     cacheSet(CACHE_KEYS.operations, finalized);
-    return { ok: true, data: finalized, version: bumped.version };
+    return {
+      ok: true,
+      data: await withSignedOperationsFileUrls(finalized),
+      version: bumped.version,
+    };
   });

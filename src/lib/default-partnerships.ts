@@ -52,8 +52,8 @@ export const DEFAULT_PARTNERSHIPS: Partnership[] = [
 ];
 
 export function withDefaultPartnerships<T extends { partnerships: Partnership[] }>(data: T): T {
-  if (data.partnerships.length > 0) return data;
-  return { ...data, partnerships: DEFAULT_PARTNERSHIPS };
+  // Empty list is intentional after deletes — never resurrect the default catalog.
+  return data;
 }
 
 export function partnershipStatusLabel(status: PartnershipStatus): string {

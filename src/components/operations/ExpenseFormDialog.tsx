@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/operations/operations-ui";
+import { ResolvedFileImage } from "@/components/ResolvedFileImage";
 import { useCompany } from "@/hooks/use-company";
 import {
   DEFAULT_EXPENSE_CATEGORIES,
@@ -258,7 +259,7 @@ export function ExpenseFormDialog({
             />
             {form.attachmentDataUrl && (
               <div className="mt-2 flex items-center gap-2">
-                <img
+                <ResolvedFileImage
                   src={form.attachmentDataUrl}
                   alt="Receipt Preview"
                   className="h-16 w-auto rounded border border-border object-contain"

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { ImagePlus } from "lucide-react";
+import { useResolvedFileUrl } from "@/hooks/use-resolved-file-url";
 import { readImageAsDataUrl } from "@/lib/payment-proof";
 import { persistDataUrl, readAndPersistFile } from "@/lib/remote-file";
 
@@ -17,6 +18,7 @@ export function ProofThumbnail({
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const resolvedUrl = useResolvedFileUrl(imageUrl);
 
   const handleFile = async (file: File | undefined) => {
     if (!file || !onUpload) return;
@@ -60,15 +62,17 @@ export function ProofThumbnail({
     );
   }
 
+  const displayUrl = resolvedUrl || imageUrl;
+
   return (
     <button
       type="button"
-      onClick={() => onView(imageUrl)}
+      onClick={() => onView(displayUrl)}
       className="group/proof overflow-hidden rounded-md border border-border bg-muted/20 transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
       aria-label={`View proof for ${label}`}
     >
       <img
-        src={imageUrl}
+        src={displayUrl}
         alt=""
         className="h-14 w-auto max-w-[7rem] cursor-pointer object-cover object-top transition-opacity group-hover/proof:opacity-90"
       />

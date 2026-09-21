@@ -98,7 +98,37 @@ export async function externalizeOperationsData(
     }),
   );
 
-  return { ...ops, projects, expenses };
+  const payments = await Promise.all(
+    (ops.payments ?? []).map(async (payment) => {
+      if (!payment.screenshotDataUrl) return payment;
+      return {
+        ...payment,
+        screenshotDataUrl: await externalizeDataUrl(
+          sb,
+          payment.screenshotDataUrl,
+          `proofs/payments/${payment.id}`,
+          payment.id,
+        ),
+      };
+    }),
+  );
+
+  const transactions = await Promise.all(
+    (ops.transactions ?? []).map(async (tx) => {
+      if (!tx.attachmentDataUrl) return tx;
+      return {
+        ...tx,
+        attachmentDataUrl: await externalizeDataUrl(
+          sb,
+          tx.attachmentDataUrl,
+          `proofs/transactions/${tx.id}`,
+          tx.id,
+        ),
+      };
+    }),
+  );
+
+  return { ...ops, projects, expenses, payments, transactions };
 }
 
 export async function externalizeDocumentsData(

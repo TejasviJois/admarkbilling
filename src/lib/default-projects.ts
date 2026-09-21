@@ -145,8 +145,9 @@ export const DEFAULT_PROJECTS: Project[] = [
 ];
 
 export function withDefaultProjects<T extends { projects: Project[] }>(data: T): T {
+  // Empty list means intentional (all deleted / new empty org after migrate) — never reseed.
   if (data.projects.length === 0) {
-    return { ...data, projects: DEFAULT_PROJECTS };
+    return data;
   }
 
   const defaultsById = new Map(DEFAULT_PROJECTS.map((project) => [project.id, project]));

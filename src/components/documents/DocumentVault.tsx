@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { logClientError } from "@/lib/client-logger";
+import { isAdmarkStorageUrl, useResolvedFileUrl } from "@/hooks/use-resolved-file-url";
+import { fetchFilePreviewFn } from "@/server/storage-fns";
 import {
   ADMARK_VAULT_COMPANY,
   activeMembers,
@@ -146,6 +148,84 @@ function previewSrc(document: ArchiveDocument): string | undefined {
   return document.fileDataUrl || safeHref(document.externalUrl);
 }
 
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mimeType || "application/pdf" });
+}
+
+/**
+ * Load private storage PDFs through the server (service role), then preview via a
+ * same-origin blob URL. Direct Supabase iframe/src often stays blank when the bucket is private.
+ */
+function usePdfPreviewUrl(src: string | undefined, enabled: boolean): {
+  url: string | undefined;
+  loading: boolean;
+  error: string | null;
+} {
+  const [url, setUrl] = useState<string | undefined>(undefined);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!enabled || !src) {
+      setUrl(undefined);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    if (src.startsWith("data:") || src.startsWith("blob:")) {
+      setUrl(src);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+    let objectUrl: string | undefined;
+    setLoading(true);
+    setError(null);
+    setUrl(undefined);
+
+    void (async () => {
+      try {
+        if (isAdmarkStorageUrl(src)) {
+          const preview = await fetchFilePreviewFn({ data: { url: src } });
+          objectUrl = URL.createObjectURL(base64ToBlob(preview.base64, preview.mimeType));
+        } else {
+          const response = await fetch(src);
+          if (!response.ok) throw new Error(`Could not load PDF (${response.status}).`);
+          const blob = await response.blob();
+          objectUrl = URL.createObjectURL(
+            blob.type ? blob : new Blob([blob], { type: "application/pdf" }),
+          );
+        }
+        if (cancelled) {
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        setUrl(objectUrl);
+      } catch (err) {
+        logClientError("documents.pdfPreview", err);
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Could not load PDF preview.");
+          setUrl(undefined);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [src, enabled]);
+
+  return { url, loading: loading || (enabled && Boolean(src) && !url && !error), error };
+}
+
 async function persistArchive(
   documents: DocumentsData,
   archiveDocuments: ArchiveDocument[],
@@ -170,17 +250,30 @@ function DocumentPreviewDialog({
   onAssign?: (ids: string[]) => void;
 }) {
   const isMobile = useIsMobile();
-  const src = document ? previewSrc(document) : undefined;
+  const rawSrc = document ? previewSrc(document) : undefined;
+  const src = useResolvedFileUrl(rawSrc);
   const image = document ? isImageDocument(document) : false;
   const pdf = document ? isPdfDocument(document) : false;
+  // Use the raw stored URL so we only sign+blob once (avoid public→signed race).
+  const pdfPreview = usePdfPreviewUrl(rawSrc, Boolean(document && pdf && !isMobile));
   const assigned = document?.assignedMemberIds ?? [];
   const names = members ? assigneeNames(assigned, members) : [];
   const fileLabel = document?.fileName || "document";
+  const linkSrc = (pdf ? pdfPreview.url : null) || src || rawSrc;
+  const iframeSrc = pdfPreview.url;
+
+  const showEmbeddedPdf = Boolean(rawSrc && pdf && !isMobile && iframeSrc);
 
   return (
     <Dialog open={document != null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[min(92vh,900px)] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
+      <DialogContent
+        className={
+          showEmbeddedPdf || (rawSrc && pdf && !isMobile)
+            ? "!flex max-h-[min(92vh,900px)] w-[min(96vw,56rem)] flex-col gap-4 overflow-hidden sm:max-w-4xl"
+            : "max-h-[min(92vh,900px)] overflow-y-auto sm:max-w-3xl"
+        }
+      >
+        <DialogHeader className="shrink-0">
           <DialogTitle className="pr-6">{document?.title ?? "Document"}</DialogTitle>
           <DialogDescription>
             {[document?.fileName, names.length ? `Assigned: ${names.join(", ")}` : null]
@@ -189,7 +282,7 @@ function DocumentPreviewDialog({
           </DialogDescription>
         </DialogHeader>
         {members && members.length > 0 && onAssign && document ? (
-          <div>
+          <div className="shrink-0">
             <p className="mb-1.5 text-xs text-muted-foreground">Assigned to</p>
             <MemberChips
               members={members}
@@ -212,7 +305,7 @@ function DocumentPreviewDialog({
               className="mx-auto max-h-[min(70vh,640px)] w-full object-contain"
             />
           </div>
-        ) : src && pdf && isMobile ? (
+        ) : rawSrc && pdf && isMobile ? (
           <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-6 text-center">
             <FileText className="mx-auto h-10 w-10 text-muted-foreground" aria-hidden />
             <p className="text-sm text-muted-foreground">
@@ -220,13 +313,30 @@ function DocumentPreviewDialog({
               page and download.
             </p>
           </div>
-        ) : src && pdf ? (
-          <iframe
-            title={document?.title ?? "PDF preview"}
-            src={src}
-            className="h-[min(70vh,640px)] w-full rounded-lg border border-border bg-muted/20"
-          />
-        ) : src ? (
+        ) : rawSrc && pdf && pdfPreview.loading ? (
+          <div className="flex h-[min(70vh,640px)] shrink-0 items-center justify-center rounded-lg border border-border bg-muted/20">
+            <p className="text-sm text-muted-foreground">Loading PDF…</p>
+          </div>
+        ) : rawSrc && pdf && pdfPreview.error ? (
+          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-6 text-center">
+            <p className="text-sm text-destructive">{pdfPreview.error}</p>
+            <p className="text-xs text-muted-foreground">Use Open in new tab or Download instead.</p>
+          </div>
+        ) : showEmbeddedPdf ? (
+          // Chrome's PDF plugin paints blank under dark color-scheme + scrollable dialogs.
+          // Force light scheme and a fixed-height frame with no overflow ancestors.
+          <div
+            className="min-h-0 w-full shrink-0 rounded-lg border border-border bg-white"
+            style={{ colorScheme: "light", height: "min(70vh, 640px)" }}
+          >
+            <iframe
+              title={document?.title ?? "PDF preview"}
+              src={`${iframeSrc}#toolbar=1&navpanes=0`}
+              className="h-full w-full border-0 bg-white"
+              style={{ colorScheme: "light" }}
+            />
+          </div>
+        ) : linkSrc ? (
           <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-6 text-center">
             <p className="text-sm text-muted-foreground">
               This file type can’t be previewed here. Download it to open.
@@ -235,18 +345,18 @@ function DocumentPreviewDialog({
         ) : (
           <p className="py-8 text-center text-sm text-muted-foreground">No file attached.</p>
         )}
-        {src ? (
-          <DialogFooter className="gap-2 sm:gap-2">
+        {linkSrc ? (
+          <DialogFooter className="shrink-0 gap-2 sm:gap-2">
             {(pdf || !image) && (
               <Button type="button" variant="outline" asChild>
-                <a href={src} target="_blank" rel="noopener noreferrer">
+                <a href={linkSrc} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="mr-1.5 h-4 w-4" />
                   Open in new tab
                 </a>
               </Button>
             )}
             <Button type="button" variant="outline" asChild>
-              <a href={src} download={fileLabel}>
+              <a href={linkSrc} download={fileLabel}>
                 <Download className="mr-1.5 h-4 w-4" />
                 Download
               </a>
@@ -269,7 +379,9 @@ function DocumentTile({
   onOpen: () => void;
   onRemove: () => void;
 }) {
-  const thumb = isImageDocument(document) ? previewSrc(document) : undefined;
+  const thumb = useResolvedFileUrl(
+    isImageDocument(document) ? previewSrc(document) : undefined,
+  );
   const meta = assigneeLabel || document.fileName || undefined;
 
   return (

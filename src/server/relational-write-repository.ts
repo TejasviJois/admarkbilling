@@ -42,6 +42,7 @@ import type {
 } from "@/lib/types";
 import { monthPaymentsFromSchedule } from "@/lib/team-payroll";
 import { externalizeDataUrl } from "./file-storage";
+import { toStableAdmarkFileRef } from "@/lib/admark-file-ref";
 import {
   externalizeCompanySettings,
   externalizeDocumentsData,
@@ -298,6 +299,13 @@ class RowIdResolver {
     return this.idByKey.get(legacyId) ?? null;
   }
 
+  /** Like lookup, but ignores soft-deleted rows so saves cannot resurrect them by accident. */
+  lookupActive(legacyId: string | null | undefined): string | null {
+    const id = this.lookup(legacyId);
+    if (!id || !this.activeIds.has(id)) return null;
+    return id;
+  }
+
   resolve(legacyId: string): string {
     const known = this.idByKey.get(legacyId);
     if (known) return known;
@@ -480,7 +488,7 @@ function buildDocumentRow(
   resolver: RowIdResolver,
   seed: DocumentSeed,
 ): (WriteRow & { id: string }) | null {
-  const fileUrl = text(seed.fileUrl);
+  const fileUrl = toStableAdmarkFileRef(text(seed.fileUrl)) ?? text(seed.fileUrl);
   const externalUrl = text(seed.externalUrl);
   if (!fileUrl && !externalUrl) return null;
   const id = resolver.resolve(seed.legacyId);
@@ -713,6 +721,7 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
     }
     const row = buildClientRow(org.id, clientIds, { ...client, legacyId, companyName });
     clientBatch.add(row);
+    clientIds.activeIds.add(row.id);
     clientIdByName.set(normalizeName(companyName), row.id);
   }
   // Parent links resolve after every client id is known.
@@ -881,28 +890,16 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
   for (const project of ops.projects ?? []) {
     const legacyId = requireLegacyId("projects", project.id);
     const leadRowId = leadIds.lookup(project.leadId);
-    // Resolve the client by legacy id, then by name. Discussion projects linked to a
-    // lead may omit a client until Won; revenue/imported projects still get a
-    // synthetic client when neither link resolves (same fallback as the migration).
+    // Resolve only *active* clients. Soft-deleted CRM rows must stay deleted —
+    // never invent a synthetic client from the project display name (that undid deletes).
     let clientRowId =
-      clientIds.lookup(project.clientId) ?? clientIdByName.get(normalizeName(project.client));
-    if (!clientRowId && !leadRowId) {
-      const clientName = text(project.client);
-      if (!clientName) {
-        throw new Error(
-          `Failed to write admark.projects: project "${legacyId}" has no resolvable client or lead.`,
-        );
-      }
-      const syntheticRow = buildClientRow(org.id, clientIds, {
-        legacyId: text(project.clientId) ?? `project-client-${legacyId}`,
-        companyName: clientName,
-        phone: project.phone,
-        email: project.email,
-        clientSince: project.startDate,
-      });
-      clientBatch.add(syntheticRow);
-      clientIdByName.set(normalizeName(clientName), syntheticRow.id);
-      clientRowId = syntheticRow.id;
+      clientIds.lookupActive(project.clientId) ??
+      clientIdByName.get(normalizeName(project.client)) ??
+      null;
+    if (!clientRowId && !leadRowId && !text(project.client) && !text(project.name)) {
+      throw new Error(
+        `Failed to write admark.projects: project "${legacyId}" has no resolvable client, lead, or name.`,
+      );
     }
 
     const id = projectIds.resolve(legacyId);

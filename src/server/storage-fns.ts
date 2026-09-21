@@ -1,7 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { assertAppSession } from "./app-session";
 import { requireServerSupabase } from "./supabase-admin";
-import { uploadDataUrlToStorage } from "./file-storage";
+import {
+  ADMARK_FILES_BUCKET,
+  extractAdmarkFilesPath,
+  resolveStoredFileUrl,
+  uploadDataUrlToStorage,
+} from "./file-storage";
 
 const ALLOWED_MIME_TYPES = [
   "image/png",
@@ -15,6 +20,7 @@ const ALLOWED_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB
+const MAX_PREVIEW_BYTES = 20 * 1024 * 1024;
 
 export const uploadFileFn = createServerFn({ method: "POST" })
   .inputValidator((data: { dataUrl: string; folder: string; fileName?: string }) => {
@@ -47,4 +53,53 @@ export const uploadFileFn = createServerFn({ method: "POST" })
     const sb = requireServerSupabase();
     const url = await uploadDataUrlToStorage(sb, data.dataUrl, data.folder.trim(), data.fileName);
     return { url };
+  });
+
+/** Turn a stored public/path/signed admark-files URL into a fresh signed URL for preview. */
+export const resolveFileAccessFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { url: string }) => {
+    if (!data?.url || typeof data.url !== "string" || !data.url.trim()) {
+      throw new Error("File URL is required.");
+    }
+    return { url: data.url.trim() };
+  })
+  .handler(async ({ data }) => {
+    await assertAppSession();
+    const sb = requireServerSupabase();
+    const url = (await resolveStoredFileUrl(sb, data.url)) ?? data.url;
+    return { url };
+  });
+
+/**
+ * Download a private admark-files object via service role and return bytes for same-origin preview.
+ * Avoids blank cross-origin PDF iframes / browser CORS quirks.
+ */
+export const fetchFilePreviewFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { url: string }) => {
+    if (!data?.url || typeof data.url !== "string" || !data.url.trim()) {
+      throw new Error("File URL is required.");
+    }
+    return { url: data.url.trim() };
+  })
+  .handler(async ({ data }) => {
+    await assertAppSession();
+    const path = extractAdmarkFilesPath(data.url);
+    if (!path) {
+      throw new Error("Only Admark storage files can be previewed this way.");
+    }
+    const sb = requireServerSupabase();
+    const { data: file, error } = await sb.storage.from(ADMARK_FILES_BUCKET).download(path);
+    if (error || !file) {
+      throw new Error(`Could not load file: ${error?.message ?? "missing object"}`);
+    }
+    const buffer = Buffer.from(await file.arrayBuffer());
+    if (buffer.byteLength > MAX_PREVIEW_BYTES) {
+      throw new Error("File is too large to preview here. Use Open in new tab.");
+    }
+    const mimeType = file.type || "application/octet-stream";
+    return {
+      mimeType,
+      base64: buffer.toString("base64"),
+      byteLength: buffer.byteLength,
+    };
   });

@@ -17,12 +17,37 @@ import {
 } from "./relational-write-repository";
 import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
+import { resolveStoredFileUrl } from "./file-storage";
+import { requireServerSupabase } from "./supabase-admin";
 import {
   isInvoiceNumberUniqueViolation,
   reassignInvoiceNumberOnConflict,
 } from "@/lib/invoice-number";
 
 const INVOICE_NUMBER_RETRY_ATTEMPTS = 8;
+
+async function withSignedCompanyUrls(company: CompanySettings): Promise<CompanySettings> {
+  const sb = requireServerSupabase();
+  const [logoDataUrl, signatureDataUrl, udyamCertificateDataUrl, complianceDocuments] =
+    await Promise.all([
+      resolveStoredFileUrl(sb, company.logoDataUrl),
+      resolveStoredFileUrl(sb, company.signatureDataUrl),
+      resolveStoredFileUrl(sb, company.udyamCertificateDataUrl),
+      Promise.all(
+        (company.complianceDocuments ?? []).map(async (doc) => ({
+          ...doc,
+          fileDataUrl: await resolveStoredFileUrl(sb, doc.fileDataUrl),
+        })),
+      ),
+    ]);
+  return {
+    ...company,
+    logoDataUrl,
+    signatureDataUrl,
+    udyamCertificateDataUrl,
+    complianceDocuments,
+  };
+}
 
 /** Public: lets the UI know if server-side Supabase is wired (no secrets leaked). */
 export const getDataBackendStatus = createServerFn({ method: "GET" }).handler(async () => ({
@@ -97,7 +122,8 @@ export const getCompanyFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<CompanySettings> => {
     await assertAppSession();
     assertRelationalMode();
-    return cacheThrough(CACHE_KEYS.company, loadRelationalCompany);
+    const company = await cacheThrough(CACHE_KEYS.company, loadRelationalCompany);
+    return withSignedCompanyUrls(company);
   },
 );
 

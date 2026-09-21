@@ -4,6 +4,7 @@ import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheSet, cacheThrough } from "./data-cache";
 import { assertRelationalMode } from "./env";
+import { resolveStoredFileUrl } from "./file-storage";
 import { loadRelationalDocuments } from "./relational-read-repository";
 import { saveRelationalDocuments } from "./relational-write-repository";
 import { bumpLegacyVersionToken, readLegacyVersionToken } from "./legacy-version-token";
@@ -60,6 +61,25 @@ function documentsMutationEmpty(input: SaveDocumentsInput): boolean {
   return true;
 }
 
+async function withSignedDocumentUrls(data: DocumentsData): Promise<DocumentsData> {
+  const sb = requireServerSupabase();
+  const [agreements, archiveDocuments] = await Promise.all([
+    Promise.all(
+      data.agreements.map(async (doc) => ({
+        ...doc,
+        fileDataUrl: await resolveStoredFileUrl(sb, doc.fileDataUrl),
+      })),
+    ),
+    Promise.all(
+      data.archiveDocuments.map(async (doc) => ({
+        ...doc,
+        fileDataUrl: await resolveStoredFileUrl(sb, doc.fileDataUrl),
+      })),
+    ),
+  ]);
+  return { agreements, archiveDocuments };
+}
+
 export const getDocumentsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<VersionedDocuments> => {
     await assertAppSession();
@@ -71,7 +91,8 @@ export const getDocumentsFn = createServerFn({ method: "GET" }).handler(
     ]);
     if (error) throw error;
     if (!versionRow?.updated_at) throw new Error("Document version is missing.");
-    return { data: documents, version: versionRow.updated_at };
+    // Sign after cache so we never persist expiring tokens in the LRU blob.
+    return { data: await withSignedDocumentUrls(documents), version: versionRow.updated_at };
   },
 );
 
@@ -98,11 +119,16 @@ export const saveDocumentsFn = createServerFn({ method: "POST" })
     if (version !== data.expectedVersion) {
       const latest = await loadRelationalDocuments();
       cacheSet(CACHE_KEYS.documents, latest);
-      return { ok: false, conflict: true, data: latest, version };
+      return {
+        ok: false,
+        conflict: true,
+        data: await withSignedDocumentUrls(latest),
+        version,
+      };
     }
     if (documentsMutationEmpty(data)) {
       const cached = await cacheThrough(CACHE_KEYS.documents, loadRelationalDocuments);
-      return { ok: true, data: cached, version };
+      return { ok: true, data: await withSignedDocumentUrls(cached), version };
     }
 
     const current = await loadRelationalDocuments();
@@ -113,9 +139,14 @@ export const saveDocumentsFn = createServerFn({ method: "POST" })
     if (!bumped.ok) {
       const reloaded = await loadRelationalDocuments();
       cacheSet(CACHE_KEYS.documents, reloaded);
-      return { ok: false, conflict: true, data: reloaded, version: bumped.version };
+      return {
+        ok: false,
+        conflict: true,
+        data: await withSignedDocumentUrls(reloaded),
+        version: bumped.version,
+      };
     }
 
     cacheSet(CACHE_KEYS.documents, latest);
-    return { ok: true, data: latest, version: bumped.version };
+    return { ok: true, data: await withSignedDocumentUrls(latest), version: bumped.version };
   });

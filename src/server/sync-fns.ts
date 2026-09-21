@@ -6,6 +6,7 @@ import type {
   Invoice,
   OperationsData,
 } from "@/lib/types";
+import { countDocumentsRecords, countOperationsRecords } from "@/lib/stabilize-file-refs";
 import { requireServerSupabase } from "./supabase-admin";
 import { assertAppSession } from "./app-session";
 import { CACHE_KEYS, cacheDel } from "./data-cache";
@@ -18,6 +19,7 @@ import {
   replaceRelationalActivityLogs,
   upsertRelationalInvoice,
 } from "./relational-write-repository";
+import { loadRelationalDocuments, loadRelationalOperations } from "./relational-read-repository";
 
 export interface SyncAllPayload {
   company?: CompanySettings;
@@ -44,6 +46,15 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
       synced.push("company settings");
     }
     if (data.operations) {
+      const incomingCount = countOperationsRecords(data.operations);
+      if (incomingCount === 0) {
+        const remote = await loadRelationalOperations();
+        if (countOperationsRecords(remote) > 0) {
+          throw new Error(
+            "Refused empty operations sync — cloud already has CRM / billing records.",
+          );
+        }
+      }
       const externalized = await externalizeOperationsData(sb, data.operations);
       await saveRelationalOperations(externalized);
       const { error } = await sb
@@ -55,6 +66,13 @@ export const syncAllToCloudFn = createServerFn({ method: "POST" })
       synced.push("operations");
     }
     if (data.documents) {
+      const incomingCount = countDocumentsRecords(data.documents);
+      if (incomingCount === 0) {
+        const remote = await loadRelationalDocuments();
+        if (countDocumentsRecords(remote) > 0) {
+          throw new Error("Refused empty documents sync — cloud vault already has files.");
+        }
+      }
       const externalized = await externalizeDocumentsData(sb, data.documents);
       await saveRelationalDocuments(externalized);
       const { error } = await sb

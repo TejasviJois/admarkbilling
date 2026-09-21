@@ -27,10 +27,15 @@ export function validatePasswordStrength(password: string): void {
   }
 }
 
-export const getAuthStatusFn = createServerFn({ method: "GET" }).handler(async () => ({
+export const getAuthStatusFn = createServerFn({ method: "GET" }).handler(async () => {
   // Do not rate-limit auth status — every navigation calls this and would lock the UI.
-  ok: await sessionCookieValid(),
-}));
+  const ok = await sessionCookieValid();
+  if (ok) {
+    // Keep the browser cookie max-age fresh while the app is used.
+    writeSessionCookie(await mintSessionCookieValue());
+  }
+  return { ok };
+});
 
 export const loginFn = createServerFn({ method: "POST" })
   .inputValidator((data: { username: string; password: string }) => {

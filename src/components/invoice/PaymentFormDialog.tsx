@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/operations/operations-ui";
+import { ResolvedFileImage } from "@/components/ResolvedFileImage";
 import { formatINR } from "@/lib/invoice-calc";
 import type { Payment } from "@/lib/types";
 
@@ -208,7 +209,7 @@ export function PaymentFormDialog({
               onChange={handleScreenshotChange}
             />
             {form.screenshotDataUrl && (
-              <img
+              <ResolvedFileImage
                 src={form.screenshotDataUrl}
                 alt="Payment proof preview"
                 className="mt-2 h-20 w-auto rounded border border-border object-contain"

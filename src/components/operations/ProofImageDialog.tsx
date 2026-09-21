@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useResolvedFileUrl } from "@/hooks/use-resolved-file-url";
 
 export function ProofImageDialog({
   open,
@@ -24,7 +25,9 @@ export function ProofImageDialog({
   description?: string;
   footer?: ReactNode;
 }) {
-  if (!src) return null;
+  const resolved = useResolvedFileUrl(src ?? undefined);
+  const displaySrc = resolved || src;
+  if (!displaySrc) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -35,7 +38,7 @@ export function ProofImageDialog({
         </DialogHeader>
         <div className="rounded-lg border border-border bg-muted/20 p-2">
           <img
-            src={src}
+            src={displaySrc}
             alt="Payment proof"
             className="mx-auto max-h-[min(70vh,640px)] w-full object-contain"
           />
