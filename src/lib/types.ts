@@ -295,6 +295,63 @@ export interface Contact {
   createdAt?: string;
 }
 
+/**
+ * Imported Lead List row (Inner Circle / Excel intelligence) — separate from Pipeline CRM leads.
+ * Upsert key for re-uploads is `externalId` (e.g. IC-001).
+ */
+export interface LeadListEntry {
+  id: string;
+  organizationId?: string;
+  /** Spreadsheet Lead ID (IC-001). */
+  externalId: string;
+  dateTime?: string;
+  phone?: string;
+  email?: string;
+  title: string;
+  oneLiner?: string;
+  xFactor?: string;
+  whatTheyWant?: string;
+  platformModules?: string;
+  technicalStack?: string;
+  keyNotes?: string;
+  engagementCommercial?: string;
+  applicationRequirements?: string;
+  applicationIncludes?: string;
+  mostValuableProof?: string;
+  frameExpertiseAround?: string;
+  intent?: string;
+  urgency?: string;
+  closeWindow?: string;
+  competition?: string;
+  projectType?: string;
+  complexity?: string;
+  engagementType?: string;
+  focus?: string;
+  category?: string;
+  location?: string;
+  informationLevel?: string;
+  websiteStatus?: string;
+  growthPath?: string;
+  techFocus?: string;
+  keyDifferentiator?: string;
+  decisionDriver?: string;
+  leadScore?: number;
+  redFlags?: string;
+  howToWin?: string;
+  angle?: string;
+  whyScore?: string;
+  strategicInsight?: string;
+  excellentFit?: string;
+  poorFit?: string;
+  finalAssessment?: string;
+  fullOriginal?: string;
+  /** Manual tracking — whether this lead was contacted. */
+  contacted?: boolean;
+  /** When this row was last imported/updated from Excel. */
+  importedAt: string;
+  sourceFileName?: string;
+}
+
 export type AssetCategory = "equipment" | "digital" | "cash" | "investment" | "other";
 
 /** Company asset — equipment, cash, investments, etc. */
@@ -511,6 +568,10 @@ export interface OperationsData {
   clients?: Client[];
   /** Directory contact book — people saved before they become leads. */
   contacts?: Contact[];
+  /**
+   * Uploaded Lead List (e.g. Inner Circle Excel) — intelligence roster, not the Pipeline Kanban.
+   */
+  leadList?: LeadListEntry[];
   payments?: Payment[];
   transactions?: Transaction[];
   founders?: Founder[];

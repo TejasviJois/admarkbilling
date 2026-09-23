@@ -9,6 +9,7 @@ export const OPERATIONS_ENTITY_KEYS = [
   "fixedMonthlyExpenses",
   "clients",
   "contacts",
+  "leadList",
   "payments",
   "transactions",
   "founders",
@@ -52,7 +53,7 @@ export interface OperationsPersistOptions {
 }
 
 export type PersistOperations = (
-  next: OperationsData,
+  next: OperationsData | ((current: OperationsData) => OperationsData),
   options?: OperationsPersistOptions,
 ) => void | Promise<void>;
 
@@ -161,4 +162,23 @@ export function applyOperationsMutation(
   }
 
   return next;
+}
+
+/**
+ * Call sites often build `callerNext` from a stale React `ops` snapshot
+ * (`{ ...ops, leads: ops.leads.filter(...) }`). Diff that intent against the
+ * same stale base, then apply only those upserts/deletes onto the latest cache
+ * so a second rapid action cannot resurrect the first delete.
+ */
+export function rebaseOperationsPersist(
+  callerBase: OperationsData,
+  callerNext: OperationsData,
+  latest: OperationsData,
+  options: OperationsPersistOptions = {},
+): { mutation: OperationsMutation; next: OperationsData } {
+  const mutation = buildOperationsMutation(callerBase, callerNext, options);
+  return {
+    mutation,
+    next: applyOperationsMutation(latest, mutation),
+  };
 }

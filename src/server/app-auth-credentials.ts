@@ -54,7 +54,8 @@ export function expectedPassword(): string {
 }
 
 export function normalizeUsername(input: string): string {
-  return input.trim().toLowerCase().replace(/\s+/g, " ");
+  // Spaces optional — "AdmarkDigitals" and "Admark Digitals" both match.
+  return input.trim().toLowerCase().replace(/\s+/g, "");
 }
 
 function timingSafeEqual(a: string, b: string): boolean {

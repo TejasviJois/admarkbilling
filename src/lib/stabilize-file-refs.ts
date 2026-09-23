@@ -67,7 +67,8 @@ export function countOperationsRecords(data: OperationsData): number {
     (data.transactions?.length ?? 0) +
     (data.expenses?.length ?? 0) +
     (data.leads?.length ?? 0) +
-    (data.partnerships?.length ?? 0)
+    (data.partnerships?.length ?? 0) +
+    (data.leadList?.length ?? 0)
   );
 }
 

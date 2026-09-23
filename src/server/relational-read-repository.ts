@@ -793,6 +793,7 @@ interface ParsedApplicationPreferences {
     }
   >;
   projectCommissions: import("@/lib/types").ProjectCommission[];
+  leadList: import("@/lib/types").LeadListEntry[];
   migrationState: LegacyMigrationState;
 }
 
@@ -847,6 +848,9 @@ function parseApplicationPreferences(raw: unknown): ParsedApplicationPreferences
   }
   const legacyCommissions = Array.isArray(preferences.legacyProjectCommissions)
     ? preferences.legacyProjectCommissions
+    : [];
+  const legacyLeadList = Array.isArray(preferences.legacyLeadList)
+    ? preferences.legacyLeadList
     : [];
   return {
     financialBaseline:
@@ -907,6 +911,71 @@ function parseApplicationPreferences(raw: unknown): ParsedApplicationPreferences
         }
       })
       .filter((c): c is import("@/lib/types").ProjectCommission => c != null),
+    leadList: legacyLeadList
+      .map((item) => {
+        if (!item || typeof item !== "object") return null;
+        const entry = item as Record<string, unknown>;
+        if (typeof entry.id !== "string" || typeof entry.externalId !== "string") return null;
+        if (typeof entry.title !== "string" || !entry.title.trim()) return null;
+        const str = (value: unknown) =>
+          typeof value === "string" && value.trim() ? value : undefined;
+        return {
+          id: entry.id,
+          organizationId: str(entry.organizationId),
+          externalId: entry.externalId,
+          dateTime: str(entry.dateTime),
+          phone: str(entry.phone),
+          email: str(entry.email),
+          title: entry.title.trim(),
+          oneLiner: str(entry.oneLiner),
+          xFactor: str(entry.xFactor),
+          whatTheyWant: str(entry.whatTheyWant),
+          platformModules: str(entry.platformModules),
+          technicalStack: str(entry.technicalStack),
+          keyNotes: str(entry.keyNotes),
+          engagementCommercial: str(entry.engagementCommercial),
+          applicationRequirements: str(entry.applicationRequirements),
+          applicationIncludes: str(entry.applicationIncludes),
+          mostValuableProof: str(entry.mostValuableProof),
+          frameExpertiseAround: str(entry.frameExpertiseAround),
+          intent: str(entry.intent),
+          urgency: str(entry.urgency),
+          closeWindow: str(entry.closeWindow),
+          competition: str(entry.competition),
+          projectType: str(entry.projectType),
+          complexity: str(entry.complexity),
+          engagementType: str(entry.engagementType),
+          focus: str(entry.focus),
+          category: str(entry.category),
+          location: str(entry.location),
+          informationLevel: str(entry.informationLevel),
+          websiteStatus: str(entry.websiteStatus),
+          growthPath: str(entry.growthPath),
+          techFocus: str(entry.techFocus),
+          keyDifferentiator: str(entry.keyDifferentiator),
+          decisionDriver: str(entry.decisionDriver),
+          leadScore:
+            typeof entry.leadScore === "number" && Number.isFinite(entry.leadScore)
+              ? entry.leadScore
+              : undefined,
+          redFlags: str(entry.redFlags),
+          howToWin: str(entry.howToWin),
+          angle: str(entry.angle),
+          whyScore: str(entry.whyScore),
+          strategicInsight: str(entry.strategicInsight),
+          excellentFit: str(entry.excellentFit),
+          poorFit: str(entry.poorFit),
+          finalAssessment: str(entry.finalAssessment),
+          fullOriginal: str(entry.fullOriginal),
+          importedAt:
+            typeof entry.importedAt === "string" && entry.importedAt
+              ? entry.importedAt
+              : new Date().toISOString(),
+          contacted: entry.contacted === true,
+          sourceFileName: str(entry.sourceFileName),
+        } as import("@/lib/types").LeadListEntry;
+      })
+      .filter((entry): entry is import("@/lib/types").LeadListEntry => entry != null),
     migrationState: parseLegacyMigrationState(preferences.legacyMigrationState),
   };
 }
@@ -1418,6 +1487,7 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
     fixedMonthlyExpenses,
     clients,
     contacts,
+    leadList: preferences.leadList,
     payments: topLevelPayments,
     transactions,
     founders,

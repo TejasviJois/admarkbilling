@@ -31,6 +31,8 @@ import { Field } from "@/components/operations/operations-ui";
 import { ResolvedFileImage } from "@/components/ResolvedFileImage";
 import { useCompany } from "@/hooks/use-company";
 import { useOperations } from "@/hooks/use-operations";
+import { projectsForClientRelationship } from "@/lib/client-projects";
+import { projectLabel } from "@/lib/document-vault";
 import { FOUNDER_SALARY_CATEGORY, FOUNDER_SHARE_WITHDRAWAL_CATEGORY } from "@/lib/founder-ledger";
 import {
   expenseCategoriesFor,
@@ -39,8 +41,45 @@ import {
   paymentMethodLabelsFor,
   resolvePaymentMethodLabel,
 } from "@/lib/form-options";
-import type { Transaction, TransactionType } from "@/lib/types";
+import { projectStatusLabel } from "@/lib/project-status";
+import type { Client, Transaction, TransactionType } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+/** Same roster rule as /clients — child companies (Kapila under Safewheels) are not separate picks. */
+function rootClientOf(clientId: string | undefined, allClients: Client[]): Client | null {
+  if (!clientId) return null;
+  const client = allClients.find((entry) => entry.id === clientId);
+  if (!client) return null;
+  if (!client.parentClientId) return client;
+  return allClients.find((entry) => entry.id === client.parentClientId) ?? client;
+}
+
+function projectOptionLabel(
+  project: {
+    projectType?: string;
+    name?: string;
+    client: string;
+    status: Parameters<typeof projectStatusLabel>[0];
+  },
+  relationshipRootName?: string,
+): string {
+  const company = project.client.trim();
+  const typeOrName =
+    project.projectType?.trim() ||
+    (project.name?.trim() && project.name.trim() !== company ? project.name.trim() : null) ||
+    company ||
+    "Project";
+  const status = projectStatusLabel(project.status);
+  // Under Safewheels, show "Kapila Management Software · …" so child brands stay clear.
+  if (
+    company &&
+    relationshipRootName &&
+    company.toLowerCase() !== relationshipRootName.trim().toLowerCase()
+  ) {
+    return `${company} · ${typeOrName} · ${status}`;
+  }
+  return `${typeOrName} · ${status}`;
+}
 
 const TRANSACTION_TYPES: { value: TransactionType; label: string }[] = [
   { value: "client_payment", label: "Client Payment (Income)" },
@@ -85,9 +124,43 @@ export function TransactionFormDialog({
   const [categoryOpen, setCategoryOpen] = useState(false);
   const { ops } = useOperations();
   const { company } = useCompany();
-  const clients = ops.clients ?? [];
+  const allClients = ops.clients ?? [];
+  const clients = useMemo(() => {
+    // Match Clients page: only relationship roots (not Kapila-under-Safewheels children).
+    const roots = allClients
+      .filter(
+        (client) =>
+          !client.parentClientId &&
+          client.status !== "inactive" &&
+          client.companyName.trim(),
+      )
+      .slice()
+      .sort((a, b) => a.companyName.localeCompare(b.companyName));
+    const linkedRoot = rootClientOf(form.relatedClientId, allClients);
+    if (linkedRoot && !roots.some((client) => client.id === linkedRoot.id)) {
+      return [linkedRoot, ...roots];
+    }
+    return roots;
+  }, [allClients, form.relatedClientId]);
   const projects = ops.projects ?? [];
   const founders = ops.founders ?? [];
+  const selectedClientId = rootClientOf(form.relatedClientId, allClients)?.id ?? form.relatedClientId;
+  const selectedClient = useMemo(
+    () => clients.find((client) => client.id === selectedClientId) ?? null,
+    [clients, selectedClientId],
+  );
+  const clientProjects = useMemo(() => {
+    if (!selectedClient) return [];
+    const linked = projectsForClientRelationship(projects, selectedClient, allClients).sort(
+      (a, b) => projectLabel(a).localeCompare(projectLabel(b)),
+    );
+    const linkedId = form.relatedProjectId;
+    if (linkedId && !linked.some((project) => project.id === linkedId)) {
+      const existing = projects.find((project) => project.id === linkedId);
+      if (existing) return [existing, ...linked];
+    }
+    return linked;
+  }, [projects, selectedClient, allClients, form.relatedProjectId]);
   const expenseCategories = useMemo(() => expenseCategoriesFor(company), [company]);
   const incomeCategories = useMemo(() => incomeCategoriesFor(company), [company]);
   const paymentMethods = useMemo(() => paymentMethodLabelsFor(company), [company]);
@@ -463,8 +536,15 @@ export function TransactionFormDialog({
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Related Client" id="tx-client">
                 <Select
-                  value={form.relatedClientId}
-                  onValueChange={(v) => setForm((f) => ({ ...f, relatedClientId: v }))}
+                  value={selectedClientId || undefined}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      relatedClientId: v,
+                      // Changing client clears a project that belongs to someone else.
+                      relatedProjectId: "",
+                    }))
+                  }
                 >
                   <SelectTrigger id="tx-client">
                     <SelectValue placeholder="Select client..." />
@@ -481,18 +561,29 @@ export function TransactionFormDialog({
 
               <Field label="Related Project" id="tx-project">
                 <Select
-                  value={form.relatedProjectId}
+                  value={form.relatedProjectId || undefined}
                   onValueChange={(v) => setForm((f) => ({ ...f, relatedProjectId: v }))}
+                  disabled={!selectedClient}
                 >
                   <SelectTrigger id="tx-project">
-                    <SelectValue placeholder="Select project..." />
+                    <SelectValue
+                      placeholder={
+                        selectedClient ? "Select project..." : "Select a client first"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
+                    {clientProjects.length === 0 ? (
+                      <SelectItem value="__none" disabled>
+                        No projects for this client
                       </SelectItem>
-                    ))}
+                    ) : (
+                      clientProjects.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {projectOptionLabel(p, selectedClient?.companyName)}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </Field>

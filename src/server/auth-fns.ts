@@ -11,7 +11,8 @@ import {
   sessionCookieValid,
   writeSessionCookie,
   rateLimitIp,
-  rateLimitLogin,
+  rateLimitFailedLogin,
+  clearLoginRateLimit,
 } from "./app-session";
 import { appendServerAuditLog } from "./activity-log-core";
 
@@ -45,7 +46,6 @@ export const loginFn = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data }) => {
-    rateLimitLogin();
     rateLimitIp();
     await ensurePortalPasswordLoaded();
 
@@ -53,6 +53,7 @@ export const loginFn = createServerFn({ method: "POST" })
     // legacy/env passwords. Strength is enforced only in changePasswordFn.
 
     if (!credentialsValid(data.username, data.password)) {
+      rateLimitFailedLogin();
       await appendServerAuditLog({
         entity: "security",
         action: "failed_login",
@@ -63,6 +64,7 @@ export const loginFn = createServerFn({ method: "POST" })
       throw new Error("Invalid username or password.");
     }
 
+    clearLoginRateLimit();
     const token = await mintSessionCookieValue();
     writeSessionCookie(token);
 

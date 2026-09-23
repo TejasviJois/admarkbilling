@@ -1621,6 +1621,7 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
             ]),
         ),
         legacyProjectCommissions: ops.projectCommissions ?? [],
+        legacyLeadList: ops.leadList ?? [],
         // Expense proofs that could not be attached to a mirrored transaction document
         // (externalized to URLs above) are preserved here instead of being dropped.
         legacyExpenseProofs: leftoverExpenseProofs,

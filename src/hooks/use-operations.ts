@@ -9,8 +9,8 @@ import { diffOperationsChanges } from "@/lib/activity-log";
 import { OperationsConflictError, loadOperations, saveOperations } from "@/lib/operations-storage";
 import {
   applyOperationsMutation,
-  buildOperationsMutation,
   isOperationsMutationEmpty,
+  rebaseOperationsPersist,
   UnsafeOperationsDeleteError,
   type OperationsPersistOptions,
 } from "@/lib/operations-mutations";
@@ -20,10 +20,14 @@ import type { OperationsData } from "@/lib/types";
 const EMPTY: OperationsData = { projects: [], partnerships: [], expenses: [], leads: [] };
 const CACHE_KEY = "operations";
 
+export type OperationsPersistInput =
+  | OperationsData
+  | ((current: OperationsData) => OperationsData);
+
 export function useOperations() {
   const queryClient = useQueryClient();
   // Serialize persist calls so rapid double-clicks / multi-field saves always
-  // diff against the latest optimistic cache, never a stale render snapshot.
+  // rebase against the latest optimistic cache, never overwrite with a stale aggregate.
   const persistChain = useRef<Promise<void>>(Promise.resolve());
 
   const query = useQuery({
@@ -42,12 +46,30 @@ export function useOperations() {
   // instantly but must not drive automatic background saves.
   const ready = query.data != null && !query.isPlaceholderData;
 
-  const persist = (next: OperationsData, options: OperationsPersistOptions = {}): Promise<void> => {
+  const persist = (
+    input: OperationsPersistInput,
+    options: OperationsPersistOptions = {},
+  ): Promise<void> => {
+    // Capture the same render snapshot callers typically spread into `next`.
+    // Intent is diffed against this base; the queued run applies that delta to
+    // whatever is latest in the React Query cache.
+    const callerBase = ops;
+
     const run = async () => {
       const previous = queryClient.getQueryData<OperationsData>(queryKeys.operations) ?? ops;
       let mutation;
+      let next: OperationsData;
       try {
-        mutation = buildOperationsMutation(previous, next, options);
+        if (typeof input === "function") {
+          next = input(previous);
+          const rebased = rebaseOperationsPersist(previous, next, previous, options);
+          mutation = rebased.mutation;
+          next = rebased.next;
+        } else {
+          const rebased = rebaseOperationsPersist(callerBase, input, previous, options);
+          mutation = rebased.mutation;
+          next = rebased.next;
+        }
       } catch (error) {
         if (error instanceof UnsafeOperationsDeleteError) {
           toast.error("Unsafe deletion blocked", {
@@ -63,8 +85,12 @@ export function useOperations() {
       const drafts = diffOperationsChanges(previous, next);
       queryClient.setQueryData(queryKeys.operations, next);
       writeClientCache(CACHE_KEY, next);
+      const saveOptions: OperationsPersistOptions = {
+        ...options,
+        deleteIds: mutation.deletes,
+      };
       try {
-        const saved = await saveOperations(next, mutation, undefined, options);
+        const saved = await saveOperations(next, mutation, undefined, saveOptions);
         queryClient.setQueryData(queryKeys.operations, saved);
         writeClientCache(CACHE_KEY, saved);
         if (drafts.length > 0) {

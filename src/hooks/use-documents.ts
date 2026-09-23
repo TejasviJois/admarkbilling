@@ -6,6 +6,7 @@ import {
   DocumentsConflictError,
   applyDocumentsMutation,
   loadDocuments,
+  rebaseDocumentsPersist,
   saveDocuments,
   type DocumentsPersistOptions,
 } from "@/lib/documents-storage";
@@ -39,12 +40,52 @@ export function useDocuments() {
   });
 
   const persist = useCallback(
-    (next: DocumentsData, options: DocumentsPersistOptions = {}): Promise<void> => {
+    (
+      input: DocumentsData | ((current: DocumentsData) => DocumentsData),
+      options: DocumentsPersistOptions = {},
+    ): Promise<void> => {
+      const callerBase = docs;
       const run = async () => {
+        const previous =
+          queryClient.getQueryData<DocumentsData>(queryKeys.documents) ?? docs;
+        let next: DocumentsData;
+        let deleteIds: DocumentsPersistOptions["deleteIds"];
+        try {
+          if (typeof input === "function") {
+            const intended = input(previous);
+            const rebased = rebaseDocumentsPersist(previous, intended, previous, options);
+            next = rebased.next;
+            deleteIds = {
+              ...options.deleteIds,
+              ...rebased.mutation.deletes,
+            };
+          } else {
+            const rebased = rebaseDocumentsPersist(callerBase, input, previous, options);
+            next = rebased.next;
+            deleteIds = {
+              ...options.deleteIds,
+              ...rebased.mutation.deletes,
+            };
+          }
+        } catch (error) {
+          toast.error("Unsafe deletion blocked", {
+            description:
+              error instanceof Error
+                ? error.message
+                : "Reload current documents and try again.",
+          });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.documents });
+          return;
+        }
+
+        const saveOptions: DocumentsPersistOptions = {
+          ...options,
+          deleteIds,
+        };
         queryClient.setQueryData(queryKeys.documents, next);
         writeClientCache(CACHE_KEY, next);
         try {
-          const saved = await saveMutation.mutateAsync({ next, options });
+          const saved = await saveMutation.mutateAsync({ next, options: saveOptions });
           queryClient.setQueryData(queryKeys.documents, saved);
           writeClientCache(CACHE_KEY, saved);
         } catch (e) {
@@ -92,15 +133,14 @@ export function useDocuments() {
       persistChain.current = queued.catch(() => undefined);
       return queued;
     },
-    [queryClient, saveMutation],
+    [docs, queryClient, saveMutation],
   );
 
   const saveAgreements = useCallback(
     async (agreements: Agreement[], options: DocumentsPersistOptions = {}) => {
-      const current = queryClient.getQueryData<DocumentsData>(queryKeys.documents) ?? docs;
-      await persist({ ...current, agreements }, options);
+      await persist((current) => ({ ...current, agreements }), options);
     },
-    [docs, persist, queryClient],
+    [persist],
   );
 
   return {

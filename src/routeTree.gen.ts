@@ -21,6 +21,7 @@ import { Route as NewRouteImport } from './routes/new'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeadsRouteImport } from './routes/leads'
+import { Route as LeadListRouteImport } from './routes/lead-list'
 import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as DirectoryRouteImport } from './routes/directory'
 import { Route as ClientsRouteImport } from './routes/clients'
@@ -113,6 +114,11 @@ const LoginRoute = LoginRouteImport.update({
 const LeadsRoute = LeadsRouteImport.update({
   id: '/leads',
   path: '/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeadListRoute = LeadListRouteImport.update({
+  id: '/lead-list',
+  path: '/lead-list',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InvoicesRoute = InvoicesRouteImport.update({
@@ -295,6 +301,7 @@ export interface FileRoutesByFullPath {
   '/clients': typeof ClientsRouteWithChildren
   '/directory': typeof DirectoryRoute
   '/invoices': typeof InvoicesRoute
+  '/lead-list': typeof LeadListRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
@@ -340,6 +347,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof CalendarRoute
   '/directory': typeof DirectoryRoute
   '/invoices': typeof InvoicesRoute
+  '/lead-list': typeof LeadListRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
@@ -388,6 +396,7 @@ export interface FileRoutesById {
   '/clients': typeof ClientsRouteWithChildren
   '/directory': typeof DirectoryRoute
   '/invoices': typeof InvoicesRoute
+  '/lead-list': typeof LeadListRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
@@ -437,6 +446,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/directory'
     | '/invoices'
+    | '/lead-list'
     | '/leads'
     | '/login'
     | '/logs'
@@ -482,6 +492,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/directory'
     | '/invoices'
+    | '/lead-list'
     | '/leads'
     | '/login'
     | '/logs'
@@ -529,6 +540,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/directory'
     | '/invoices'
+    | '/lead-list'
     | '/leads'
     | '/login'
     | '/logs'
@@ -577,6 +589,7 @@ export interface RootRouteChildren {
   ClientsRoute: typeof ClientsRouteWithChildren
   DirectoryRoute: typeof DirectoryRoute
   InvoicesRoute: typeof InvoicesRoute
+  LeadListRoute: typeof LeadListRoute
   LeadsRoute: typeof LeadsRoute
   LoginRoute: typeof LoginRoute
   LogsRoute: typeof LogsRoute
@@ -696,6 +709,13 @@ declare module '@tanstack/react-router' {
       path: '/leads'
       fullPath: '/leads'
       preLoaderRoute: typeof LeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lead-list': {
+      id: '/lead-list'
+      path: '/lead-list'
+      fullPath: '/lead-list'
+      preLoaderRoute: typeof LeadListRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invoices': {
@@ -980,6 +1000,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientsRoute: ClientsRouteWithChildren,
   DirectoryRoute: DirectoryRoute,
   InvoicesRoute: InvoicesRoute,
+  LeadListRoute: LeadListRoute,
   LeadsRoute: LeadsRoute,
   LoginRoute: LoginRoute,
   LogsRoute: LogsRoute,

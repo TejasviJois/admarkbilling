@@ -4,6 +4,7 @@ import {
   UnsafeOperationsDeleteError,
   applyOperationsMutation,
   buildOperationsMutation,
+  rebaseOperationsPersist,
 } from "./operations-mutations";
 
 function baseOperations(): OperationsData {
@@ -133,5 +134,40 @@ describe("safe operations mutations", () => {
     expect(merged.ok).toBe(true);
     expect(server.data.projects[0].name).toBe("Project from tab A");
     expect(server.data.contacts![0].personName).toBe("Contact from tab B");
+  });
+
+  it("rebases a second stale delete so the first delete is not resurrected", () => {
+    const initial: OperationsData = {
+      ...baseOperations(),
+      leadList: [
+        { id: "a", externalId: "1", title: "A", contacted: false, importedAt: "2026-01-01" },
+        { id: "b", externalId: "2", title: "B", contacted: false, importedAt: "2026-01-01" },
+        { id: "c", externalId: "3", title: "C", contacted: false, importedAt: "2026-01-01" },
+      ],
+    };
+
+    // First click deletes A from a fresh snapshot.
+    const afterDeleteA = {
+      ...initial,
+      leadList: initial.leadList!.filter((entry) => entry.id !== "a"),
+    };
+    const first = rebaseOperationsPersist(initial, afterDeleteA, initial, {
+      deleteIds: { leadList: ["a"] },
+    });
+    expect(first.next.leadList?.map((e) => e.id)).toEqual(["b", "c"]);
+
+    // Second click still closes over the original list and filters only B,
+    // which would resurrect A if diffed against the latest cache directly.
+    const staleSecondNext = {
+      ...initial,
+      leadList: initial.leadList!.filter((entry) => entry.id !== "b"),
+    };
+    const second = rebaseOperationsPersist(initial, staleSecondNext, first.next, {
+      deleteIds: { leadList: ["b"] },
+    });
+
+    expect(second.mutation.deletes.leadList).toEqual(["b"]);
+    expect(second.mutation.upserts.leadList).toBeUndefined();
+    expect(second.next.leadList?.map((e) => e.id)).toEqual(["c"]);
   });
 });

@@ -63,8 +63,8 @@ export function rateLimitIp(): void {
   );
 }
 
-/** Call at the start of login attempts (success or fail). */
-export function rateLimitLogin(): void {
+/** Call only after a failed login — successful sign-in must not burn the budget. */
+export function rateLimitFailedLogin(): void {
   bumpCounter(
     loginTracker,
     `login:${clientIp()}`,
@@ -72,6 +72,16 @@ export function rateLimitLogin(): void {
     MAX_LOGIN_ATTEMPTS,
     "Too many login attempts. Wait 15 minutes and try again.",
   );
+}
+
+/** @deprecated Use rateLimitFailedLogin — kept name for any residual imports. */
+export function rateLimitLogin(): void {
+  rateLimitFailedLogin();
+}
+
+/** Clear login lockout (e.g. after a successful sign-in). */
+export function clearLoginRateLimit(): void {
+  loginTracker.delete(`login:${clientIp()}`);
 }
 
 function sessionSecret(): string {

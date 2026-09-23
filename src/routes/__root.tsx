@@ -179,6 +179,7 @@ const NAV_GROUPS: NavGroup[] = [
     section: "Daily Work",
     items: [
       { to: "/directory", label: "Directory" },
+      { to: "/lead-list", label: "Lead List" },
       { to: "/leads", label: "Pipeline" },
       { to: "/clients", label: "Clients" },
     ],

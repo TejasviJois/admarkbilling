@@ -6,6 +6,7 @@ import type {
   FinancialBaseline,
   FixedMonthlyExpense,
   Lead,
+  LeadListEntry,
   LeadStatus,
   OperationsData,
   Payment,
@@ -344,6 +345,73 @@ function parseContact(raw: unknown): Contact | null {
   };
 }
 
+function optString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function parseLeadListEntry(raw: unknown): LeadListEntry | null {
+  if (!raw || typeof raw !== "object") return null;
+  const entry = raw as Partial<LeadListEntry>;
+  if (typeof entry.id !== "string" || typeof entry.externalId !== "string") return null;
+  if (typeof entry.title !== "string" || !entry.title.trim()) return null;
+  const leadScore =
+    typeof entry.leadScore === "number" && Number.isFinite(entry.leadScore)
+      ? entry.leadScore
+      : undefined;
+  return {
+    id: entry.id,
+    organizationId: entry.organizationId ?? DEFAULT_ORG_ID,
+    externalId: entry.externalId,
+    dateTime: optString(entry.dateTime),
+    phone: optString(entry.phone),
+    email: optString(entry.email),
+    title: entry.title.trim(),
+    oneLiner: optString(entry.oneLiner),
+    xFactor: optString(entry.xFactor),
+    whatTheyWant: optString(entry.whatTheyWant),
+    platformModules: optString(entry.platformModules),
+    technicalStack: optString(entry.technicalStack),
+    keyNotes: optString(entry.keyNotes),
+    engagementCommercial: optString(entry.engagementCommercial),
+    applicationRequirements: optString(entry.applicationRequirements),
+    applicationIncludes: optString(entry.applicationIncludes),
+    mostValuableProof: optString(entry.mostValuableProof),
+    frameExpertiseAround: optString(entry.frameExpertiseAround),
+    intent: optString(entry.intent),
+    urgency: optString(entry.urgency),
+    closeWindow: optString(entry.closeWindow),
+    competition: optString(entry.competition),
+    projectType: optString(entry.projectType),
+    complexity: optString(entry.complexity),
+    engagementType: optString(entry.engagementType),
+    focus: optString(entry.focus),
+    category: optString(entry.category),
+    location: optString(entry.location),
+    informationLevel: optString(entry.informationLevel),
+    websiteStatus: optString(entry.websiteStatus),
+    growthPath: optString(entry.growthPath),
+    techFocus: optString(entry.techFocus),
+    keyDifferentiator: optString(entry.keyDifferentiator),
+    decisionDriver: optString(entry.decisionDriver),
+    leadScore,
+    redFlags: optString(entry.redFlags),
+    howToWin: optString(entry.howToWin),
+    angle: optString(entry.angle),
+    whyScore: optString(entry.whyScore),
+    strategicInsight: optString(entry.strategicInsight),
+    excellentFit: optString(entry.excellentFit),
+    poorFit: optString(entry.poorFit),
+    finalAssessment: optString(entry.finalAssessment),
+    fullOriginal: optString(entry.fullOriginal),
+    importedAt:
+      typeof entry.importedAt === "string" && entry.importedAt
+        ? entry.importedAt
+        : new Date().toISOString(),
+    contacted: entry.contacted === true,
+    sourceFileName: optString(entry.sourceFileName),
+  };
+}
+
 function parsePayment(raw: unknown): Payment | null {
   if (!raw || typeof raw !== "object") return null;
   const p = raw as Partial<Payment>;
@@ -453,6 +521,7 @@ function injectTenantIntoOperations(data: OperationsData): OperationsData {
     assets: data.assets?.map((a) => ({ ...a, organizationId: DEFAULT_ORG_ID })),
     clients: data.clients?.map((c) => ({ ...c, organizationId: DEFAULT_ORG_ID })),
     contacts: data.contacts?.map((c) => ({ ...c, organizationId: DEFAULT_ORG_ID })),
+    leadList: data.leadList?.map((entry) => ({ ...entry, organizationId: DEFAULT_ORG_ID })),
     payments: data.payments?.map((pay) => ({ ...pay, organizationId: DEFAULT_ORG_ID })),
     transactions: data.transactions?.map((t) => ({ ...t, organizationId: DEFAULT_ORG_ID })),
   };
@@ -586,6 +655,9 @@ function parseOperationsPayload(
   const contacts = Array.isArray(raw.contacts)
     ? raw.contacts.map(parseContact).filter((c): c is Contact => c != null)
     : undefined;
+  const leadList = Array.isArray(raw.leadList)
+    ? raw.leadList.map(parseLeadListEntry).filter((entry): entry is LeadListEntry => entry != null)
+    : undefined;
   const payments = Array.isArray(raw.payments)
     ? raw.payments.map(parsePayment).filter((pay): pay is Payment => pay != null)
     : undefined;
@@ -628,6 +700,7 @@ function parseOperationsPayload(
     fixedMonthlyExpenses,
     clients,
     contacts,
+    leadList,
     payments,
     transactions,
     founders,

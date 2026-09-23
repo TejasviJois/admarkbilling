@@ -53,6 +53,49 @@ export function applyDocumentsMutation(
   return next as DocumentsData;
 }
 
+export function buildDocumentsMutation(
+  previous: DocumentsData,
+  next: DocumentsData,
+  options: DocumentsPersistOptions = {},
+): DocumentsMutation {
+  const before = normalizeDocuments(previous);
+  const after = normalizeDocuments(next);
+  const upserts: Partial<Record<DocumentKey, DocumentEntity[]>> = {};
+  const deletes: Partial<Record<DocumentKey, string[]>> = {};
+  for (const key of ["agreements", "archiveDocuments"] as const) {
+    const prevMap = new Map(before[key].map((item) => [item.id, item]));
+    const nextMap = new Map(after[key].map((item) => [item.id, item]));
+    const changed = [...nextMap.values()].filter(
+      (item) => JSON.stringify(prevMap.get(item.id)) !== JSON.stringify(item),
+    );
+    if (changed.length > 0) upserts[key] = changed as DocumentEntity[];
+    const removed = [...prevMap.keys()].filter((id) => !nextMap.has(id));
+    const allowed = new Set(options.deleteIds?.[key] ?? []);
+    const unauthorized = options.allowAllDeletes
+      ? []
+      : removed.filter((id) => !allowed.has(id));
+    if (unauthorized.length > 0) {
+      throw new Error(`Unsafe ${key} deletion blocked. Reload current documents.`);
+    }
+    if (removed.length > 0) deletes[key] = removed;
+  }
+  return { upserts, deletes };
+}
+
+/** Diff intent against a stale caller base, then apply onto the latest cache. */
+export function rebaseDocumentsPersist(
+  callerBase: DocumentsData,
+  callerNext: DocumentsData,
+  latest: DocumentsData,
+  options: DocumentsPersistOptions = {},
+): { mutation: DocumentsMutation; next: DocumentsData } {
+  const mutation = buildDocumentsMutation(callerBase, callerNext, options);
+  return {
+    mutation,
+    next: applyDocumentsMutation(latest, mutation),
+  };
+}
+
 let documentsVersion: string | null = null;
 let documentsSnapshot: DocumentsData | null = null;
 let writeQueue: Promise<unknown> = Promise.resolve();
