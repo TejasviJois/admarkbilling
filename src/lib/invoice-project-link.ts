@@ -19,7 +19,7 @@ export function invoiceProjectCandidates(
     (project) =>
       isRevenueProject(project.status) &&
       ((inv.clientId != null && project.clientId === inv.clientId) ||
-        project.client.trim().toLowerCase() === name),
+        project.client?.trim().toLowerCase() === name),
   );
 }
 

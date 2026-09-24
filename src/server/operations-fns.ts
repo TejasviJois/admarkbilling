@@ -3,6 +3,8 @@ import type {
   AppNotification,
   Client,
   Contact,
+  CredentialCategory,
+  CredentialEntry,
   FinancialBaseline,
   FixedMonthlyExpense,
   Lead,
@@ -352,7 +354,8 @@ function optString(value: unknown): string | undefined {
 function parseLeadListEntry(raw: unknown): LeadListEntry | null {
   if (!raw || typeof raw !== "object") return null;
   const entry = raw as Partial<LeadListEntry>;
-  if (typeof entry.id !== "string" || typeof entry.externalId !== "string") return null;
+  if (typeof entry.id !== "string" || !entry.id.trim()) return null;
+  if (typeof entry.externalId !== "string" || !entry.externalId.trim()) return null;
   if (typeof entry.title !== "string" || !entry.title.trim()) return null;
   const leadScore =
     typeof entry.leadScore === "number" && Number.isFinite(entry.leadScore)
@@ -409,6 +412,43 @@ function parseLeadListEntry(raw: unknown): LeadListEntry | null {
         : new Date().toISOString(),
     contacted: entry.contacted === true,
     sourceFileName: optString(entry.sourceFileName),
+  };
+}
+
+const CREDENTIAL_CATEGORIES: CredentialCategory[] = [
+  "Email",
+  "Social",
+  "Domain",
+  "Cloud",
+  "Development",
+  "Hosting",
+  "Database",
+  "Other",
+];
+
+function parseCredentialEntry(raw: unknown): CredentialEntry | null {
+  if (!raw || typeof raw !== "object") return null;
+  const entry = raw as Partial<CredentialEntry>;
+  if (typeof entry.id !== "string" || !entry.id.trim()) return null;
+  if (typeof entry.service !== "string" || !entry.service.trim()) return null;
+  const category = CREDENTIAL_CATEGORIES.includes(entry.category as CredentialCategory)
+    ? (entry.category as CredentialCategory)
+    : "Other";
+  return {
+    id: entry.id.trim(),
+    organizationId: entry.organizationId ?? DEFAULT_ORG_ID,
+    category,
+    service: entry.service.trim(),
+    email: optString(entry.email),
+    username: optString(entry.username),
+    password: typeof entry.password === "string" ? entry.password : undefined,
+    linkedTo: optString(entry.linkedTo),
+    otpMethod: optString(entry.otpMethod),
+    notes: optString(entry.notes),
+    updatedAt:
+      typeof entry.updatedAt === "string" && entry.updatedAt.trim()
+        ? entry.updatedAt
+        : new Date().toISOString(),
   };
 }
 
@@ -522,6 +562,10 @@ function injectTenantIntoOperations(data: OperationsData): OperationsData {
     clients: data.clients?.map((c) => ({ ...c, organizationId: DEFAULT_ORG_ID })),
     contacts: data.contacts?.map((c) => ({ ...c, organizationId: DEFAULT_ORG_ID })),
     leadList: data.leadList?.map((entry) => ({ ...entry, organizationId: DEFAULT_ORG_ID })),
+    credentials: data.credentials?.map((entry) => ({
+      ...entry,
+      organizationId: DEFAULT_ORG_ID,
+    })),
     payments: data.payments?.map((pay) => ({ ...pay, organizationId: DEFAULT_ORG_ID })),
     transactions: data.transactions?.map((t) => ({ ...t, organizationId: DEFAULT_ORG_ID })),
   };
@@ -658,6 +702,11 @@ function parseOperationsPayload(
   const leadList = Array.isArray(raw.leadList)
     ? raw.leadList.map(parseLeadListEntry).filter((entry): entry is LeadListEntry => entry != null)
     : undefined;
+  const credentials = Array.isArray(raw.credentials)
+    ? raw.credentials
+        .map(parseCredentialEntry)
+        .filter((entry): entry is CredentialEntry => entry != null)
+    : undefined;
   const payments = Array.isArray(raw.payments)
     ? raw.payments.map(parsePayment).filter((pay): pay is Payment => pay != null)
     : undefined;
@@ -701,6 +750,7 @@ function parseOperationsPayload(
     clients,
     contacts,
     leadList,
+    credentials,
     payments,
     transactions,
     founders,

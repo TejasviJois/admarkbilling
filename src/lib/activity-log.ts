@@ -237,8 +237,8 @@ function diffExpenses(before: ExpenseEntry[], after: ExpenseEntry[]): LogDraft[]
 
 export function diffOperationsChanges(before: OperationsData, after: OperationsData): LogDraft[] {
   return [
-    ...diffProjects(before.projects, after.projects),
-    ...diffPartnerships(before.partnerships, after.partnerships),
-    ...diffExpenses(before.expenses, after.expenses),
+    ...diffProjects(before.projects ?? [], after.projects ?? []),
+    ...diffPartnerships(before.partnerships ?? [], after.partnerships ?? []),
+    ...diffExpenses(before.expenses ?? [], after.expenses ?? []),
   ];
 }

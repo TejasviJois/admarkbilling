@@ -1,5 +1,8 @@
-import * as XLSX from "xlsx";
 import type { LeadListEntry } from "@/lib/types";
+
+type XlsxModule = typeof import("xlsx");
+type WorkBook = import("xlsx").WorkBook;
+type WorkSheet = import("xlsx").WorkSheet;
 
 const HEADER_MAP: Record<string, keyof Omit<LeadListEntry, "id" | "importedAt" | "organizationId">> =
   {
@@ -68,7 +71,7 @@ function parseScore(raw: string): number | undefined {
 }
 
 /** Prefer the "Lead Master" sheet; fall back to the first sheet with a Lead ID column. */
-function pickLeadSheet(workbook: XLSX.WorkBook): XLSX.WorkSheet {
+function pickLeadSheet(workbook: WorkBook, XLSX: XlsxModule): WorkSheet {
   const preferred = workbook.Sheets["Lead Master"];
   if (preferred) return preferred;
   for (const name of workbook.SheetNames) {
@@ -98,6 +101,7 @@ export type LeadListImportResult = {
 export async function parseLeadListWorkbook(
   file: File,
 ): Promise<LeadListImportResult> {
+  const XLSX = await import("xlsx");
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
   const sheetName =
@@ -114,7 +118,7 @@ export async function parseLeadListWorkbook(
       return header.includes("lead id");
     }) ??
     workbook.SheetNames[0];
-  const sheet = pickLeadSheet(workbook);
+  const sheet = pickLeadSheet(workbook, XLSX);
   const matrix = XLSX.utils.sheet_to_json<(string | number | Date | null)[]>(sheet, {
     header: 1,
     defval: "",

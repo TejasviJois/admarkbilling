@@ -794,6 +794,7 @@ interface ParsedApplicationPreferences {
   >;
   projectCommissions: import("@/lib/types").ProjectCommission[];
   leadList: import("@/lib/types").LeadListEntry[];
+  credentials: import("@/lib/types").CredentialEntry[];
   migrationState: LegacyMigrationState;
 }
 
@@ -851,6 +852,9 @@ function parseApplicationPreferences(raw: unknown): ParsedApplicationPreferences
     : [];
   const legacyLeadList = Array.isArray(preferences.legacyLeadList)
     ? preferences.legacyLeadList
+    : [];
+  const legacyCredentials = Array.isArray(preferences.legacyCredentials)
+    ? preferences.legacyCredentials
     : [];
   return {
     financialBaseline:
@@ -915,7 +919,8 @@ function parseApplicationPreferences(raw: unknown): ParsedApplicationPreferences
       .map((item) => {
         if (!item || typeof item !== "object") return null;
         const entry = item as Record<string, unknown>;
-        if (typeof entry.id !== "string" || typeof entry.externalId !== "string") return null;
+        if (typeof entry.id !== "string" || !entry.id.trim()) return null;
+        if (typeof entry.externalId !== "string" || !entry.externalId.trim()) return null;
         if (typeof entry.title !== "string" || !entry.title.trim()) return null;
         const str = (value: unknown) =>
           typeof value === "string" && value.trim() ? value : undefined;
@@ -976,6 +981,45 @@ function parseApplicationPreferences(raw: unknown): ParsedApplicationPreferences
         } as import("@/lib/types").LeadListEntry;
       })
       .filter((entry): entry is import("@/lib/types").LeadListEntry => entry != null),
+    credentials: legacyCredentials
+      .map((item) => {
+        if (!item || typeof item !== "object") return null;
+        const entry = item as Record<string, unknown>;
+        if (typeof entry.id !== "string" || !entry.id.trim()) return null;
+        if (typeof entry.service !== "string" || !entry.service.trim()) return null;
+        const categories = [
+          "Email",
+          "Social",
+          "Domain",
+          "Cloud",
+          "Development",
+          "Hosting",
+          "Database",
+          "Other",
+        ] as const;
+        const category = categories.includes(entry.category as (typeof categories)[number])
+          ? (entry.category as (typeof categories)[number])
+          : "Other";
+        const str = (value: unknown) =>
+          typeof value === "string" && value.trim() ? value : undefined;
+        return {
+          id: entry.id.trim(),
+          organizationId: str(entry.organizationId),
+          category,
+          service: entry.service.trim(),
+          email: str(entry.email),
+          username: str(entry.username),
+          password: typeof entry.password === "string" ? entry.password : undefined,
+          linkedTo: str(entry.linkedTo),
+          otpMethod: str(entry.otpMethod),
+          notes: str(entry.notes),
+          updatedAt:
+            typeof entry.updatedAt === "string" && entry.updatedAt.trim()
+              ? entry.updatedAt
+              : new Date().toISOString(),
+        } as import("@/lib/types").CredentialEntry;
+      })
+      .filter((entry): entry is import("@/lib/types").CredentialEntry => entry != null),
     migrationState: parseLegacyMigrationState(preferences.legacyMigrationState),
   };
 }
@@ -1488,6 +1532,7 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
     clients,
     contacts,
     leadList: preferences.leadList,
+    credentials: preferences.credentials,
     payments: topLevelPayments,
     transactions,
     founders,

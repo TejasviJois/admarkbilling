@@ -144,17 +144,18 @@ export const DEFAULT_PROJECTS: Project[] = [
   p("proj-jayanth-paint", "Jayanth - Paint", "Tech & Marketing", "cancelled", "TBD"),
 ];
 
-export function withDefaultProjects<T extends { projects: Project[] }>(data: T): T {
+export function withDefaultProjects<T extends { projects?: Project[] | null }>(data: T): T {
+  const projects = Array.isArray(data.projects) ? data.projects : [];
   // Empty list means intentional (all deleted / new empty org after migrate) — never reseed.
-  if (data.projects.length === 0) {
-    return data;
+  if (projects.length === 0) {
+    return { ...data, projects } as T;
   }
 
   const defaultsById = new Map(DEFAULT_PROJECTS.map((project) => [project.id, project]));
 
   // Fill gaps on existing default projects only. Never re-add missing defaults —
   // a deliberately deleted project must stay deleted.
-  const merged = data.projects.map((project) => {
+  const merged = projects.map((project) => {
     const defaults = defaultsById.get(project.id);
     if (!defaults) return project;
 

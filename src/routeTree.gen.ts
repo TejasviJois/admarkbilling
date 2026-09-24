@@ -24,6 +24,7 @@ import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as LeadListRouteImport } from './routes/lead-list'
 import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as DirectoryRouteImport } from './routes/directory'
+import { Route as CredentialsRouteImport } from './routes/credentials'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as AccountsRouteImport } from './routes/accounts'
@@ -129,6 +130,11 @@ const InvoicesRoute = InvoicesRouteImport.update({
 const DirectoryRoute = DirectoryRouteImport.update({
   id: '/directory',
   path: '/directory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CredentialsRoute = CredentialsRouteImport.update({
+  id: '/credentials',
+  path: '/credentials',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientsRoute = ClientsRouteImport.update({
@@ -299,6 +305,7 @@ export interface FileRoutesByFullPath {
   '/accounts': typeof AccountsRouteWithChildren
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRouteWithChildren
+  '/credentials': typeof CredentialsRoute
   '/directory': typeof DirectoryRoute
   '/invoices': typeof InvoicesRoute
   '/lead-list': typeof LeadListRoute
@@ -345,6 +352,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
+  '/credentials': typeof CredentialsRoute
   '/directory': typeof DirectoryRoute
   '/invoices': typeof InvoicesRoute
   '/lead-list': typeof LeadListRoute
@@ -394,6 +402,7 @@ export interface FileRoutesById {
   '/accounts': typeof AccountsRouteWithChildren
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRouteWithChildren
+  '/credentials': typeof CredentialsRoute
   '/directory': typeof DirectoryRoute
   '/invoices': typeof InvoicesRoute
   '/lead-list': typeof LeadListRoute
@@ -444,6 +453,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/calendar'
     | '/clients'
+    | '/credentials'
     | '/directory'
     | '/invoices'
     | '/lead-list'
@@ -490,6 +500,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/calendar'
+    | '/credentials'
     | '/directory'
     | '/invoices'
     | '/lead-list'
@@ -538,6 +549,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/calendar'
     | '/clients'
+    | '/credentials'
     | '/directory'
     | '/invoices'
     | '/lead-list'
@@ -587,6 +599,7 @@ export interface RootRouteChildren {
   AccountsRoute: typeof AccountsRouteWithChildren
   CalendarRoute: typeof CalendarRoute
   ClientsRoute: typeof ClientsRouteWithChildren
+  CredentialsRoute: typeof CredentialsRoute
   DirectoryRoute: typeof DirectoryRoute
   InvoicesRoute: typeof InvoicesRoute
   LeadListRoute: typeof LeadListRoute
@@ -730,6 +743,13 @@ declare module '@tanstack/react-router' {
       path: '/directory'
       fullPath: '/directory'
       preLoaderRoute: typeof DirectoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/credentials': {
+      id: '/credentials'
+      path: '/credentials'
+      fullPath: '/credentials'
+      preLoaderRoute: typeof CredentialsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clients': {
@@ -998,6 +1018,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountsRoute: AccountsRouteWithChildren,
   CalendarRoute: CalendarRoute,
   ClientsRoute: ClientsRouteWithChildren,
+  CredentialsRoute: CredentialsRoute,
   DirectoryRoute: DirectoryRoute,
   InvoicesRoute: InvoicesRoute,
   LeadListRoute: LeadListRoute,

@@ -92,6 +92,8 @@ export default defineConfig({
       "sonner",
       "tailwind-merge",
       "vaul",
+      "xlsx",
+      "pdfjs-dist",
     ],
   },
   build: {

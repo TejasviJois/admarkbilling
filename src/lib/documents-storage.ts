@@ -40,12 +40,13 @@ export function applyDocumentsMutation(
   latest: DocumentsData,
   mutation: DocumentsMutation,
 ): DocumentsData {
-  const next = { ...latest };
+  const base = normalizeDocuments(latest);
+  const next = { ...base };
   for (const key of ["agreements", "archiveDocuments"] as const) {
     const upserts = mutation.upserts[key] ?? [];
     const deletes = new Set(mutation.deletes[key] ?? []);
     if (upserts.length === 0 && deletes.size === 0) continue;
-    const byId = new Map(latest[key].map((item) => [item.id, item]));
+    const byId = new Map(base[key].map((item) => [item.id, item]));
     for (const id of deletes) byId.delete(id);
     for (const item of upserts) byId.set(item.id, item);
     (next as Record<DocumentKey, DocumentEntity[]>)[key] = [...byId.values()];

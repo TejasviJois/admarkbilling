@@ -10,6 +10,7 @@ export const OPERATIONS_ENTITY_KEYS = [
   "clients",
   "contacts",
   "leadList",
+  "credentials",
   "payments",
   "transactions",
   "founders",
@@ -81,8 +82,9 @@ function entities(data: OperationsData, key: OperationsEntityKey): Entity[] {
 function entityMap(items: Entity[], key: OperationsEntityKey): Map<string, Entity> {
   const result = new Map<string, Entity>();
   for (const item of items) {
-    if (!item || typeof item.id !== "string" || !item.id) {
-      throw new Error(`Every ${key} entity must have a non-empty id.`);
+    if (!item || typeof item.id !== "string" || !item.id.trim()) {
+      // Skip corrupt rows instead of crashing every persist/load path.
+      continue;
     }
     result.set(item.id, item);
   }

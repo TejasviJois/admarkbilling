@@ -8,6 +8,7 @@ import {
   FolderViewToggle,
 } from "@/components/documents/documents-ui";
 import { fileFromUpload } from "@/components/documents/proof-ui";
+import { PdfPagesPreview } from "@/components/documents/PdfPagesPreview";
 import { Button } from "@/components/ui/button";
 import { useCompany } from "@/hooks/use-company";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -79,6 +80,15 @@ function memberInitials(name: string): string {
 function approxFileSizeLabel(document: ArchiveDocument): string | undefined {
   const data = document.fileDataUrl;
   if (!data) return document.externalUrl ? "Link" : undefined;
+  // Storage paths / signed HTTPS URLs are short refs — not base64 payloads.
+  if (
+    data.startsWith("http://") ||
+    data.startsWith("https://") ||
+    data.startsWith("admark-files/") ||
+    data.startsWith("blob:")
+  ) {
+    return undefined;
+  }
   const base64 = data.includes(",") ? data.split(",")[1] : data;
   if (!base64) return undefined;
   const bytes = Math.floor((base64.length * 3) / 4);
@@ -191,14 +201,27 @@ function usePdfPreviewUrl(src: string | undefined, enabled: boolean): {
     void (async () => {
       try {
         if (isAdmarkStorageUrl(src)) {
+          // Prefer a same-origin blob — private signed URLs often refuse iframe embedding.
           const preview = await fetchFilePreviewFn({ data: { url: src } });
-          objectUrl = URL.createObjectURL(base64ToBlob(preview.base64, preview.mimeType));
+          if (
+            !preview?.base64 ||
+            typeof preview.base64 !== "string" ||
+            preview.base64.length < 32
+          ) {
+            throw new Error("File preview returned empty data.");
+          }
+          const mime = preview.mimeType || "application/pdf";
+          objectUrl = URL.createObjectURL(base64ToBlob(preview.base64, mime));
         } else {
           const response = await fetch(src);
           if (!response.ok) throw new Error(`Could not load PDF (${response.status}).`);
           const blob = await response.blob();
+          const type = blob.type || "application/pdf";
+          if (type.includes("html") || type.includes("text/")) {
+            throw new Error("Could not load PDF preview.");
+          }
           objectUrl = URL.createObjectURL(
-            blob.type ? blob : new Blob([blob], { type: "application/pdf" }),
+            type.includes("pdf") ? blob : new Blob([blob], { type: "application/pdf" }),
           );
         }
         if (cancelled) {
@@ -209,7 +232,12 @@ function usePdfPreviewUrl(src: string | undefined, enabled: boolean): {
       } catch (err) {
         logClientError("documents.pdfPreview", err);
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Could not load PDF preview.");
+          const message = err instanceof Error ? err.message : "Could not load PDF preview.";
+          setError(
+            message.length > 180 || /<!doctype|<html/i.test(message)
+              ? "Could not load PDF preview."
+              : message,
+          );
           setUrl(undefined);
         }
       } finally {
@@ -263,13 +291,16 @@ function DocumentPreviewDialog({
   const iframeSrc = pdfPreview.url;
 
   const showEmbeddedPdf = Boolean(rawSrc && pdf && !isMobile && iframeSrc);
+  // Chromium blanks PDF iframes under CSS transform (Radix centers with translate + zoom).
+  const pdfDialogClass =
+    "!flex inset-4 left-4 right-4 top-4 bottom-4 m-auto h-[min(92vh,900px)] w-[min(96vw,56rem)] max-w-4xl translate-x-0 translate-y-0 flex-col gap-4 overflow-hidden !animate-none data-[state=open]:!zoom-in-100 data-[state=closed]:!zoom-out-100 sm:max-w-4xl";
 
   return (
     <Dialog open={document != null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className={
           showEmbeddedPdf || (rawSrc && pdf && !isMobile)
-            ? "!flex max-h-[min(92vh,900px)] w-[min(96vw,56rem)] flex-col gap-4 overflow-hidden sm:max-w-4xl"
+            ? pdfDialogClass
             : "max-h-[min(92vh,900px)] overflow-y-auto sm:max-w-3xl"
         }
       >
@@ -319,23 +350,15 @@ function DocumentPreviewDialog({
           </div>
         ) : rawSrc && pdf && pdfPreview.error ? (
           <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-6 text-center">
-            <p className="text-sm text-destructive">{pdfPreview.error}</p>
+            <p className="text-sm text-destructive">
+              {pdfPreview.error.length > 180 || /<!doctype|<html/i.test(pdfPreview.error)
+                ? "Could not load PDF preview."
+                : pdfPreview.error}
+            </p>
             <p className="text-xs text-muted-foreground">Use Open in new tab or Download instead.</p>
           </div>
         ) : showEmbeddedPdf ? (
-          // Chrome's PDF plugin paints blank under dark color-scheme + scrollable dialogs.
-          // Force light scheme and a fixed-height frame with no overflow ancestors.
-          <div
-            className="min-h-0 w-full shrink-0 rounded-lg border border-border bg-white"
-            style={{ colorScheme: "light", height: "min(70vh, 640px)" }}
-          >
-            <iframe
-              title={document?.title ?? "PDF preview"}
-              src={`${iframeSrc}#toolbar=1&navpanes=0`}
-              className="h-full w-full border-0 bg-white"
-              style={{ colorScheme: "light" }}
-            />
-          </div>
+          <PdfPagesPreview src={iframeSrc!} title={document?.title} />
         ) : linkSrc ? (
           <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-6 text-center">
             <p className="text-sm text-muted-foreground">
@@ -824,7 +847,8 @@ export function PreClientCompanyView({
   const proceed = async () => {
     if (files.length === 0) return alert("Upload at least one file first.");
     const existing = (ops.clients ?? []).find(
-      (client) => client.companyName.trim().toLowerCase() === companyName.trim().toLowerCase(),
+      (client) =>
+        (client.companyName ?? "").trim().toLowerCase() === companyName.trim().toLowerCase(),
     );
     const ok = confirm(
       existing

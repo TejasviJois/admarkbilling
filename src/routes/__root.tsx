@@ -223,6 +223,7 @@ const NAV_GROUPS: NavGroup[] = [
     section: "System",
     items: [
       { to: "/settings", label: "Settings" },
+      { to: "/credentials", label: "Credentials" },
       { to: "/logs", label: "Activity Logs" },
     ],
   },

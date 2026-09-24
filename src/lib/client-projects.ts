@@ -20,12 +20,14 @@ export function projectsForClientRelationship(
 ): Project[] {
   const members = clientRelationshipMembers(client, allClients);
   const ids = new Set(members.map((member) => member.id));
-  const names = new Set(members.map((member) => member.companyName.trim().toLowerCase()));
+  const names = new Set(
+    members.map((member) => (member.companyName ?? "").trim().toLowerCase()).filter(Boolean),
+  );
   return projects.filter(
     (project) =>
       isRevenueProject(project.status) &&
       ((project.clientId != null && ids.has(project.clientId)) ||
-        names.has(project.client.trim().toLowerCase())),
+        names.has((project.client ?? "").trim().toLowerCase())),
   );
 }
 

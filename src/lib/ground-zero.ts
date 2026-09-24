@@ -377,8 +377,10 @@ export function repairBlxRealtyData(data: OperationsData): OperationsData {
 
   // A dedicated BLX Realty client record if one exists; otherwise rename "Dev".
   let clients = data.clients ?? [];
-  const blxClient = clients.find((c) => c.companyName.trim().toLowerCase().includes("blx"));
-  const devClient = clients.find((c) => c.companyName.trim().toLowerCase() === "dev");
+  const blxClient = clients.find((c) =>
+    (c.companyName ?? "").trim().toLowerCase().includes("blx"),
+  );
+  const devClient = clients.find((c) => (c.companyName ?? "").trim().toLowerCase() === "dev");
   const mainClientId = blxClient?.id ?? devClient?.id ?? mainProject?.clientId;
   if (!blxClient && devClient) {
     clients = clients.map((c) =>
@@ -486,8 +488,12 @@ export function repairNidhiEstatesData(data: OperationsData): OperationsData {
 
   // Prefer an existing Nidhi Estates client record; otherwise rename "k h kiran".
   let clients = data.clients ?? [];
-  const nidhiClient = clients.find((c) => c.companyName.trim().toLowerCase().includes("nidhi"));
-  const kiranClient = clients.find((c) => c.companyName.trim().toLowerCase() === "k h kiran");
+  const nidhiClient = clients.find((c) =>
+    (c.companyName ?? "").trim().toLowerCase().includes("nidhi"),
+  );
+  const kiranClient = clients.find(
+    (c) => (c.companyName ?? "").trim().toLowerCase() === "k h kiran",
+  );
   const mainClientId = nidhiClient?.id ?? kiranClient?.id ?? mainProject.clientId;
   if (!nidhiClient && kiranClient) {
     clients = clients.map((c) =>

@@ -309,7 +309,7 @@ export function buildAnalyticsSnapshot(ops: OperationsData, period: PeriodKey): 
     activeMrr: sumActiveMrr(ops.projects),
     futureMonthly: sumFutureMonthlyPipeline(ops.projects),
     revenueBooked: financial.totalRevenueBooked,
-    activeProjects: ops.projects.filter((p) => p.status === "active").length,
+    activeProjects: (ops.projects ?? []).filter((p) => p.status === "active").length,
     proofCoverage: paymentProofCoverage(ops.payments ?? [], ops.projects, period),
   };
 }
@@ -343,13 +343,13 @@ function moneyOutLabel(transaction: Transaction): string {
 
 function incomeClientLabel(transaction: Transaction, ops: OperationsData): string {
   if (transaction.relatedProjectId) {
-    const project = ops.projects.find((item) => item.id === transaction.relatedProjectId);
+    const project = (ops.projects ?? []).find((item) => item.id === transaction.relatedProjectId);
     const name = project ? projectClientLabel(project) : "";
     if (name && name !== "—") return name;
   }
   if (transaction.relatedClientId) {
     const client = (ops.clients ?? []).find((item) => item.id === transaction.relatedClientId);
-    const name = client?.companyName.trim();
+    const name = client?.companyName?.trim();
     if (name) return name;
   }
   const fromDescription = transaction.description.split(/[:·–]/)[0]?.trim();

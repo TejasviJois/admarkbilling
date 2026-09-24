@@ -352,6 +352,36 @@ export interface LeadListEntry {
   sourceFileName?: string;
 }
 
+/** Category bucket for the internal credentials vault. */
+export type CredentialCategory =
+  | "Email"
+  | "Social"
+  | "Domain"
+  | "Cloud"
+  | "Development"
+  | "Hosting"
+  | "Database"
+  | "Other";
+
+/**
+ * Company login / recovery entry — emails, service passwords, OTP phones.
+ * Visible only after app gate login; treat like other solo-ops secrets.
+ */
+export interface CredentialEntry {
+  id: string;
+  organizationId?: string;
+  category: CredentialCategory;
+  service: string;
+  email?: string;
+  username?: string;
+  password?: string;
+  /** Phone / email / authenticator linked for OTP recovery. */
+  linkedTo?: string;
+  otpMethod?: string;
+  notes?: string;
+  updatedAt: string;
+}
+
 export type AssetCategory = "equipment" | "digital" | "cash" | "investment" | "other";
 
 /** Company asset — equipment, cash, investments, etc. */
@@ -572,6 +602,10 @@ export interface OperationsData {
    * Uploaded Lead List (e.g. Inner Circle Excel) — intelligence roster, not the Pipeline Kanban.
    */
   leadList?: LeadListEntry[];
+  /**
+   * Internal credentials vault — emails, logins, and recovery contacts for company services.
+   */
+  credentials?: CredentialEntry[];
   payments?: Payment[];
   transactions?: Transaction[];
   founders?: Founder[];

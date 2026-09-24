@@ -63,7 +63,7 @@ function projectOptionLabel(
   },
   relationshipRootName?: string,
 ): string {
-  const company = project.client.trim();
+  const company = (project.client ?? "").trim();
   const typeOrName =
     project.projectType?.trim() ||
     (project.name?.trim() && project.name.trim() !== company ? project.name.trim() : null) ||
@@ -132,10 +132,14 @@ export function TransactionFormDialog({
         (client) =>
           !client.parentClientId &&
           client.status !== "inactive" &&
-          client.companyName.trim(),
+          Boolean(client.companyName?.trim()),
       )
       .slice()
-      .sort((a, b) => a.companyName.localeCompare(b.companyName));
+      .sort((a, b) =>
+        (a.companyName ?? "").localeCompare(b.companyName ?? "", undefined, {
+          sensitivity: "base",
+        }),
+      );
     const linkedRoot = rootClientOf(form.relatedClientId, allClients);
     if (linkedRoot && !roots.some((client) => client.id === linkedRoot.id)) {
       return [linkedRoot, ...roots];

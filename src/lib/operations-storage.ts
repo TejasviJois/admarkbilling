@@ -51,7 +51,7 @@ function seedClientsFromProjects(projects: Project[]): Client[] {
   const list: Client[] = [];
   for (const p of projects) {
     if (!isRevenueProject(p.status)) continue;
-    const name = p.client.trim();
+    const name = (p.client ?? "").trim();
     if (!name || seen.has(name.toLowerCase())) continue;
     seen.add(name.toLowerCase());
     const id =
@@ -212,9 +212,11 @@ function mergeWithDefaults(
 
   const projectsWithClientIds = base.projects.map((p) => {
     if (p.clientId) return p;
-    const name = p.client.trim();
+    const name = (p.client ?? "").trim();
     if (!name) return p;
-    const found = seededClients.find((c) => c.companyName.toLowerCase() === name.toLowerCase());
+    const found = seededClients.find(
+      (c) => (c.companyName ?? "").toLowerCase() === name.toLowerCase(),
+    );
     return {
       ...p,
       clientId: found?.id,

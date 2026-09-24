@@ -17,8 +17,55 @@ import {
 import { queryKeys } from "@/lib/query-keys";
 import type { OperationsData } from "@/lib/types";
 
-const EMPTY: OperationsData = { projects: [], partnerships: [], expenses: [], leads: [] };
+const EMPTY: OperationsData = {
+  projects: [],
+  partnerships: [],
+  expenses: [],
+  leads: [],
+  assets: [],
+  fixedMonthlyExpenses: [],
+  clients: [],
+  contacts: [],
+  leadList: [],
+  credentials: [],
+  payments: [],
+  transactions: [],
+  founders: [],
+  projectCommissions: [],
+  notifications: [],
+  scheduleEvents: [],
+  valuationSnapshots: [],
+  valuationAudit: [],
+};
 const CACHE_KEY = "operations";
+
+function normalizeOperationsData(data: OperationsData | undefined | null): OperationsData {
+  const base = data ?? EMPTY;
+  return {
+    ...EMPTY,
+    ...base,
+    projects: Array.isArray(base.projects) ? base.projects : [],
+    partnerships: Array.isArray(base.partnerships) ? base.partnerships : [],
+    expenses: Array.isArray(base.expenses) ? base.expenses : [],
+    leads: Array.isArray(base.leads) ? base.leads : [],
+    assets: Array.isArray(base.assets) ? base.assets : [],
+    fixedMonthlyExpenses: Array.isArray(base.fixedMonthlyExpenses)
+      ? base.fixedMonthlyExpenses
+      : [],
+    clients: Array.isArray(base.clients) ? base.clients : [],
+    contacts: Array.isArray(base.contacts) ? base.contacts : [],
+    leadList: Array.isArray(base.leadList) ? base.leadList : [],
+    credentials: Array.isArray(base.credentials) ? base.credentials : [],
+    payments: Array.isArray(base.payments) ? base.payments : [],
+    transactions: Array.isArray(base.transactions) ? base.transactions : [],
+    founders: Array.isArray(base.founders) ? base.founders : [],
+    projectCommissions: Array.isArray(base.projectCommissions) ? base.projectCommissions : [],
+    notifications: Array.isArray(base.notifications) ? base.notifications : [],
+    scheduleEvents: Array.isArray(base.scheduleEvents) ? base.scheduleEvents : [],
+    valuationSnapshots: Array.isArray(base.valuationSnapshots) ? base.valuationSnapshots : [],
+    valuationAudit: Array.isArray(base.valuationAudit) ? base.valuationAudit : [],
+  };
+}
 
 export type OperationsPersistInput =
   | OperationsData
@@ -37,11 +84,16 @@ export function useOperations() {
   });
 
   useEffect(() => {
-    if (query.data) writeClientCache(CACHE_KEY, query.data);
+    if (query.data) writeClientCache(CACHE_KEY, normalizeOperationsData(query.data));
   }, [query.data]);
 
-  const ops = query.data ?? EMPTY;
-  const loading = query.isLoading && !query.data;
+  useEffect(() => {
+    if (!query.error) return;
+    logClientError("useOperations.load", query.error);
+  }, [query.error]);
+
+  const ops = normalizeOperationsData(query.data);
+  const loading = query.isLoading && !query.data && !query.isError;
   // True only after the first real load — placeholder cache data renders the UI
   // instantly but must not drive automatic background saves.
   const ready = query.data != null && !query.isPlaceholderData;
@@ -79,7 +131,12 @@ export function useOperations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.operations });
           return;
         }
-        throw error;
+        logClientError("useOperations.persistBuild", error);
+        toast.error("Could not save changes", {
+          description: error instanceof Error ? error.message : "Please try again.",
+        });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.operations });
+        return;
       }
       if (isOperationsMutationEmpty(mutation)) return;
       const drafts = diffOperationsChanges(previous, next);
