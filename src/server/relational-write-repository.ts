@@ -29,6 +29,7 @@ import {
   inferDocumentLibrary,
 } from "@/lib/document-vault";
 import { encodeLeadNotesForStorage } from "@/lib/lead-stats";
+import { encodeDirectoryNotes } from "@/lib/sales-sectors";
 import { formatOpsExpenseNotes, metaFromFixed } from "@/lib/ops-costs";
 import type {
   ActivityLogEntry,
@@ -191,13 +192,32 @@ async function upsertRows(
   rows: readonly WriteRow[],
   onConflict = "id",
 ): Promise<void> {
-  for (let start = 0; start < rows.length; start += WRITE_CHUNK) {
-    const { error } = await db.from(table).upsert(rows.slice(start, start + WRITE_CHUNK), {
-      onConflict,
-      ignoreDuplicates: false,
+  if (rows.length === 0) return;
+  let working = rows.map((row) => ({ ...row }));
+  // Some production DBs lag migrations (e.g. employee_code). Strip missing
+  // columns and retry so Team / company saves keep working.
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    let failed: PostgrestError | null = null;
+    for (let start = 0; start < working.length; start += WRITE_CHUNK) {
+      const { error } = await db.from(table).upsert(working.slice(start, start + WRITE_CHUNK), {
+        onConflict,
+        ignoreDuplicates: false,
+      });
+      if (error) {
+        failed = error;
+        break;
+      }
+    }
+    if (!failed) return;
+    const missing = failed.message.match(/Could not find the '([^']+)' column/i)?.[1];
+    if (!missing) throw writeError(table, failed);
+    working = working.map((row) => {
+      const next = { ...row };
+      delete next[missing];
+      return next;
     });
-    if (error) throw writeError(table, error);
   }
+  throw new Error(`Failed to write admark.${table}: too many missing-column retries.`);
 }
 
 /** Soft-deletes every currently active row that the latest snapshot no longer contains. */
@@ -832,14 +852,20 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
       legacyId,
       companyName,
       contactPerson: text(contact.personName),
-      email: null,
+      email: text(contact.email),
       phone: text(contact.phone),
       status: "new_lead",
       source: "Directory",
       expectedRevenue: null,
       probability: null,
       expectedClosingDate: null,
-      notes: text(contact.contactVia),
+      notes: encodeDirectoryNotes({
+        contactVia: contact.contactVia,
+        sector: contact.sector,
+        contacted: contact.contacted,
+        salesWon: contact.salesWon,
+        designation: contact.designation,
+      }),
       assignedSalesperson: null,
       convertedClientId: null,
       createdAt: isoTimestamp(contact.createdAt),
@@ -1816,6 +1842,14 @@ export async function saveRelationalCompany(data: CompanySettings): Promise<void
         customMemberTypes: settings.customMemberTypes ?? [],
         customTeamGroups: settings.customTeamGroups ?? [],
         formOptions: settings.formOptions ?? {},
+        // Survives when DB lags migrations (member_type / team_group / employee_code).
+        legacyTeamDirectory: (settings.companyMembers ?? []).map((member) => ({
+          id: member.id,
+          memberType: member.memberType ?? null,
+          teamGroup: member.teamGroup ?? null,
+          employeeId: member.employeeId ?? null,
+          role: member.role ?? null,
+        })),
       },
     },
   );

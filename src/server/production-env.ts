@@ -3,7 +3,14 @@
  * Never import this from client / `start.ts` (Vite empties process.env in the browser).
  */
 
-const KNOWN_INSECURE = new Set(["HTRP@2026", "password", "admin"]);
+const KNOWN_INSECURE = new Set([
+  "HTRP@2026",
+  "password",
+  "Password1",
+  "admin",
+  "Admin@123",
+  "12345678",
+]);
 
 let checked = false;
 

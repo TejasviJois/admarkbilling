@@ -34,20 +34,30 @@ import { Toaster } from "@/components/ui/sonner";
 import { PUBLIC_HOME_URL } from "@/lib/constants";
 import { logClientError } from "@/lib/client-logger";
 import { companyLogoSrc } from "@/lib/company-branding";
-import { getAuthStatusCached, clearAuthStatusCache } from "@/lib/auth-status-cache";
+import { getAuthStatusCached, clearAuthStatusCache, peekAuthStatusCache } from "@/lib/auth-status-cache";
 import { prefetchAppData } from "@/lib/prefetch-app-data";
 import { useCompany } from "@/hooks/use-company";
 import { isServerApiConfigured } from "@/lib/backend-status-cache";
-import { logoutFn } from "@/server/auth-fns";
+import { logoutFn, type PortalRole } from "@/server/auth-fns";
 import { safeLocalStorageSet } from "@/lib/browser-storage";
+import { LoadingDog } from "@/components/ui/loading-dog";
 
 function NotFoundComponent() {
   const router = useRouter();
 
   // Stale bookmarks / phone home-screen URLs land on paths that no longer
-  // exist — bounce straight to the dashboard instead of a dead-end 404.
+  // exist — bounce to the role home instead of a dead-end 404.
   useEffect(() => {
-    void router.navigate({ to: "/", replace: true });
+    void getAuthStatusCached()
+      .then((status) => {
+        void router.navigate({
+          to: status.role === "sales" ? "/lead-list" : "/",
+          replace: true,
+        });
+      })
+      .catch(() => {
+        void router.navigate({ to: "/", replace: true });
+      });
   }, [router]);
 
   return (
@@ -56,16 +66,8 @@ function NotFoundComponent() {
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          This page doesn't exist — redirecting to the dashboard.
+          This page doesn't exist — redirecting…
         </p>
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-          >
-            Go to dashboard
-          </Link>
-        </div>
       </div>
     </div>
   );
@@ -96,14 +98,28 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   beforeLoad: async ({ location, context }) => {
     if (location.pathname === "/login") return;
-    const { ok } = await getAuthStatusCached();
-    if (!ok) {
-      // Pathname only — query strings (e.g. WhatsApp/utm tracking params) are
-      // not route paths, and navigating to them after login rendered a 404.
+    const status = await getAuthStatusCached();
+    if (!status.ok) {
       throw redirect({
         to: "/login",
         search: { redirect: location.pathname || "/" },
       });
+    }
+    if (status.role === "sales") {
+      const path = location.pathname || "/";
+      const allowed =
+        path === "/lead-list" ||
+        path.startsWith("/lead-list/") ||
+        path === "/contacted" ||
+        path.startsWith("/contacted/") ||
+        path === "/my-wins" ||
+        path.startsWith("/my-wins/") ||
+        path === "/directory" ||
+        path.startsWith("/directory/");
+      if (!allowed) {
+        throw redirect({ to: "/lead-list" });
+      }
+      return;
     }
     prefetchAppData(context.queryClient);
   },
@@ -178,8 +194,9 @@ const NAV_GROUPS: NavGroup[] = [
     icon: Users,
     section: "Daily Work",
     items: [
-      { to: "/directory", label: "Directory" },
       { to: "/lead-list", label: "Lead List" },
+      { to: "/directory", label: "Directory" },
+      { to: "/contacted", label: "Contacted" },
       { to: "/leads", label: "Pipeline" },
       { to: "/clients", label: "Clients" },
     ],
@@ -237,6 +254,7 @@ function SidebarNavigation({
   onToggleGroup,
   showValuation,
   showPartnerships,
+  salesOnly,
   onNavigate,
 }: {
   path: string;
@@ -244,10 +262,55 @@ function SidebarNavigation({
   onToggleGroup: (id: NavGroupId, keepOthers: boolean) => void;
   showValuation: boolean;
   showPartnerships: boolean;
+  salesOnly?: boolean;
   onNavigate?: () => void;
 }) {
   const isActive = (to: string, exact?: boolean) =>
     exact ? path === to : path === to || path.startsWith(`${to}/`);
+
+  if (salesOnly) {
+    return (
+      <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4" aria-label="Primary navigation">
+        <div className="space-y-1">
+          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+            Sales
+          </p>
+          <Link
+            to="/lead-list"
+            preload="intent"
+            onClick={onNavigate}
+            className={navLinkClass(isActive("/lead-list"))}
+          >
+            Lead List
+          </Link>
+          <Link
+            to="/directory"
+            preload="intent"
+            onClick={onNavigate}
+            className={navLinkClass(isActive("/directory"))}
+          >
+            Directory
+          </Link>
+          <Link
+            to="/contacted"
+            preload="intent"
+            onClick={onNavigate}
+            className={navLinkClass(isActive("/contacted"))}
+          >
+            Contacted
+          </Link>
+          <Link
+            to="/my-wins"
+            preload="intent"
+            onClick={onNavigate}
+            className={navLinkClass(isActive("/my-wins"))}
+          >
+            My wins
+          </Link>
+        </div>
+      </nav>
+    );
+  }
 
   const renderGroup = (group: NavGroup) => {
     const items = group.items.filter(
@@ -393,11 +456,38 @@ function AppShell() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [expandedNavGroups, setExpandedNavGroups] = useState<NavGroupId[]>([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // null until auth resolves — avoids flashing the admin nav for sales users
+  const [portalRole, setPortalRole] = useState<PortalRole | null>(() => {
+    const peek = peekAuthStatusCache();
+    if (!peek?.ok) return null;
+    return peek.role === "sales" ? "sales" : "admin";
+  });
 
   const { company } = useCompany();
 
   const brandLogo = companyLogoSrc(company);
   const isLogin = path === "/login";
+  const salesOnly = portalRole === "sales";
+  const homePath = salesOnly ? "/lead-list" : "/";
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAuthStatusCached()
+      .then((status) => {
+        if (cancelled) return;
+        if (!status.ok) {
+          setPortalRole(null);
+          return;
+        }
+        setPortalRole(status.role === "sales" ? "sales" : "admin");
+      })
+      .catch(() => {
+        if (!cancelled) setPortalRole(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
 
   useEffect(() => {
     void isServerApiConfigured()
@@ -481,6 +571,14 @@ function AppShell() {
     );
   }
 
+  if (portalRole === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
+        <LoadingDog message="Loading…" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       {/* Desktop Sidebar */}
@@ -491,7 +589,7 @@ function AppShell() {
       >
         <div className="flex h-full w-64 shrink-0 flex-col">
           <div className="flex h-16 items-center border-b border-border px-6">
-            <Link to="/" className="flex items-center shrink-0">
+            <Link to={homePath} className="flex items-center shrink-0">
               <img
                 src={brandLogo}
                 alt="Admark Digitals Logo"
@@ -506,6 +604,7 @@ function AppShell() {
             onToggleGroup={toggleNavGroup}
             showValuation={company.companyValuationEnabled === true}
             showPartnerships={company.partnershipsEnabled === true}
+            salesOnly={salesOnly}
           />
         </div>
       </aside>
@@ -513,10 +612,10 @@ function AppShell() {
       {/* Right Area */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Header Bar */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:h-16 sm:px-6">
           {/* Left: Mobile branding */}
           <div className="flex items-center gap-3 md:hidden">
-            <Link to="/" className="flex items-center shrink-0">
+            <Link to={homePath} className="flex items-center shrink-0">
               <img
                 src={brandLogo}
                 alt="Admark Digitals Logo"
@@ -572,6 +671,7 @@ function AppShell() {
                     onToggleGroup={toggleNavGroup}
                     showValuation={company.companyValuationEnabled === true}
                     showPartnerships={company.partnershipsEnabled === true}
+                    salesOnly={salesOnly}
                     onNavigate={() => setMobileMenuOpen(false)}
                   />
                   <div className="border-t border-border pt-4">
@@ -627,12 +727,12 @@ function AppShell() {
           className={
             path === "/settings"
               ? "flex min-h-0 flex-1 flex-col overflow-hidden"
-              : "flex-1 overflow-y-auto px-6 py-8"
+              : "flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-8"
           }
         >
           <div
             className={
-              path === "/settings" ? "flex h-full min-h-0 flex-1 flex-col" : "mx-auto max-w-6xl"
+              path === "/settings" ? "flex h-full min-h-0 flex-1 flex-col" : "mx-auto w-full min-w-0 max-w-6xl"
             }
           >
             <Outlet />

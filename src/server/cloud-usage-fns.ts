@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CloudUsageSnapshot } from "@/lib/cloud-usage";
-import { assertAppSession } from "./app-session";
+import { requireAdmin } from "./app-session.server";
 import { getSupabaseServerConfig } from "./env";
 import { requireServerSupabase } from "./supabase-admin";
 
@@ -77,7 +77,7 @@ export const getCloudUsageFn = createServerFn({ method: "GET" }).handler(
     }
 
     try {
-      await assertAppSession();
+      await requireAdmin();
     } catch {
       return emptySnapshot({
         configured: true,

@@ -18,6 +18,8 @@ export function entityLabel(entity: ActivityEntity): string {
       return "Document";
     case "security":
       return "Security";
+    case "lead":
+      return "Lead";
   }
 }
 

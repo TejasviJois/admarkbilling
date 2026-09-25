@@ -15,12 +15,12 @@ export function OperationsPageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-8 flex flex-col items-start gap-4 sm:flex-row sm:justify-between">
+    <div className="mb-6 flex flex-col items-start gap-3 sm:mb-8 sm:flex-row sm:justify-between sm:gap-4">
       <div className="min-w-0 flex-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl md:text-3xl">
           {title}
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-[15px]">
+        <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground md:mt-2 md:text-[15px]">
           {description}
         </p>
       </div>

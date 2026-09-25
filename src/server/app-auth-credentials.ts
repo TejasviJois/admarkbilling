@@ -5,6 +5,8 @@ export const KNOWN_INSECURE_PASSWORDS = [
   "HTRP@2026",
   "password",
   "Password1",
+  "admin",
+  "Admin@123",
   "12345678",
 ] as const;
 
@@ -15,7 +17,14 @@ let overrideLoaded = false;
 function readEnv(name: string): string | undefined {
   // Dynamic key — avoids Vite replacing process.env.NAME with undefined in bundles.
   const value = typeof process !== "undefined" ? process.env[name] : undefined;
-  const trimmed = typeof value === "string" ? value.trim() : "";
+  let trimmed = typeof value === "string" ? value.trim() : "";
+  // Common .env mistake: ADMARK_APP_PASSWORD="secret" keeps the quotes.
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    trimmed = trimmed.slice(1, -1).trim();
+  }
   return trimmed || undefined;
 }
 

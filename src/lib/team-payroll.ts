@@ -43,6 +43,7 @@ export const MEMBER_TYPE_SECTIONS: Array<{
 export const TEAM_GROUP_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "development", label: "Development" },
   { value: "marketing", label: "Marketing" },
+  { value: "sales", label: "Sales" },
 ];
 
 export const CUSTOM_TYPE_VALUE = "__custom__";

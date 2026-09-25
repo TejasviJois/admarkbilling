@@ -3,7 +3,7 @@ export type BuiltinMemberType = (typeof BUILTIN_MEMBER_TYPES)[number];
 /** Built-in or a custom label added during registration. */
 export type TeamMemberType = BuiltinMemberType | (string & {});
 
-export const BUILTIN_TEAM_GROUPS = ["development", "marketing"] as const;
+export const BUILTIN_TEAM_GROUPS = ["development", "marketing", "sales"] as const;
 export type BuiltinTeamGroup = (typeof BUILTIN_TEAM_GROUPS)[number];
 /** Development, marketing, or a custom team added during registration. */
 export type TeamGroup = BuiltinTeamGroup | (string & {});
@@ -290,8 +290,17 @@ export interface Contact {
   personName: string;
   companyName?: string;
   phone?: string;
+  email?: string;
+  /** Job title / role (CEO, Sales Manager, …). */
+  designation?: string;
   /** Who to reach them through when there's no direct phone. */
   contactVia?: string;
+  /** Business sector (tourism, real estate, …) — shown as Type / used to filter. */
+  sector?: string;
+  /** Manual tracking — whether this contact was reached. */
+  contacted?: boolean;
+  /** True after a sales-portal win is recorded (hidden from Contacted until reverted). */
+  salesWon?: boolean;
   createdAt?: string;
 }
 
@@ -347,6 +356,8 @@ export interface LeadListEntry {
   fullOriginal?: string;
   /** Manual tracking — whether this lead was contacted. */
   contacted?: boolean;
+  /** True after a sales-portal win is recorded (hidden from Contacted until reverted). */
+  salesWon?: boolean;
   /** When this row was last imported/updated from Excel. */
   importedAt: string;
   sourceFileName?: string;
@@ -865,7 +876,8 @@ export type ActivityEntity =
   | "settings"
   | "agreement"
   | "document"
-  | "security";
+  | "security"
+  | "lead";
 
 export type ActivityAction =
   | "created"

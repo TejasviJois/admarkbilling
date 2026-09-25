@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { Agreement, ArchiveDocument, DocumentsData } from "@/lib/types";
 import { requireServerSupabase } from "./supabase-admin";
-import { assertAppSession } from "./app-session";
+import { requireAdmin } from "./app-session.server";
 import { CACHE_KEYS, cacheSet, cacheThrough } from "./data-cache";
 import { assertRelationalMode } from "./env";
 import { resolveStoredFileUrl } from "./file-storage";
@@ -82,7 +82,7 @@ async function withSignedDocumentUrls(data: DocumentsData): Promise<DocumentsDat
 
 export const getDocumentsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<VersionedDocuments> => {
-    await assertAppSession();
+    await requireAdmin();
     assertRelationalMode();
     const sb = requireServerSupabase();
     const [{ data: versionRow, error }, documents] = await Promise.all([
@@ -99,7 +99,7 @@ export const getDocumentsFn = createServerFn({ method: "GET" }).handler(
 export const saveDocumentsFn = createServerFn({ method: "POST" })
   .inputValidator((data: SaveDocumentsInput) => data)
   .handler(async ({ data }): Promise<SaveDocumentsResult> => {
-    await assertAppSession();
+    await requireAdmin();
     assertRelationalMode();
     if (!data.allowAllDeletes) {
       for (const key of ["agreements", "archiveDocuments"] as const) {

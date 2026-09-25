@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSupabaseServerConfig } from "./env";
 import { requireServerSupabase } from "./supabase-admin";
-import { assertAppSession } from "./app-session";
+import { requireAdmin } from "./app-session.server";
 import { ADMARK_FILES_BUCKET, ensureStorageBucket } from "./file-storage";
 
 export const getBackendHealthFn = createServerFn({ method: "GET" }).handler(async () => {
@@ -23,7 +23,7 @@ export const getBackendHealthFn = createServerFn({ method: "GET" }).handler(asyn
 
   let session = false;
   try {
-    await assertAppSession();
+    await requireAdmin();
     session = true;
   } catch {
     return {

@@ -1,42 +1,22 @@
 import { createServerFn } from "@tanstack/react-start";
-import {
-  credentialsValid,
-  ensurePortalPasswordLoaded,
-  setPortalPassword,
-} from "./app-auth-credentials";
-import {
-  assertAppSession,
-  eraseSessionCookie,
-  mintSessionCookieValue,
-  sessionCookieValid,
-  writeSessionCookie,
-  rateLimitIp,
-  rateLimitFailedLogin,
-  clearLoginRateLimit,
-} from "./app-session";
-import { appendServerAuditLog } from "./activity-log-core";
 
-// Password Strength Policy
-export function validatePasswordStrength(password: string): void {
-  if (password.length < 8) {
-    throw new Error("Security Policy Violation: Password must be at least 8 characters long.");
-  }
-  if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-    throw new Error(
-      "Security Policy Violation: Password must contain uppercase, lowercase, and numeric characters.",
-    );
-  }
-}
+export type PortalRole = "admin" | "sales";
 
-export const getAuthStatusFn = createServerFn({ method: "GET" }).handler(async () => {
-  // Do not rate-limit auth status — every navigation calls this and would lock the UI.
-  const ok = await sessionCookieValid();
-  if (ok) {
-    // Keep the browser cookie max-age fresh while the app is used.
-    writeSessionCookie(await mintSessionCookieValue());
-  }
-  return { ok };
-});
+export type AuthStatus = {
+  ok: boolean;
+  role?: PortalRole;
+  userId?: string;
+  teamMemberId?: string | null;
+  displayName?: string;
+  username?: string;
+};
+
+export const getAuthStatusFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<AuthStatus> => {
+    const core = await import("./auth-core.server");
+    return core.handleGetAuthStatus();
+  },
+);
 
 export const loginFn = createServerFn({ method: "POST" })
   .inputValidator((data: { username: string; password: string }) => {
@@ -46,51 +26,13 @@ export const loginFn = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data }) => {
-    rateLimitIp();
-    await ensurePortalPasswordLoaded();
-
-    // Do not apply "new password" strength rules to login — that locks out valid
-    // legacy/env passwords. Strength is enforced only in changePasswordFn.
-
-    if (!credentialsValid(data.username, data.password)) {
-      rateLimitFailedLogin();
-      await appendServerAuditLog({
-        entity: "security",
-        action: "failed_login",
-        entityId: "login_system",
-        entityName: data.username,
-        summary: `Failed login attempt (Incorrect credentials) for user: ${data.username}`,
-      });
-      throw new Error("Invalid username or password.");
-    }
-
-    clearLoginRateLimit();
-    const token = await mintSessionCookieValue();
-    writeSessionCookie(token);
-
-    await appendServerAuditLog({
-      entity: "security",
-      action: "login",
-      entityId: "login_system",
-      entityName: data.username,
-      summary: `Successful user login for: ${data.username}`,
-    });
-
-    return { ok: true as const };
+    const core = await import("./auth-core.server");
+    return core.handleLogin(data);
   });
 
 export const logoutFn = createServerFn({ method: "POST" }).handler(async () => {
-  eraseSessionCookie();
-
-  await appendServerAuditLog({
-    entity: "security",
-    action: "logout",
-    entityId: "login_system",
-    entityName: "Session User",
-    summary: `User initiated session termination (Sign out)`,
-  });
-
-  return { ok: true as const };
+  const core = await import("./auth-core.server");
+  return core.handleLogout();
 });
 
 export const changePasswordFn = createServerFn({ method: "POST" })
@@ -105,23 +47,64 @@ export const changePasswordFn = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data }) => {
-    await assertAppSession();
-    rateLimitIp();
+    const core = await import("./auth-core.server");
+    return core.handleChangePassword(data);
+  });
 
-    validatePasswordStrength(data.newPassword);
-    if (data.newPassword === data.currentPassword) {
-      throw new Error("New password must be different from the current password.");
+export const listPortalUsersFn = createServerFn({ method: "GET" }).handler(async () => {
+  const core = await import("./auth-core.server");
+  return core.handleListPortalUsers();
+});
+
+export const createPortalUserFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      username: string;
+      password: string;
+      role: PortalRole;
+      teamMemberId: string | null;
+      displayName?: string;
+    }) => {
+      if (!data || typeof data.username !== "string" || typeof data.password !== "string") {
+        throw new Error("Invalid create-user payload.");
+      }
+      if (data.role !== "admin" && data.role !== "sales") {
+        throw new Error("Role must be admin or sales.");
+      }
+      return {
+        username: data.username,
+        password: data.password,
+        role: data.role,
+        teamMemberId: typeof data.teamMemberId === "string" ? data.teamMemberId : null,
+        displayName: typeof data.displayName === "string" ? data.displayName : undefined,
+      };
+    },
+  )
+  .handler(async ({ data }) => {
+    const core = await import("./auth-core.server");
+    return core.handleCreatePortalUser(data);
+  });
+
+export const setPortalUserActiveFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string; active: boolean }) => {
+    if (!data || typeof data.id !== "string" || typeof data.active !== "boolean") {
+      throw new Error("Invalid set-active payload.");
     }
+    return data;
+  })
+  .handler(async ({ data }) => {
+    const core = await import("./auth-core.server");
+    return core.handleSetPortalUserActive(data);
+  });
 
-    await setPortalPassword(data.currentPassword, data.newPassword);
-
-    await appendServerAuditLog({
-      entity: "security",
-      action: "password_change",
-      entityId: "login_system",
-      entityName: "Session User",
-      summary: "Portal password changed from Settings",
-    });
-
-    return { ok: true as const };
+export const resetPortalUserPasswordFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string; newPassword: string }) => {
+    if (!data || typeof data.id !== "string" || typeof data.newPassword !== "string") {
+      throw new Error("Invalid reset-password payload.");
+    }
+    return data;
+  })
+  .handler(async ({ data }) => {
+    const core = await import("./auth-core.server");
+    return core.handleResetPortalUserPassword(data);
   });

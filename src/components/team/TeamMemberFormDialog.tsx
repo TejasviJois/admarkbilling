@@ -280,7 +280,7 @@ export function TeamMemberFormDialog({
               min={0}
               value={form.baseSalary}
               onChange={(event) => setForm({ ...form, baseSalary: event.target.value })}
-              placeholder="e.g. 85000"
+              placeholder="0 for commission-only"
             />
           </Field>
           <Field label="Optional bonus limit (₹)" id="team-bonus-cap">

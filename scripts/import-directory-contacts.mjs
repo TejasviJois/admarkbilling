@@ -1,13 +1,18 @@
-/* One-time import from the supplied Directory Contact Import Template PDF.
-   Adds contacts only — never leads, clients, projects, or transactions.
-   Duplicate person+company pairs are skipped. A backup is written first. */
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+/* Import directory contacts into relational admark.leads (source = Directory).
+   Skips duplicates by person+company (case-insensitive). Infers sector from company.
+   Does not touch leads, clients, projects, or transactions.
+
+   Usage:
+     node scripts/import-directory-contacts.mjs --allow-egress
+*/
+import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import ws from "ws";
-import { encrypt } from "../shared/encryption-core.mjs";
-import { requireEgressAck } from './lib/egress-guard.mjs';
+import { requireEgressAck } from "./lib/egress-guard.mjs";
+
 requireEgressAck("import-directory-contacts.mjs");
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -19,6 +24,7 @@ for (const line of readFileSync(resolve(root, ".env"), "utf8").split(/\r?\n/)) {
   }
 }
 
+/** [personName, companyName, phone, contactVia] */
 const rawContacts = [
   ["Vivek Kotari", "Hardware Business", "", "Prajwal"],
   ["Suresh", "Stocks", "", "Prajwal"],
@@ -71,8 +77,63 @@ const rawContacts = [
   ["Swamy", "Suhalaya Travels", "9901555566", "Tejasvi"],
 ];
 
+const SECTOR_ALIASES = [
+  ["farm stay", "Hospitality & Stay"],
+  ["real estate", "Real Estate & Construction"],
+  ["travels", "Tourism & Travel"],
+  ["travel", "Tourism & Travel"],
+  ["tours", "Tourism & Travel"],
+  ["tour", "Tourism & Travel"],
+  ["safari", "Tourism & Travel"],
+  ["tourism", "Tourism & Travel"],
+  ["hotel", "Hospitality & Stay"],
+  ["resort", "Hospitality & Stay"],
+  ["builder", "Real Estate & Construction"],
+  ["builders", "Real Estate & Construction"],
+  ["construction", "Real Estate & Construction"],
+  ["architect", "Real Estate & Construction"],
+  ["dental", "Healthcare"],
+  ["health", "Healthcare"],
+  ["clothing", "Retail & Fashion"],
+  ["canteen", "Food & Beverage"],
+  ["motors", "Automotive"],
+  ["investor", "Finance & Lending"],
+  ["stocks", "Finance & Lending"],
+  ["events", "Events & Media"],
+  ["ads", "Events & Media"],
+  ["marketing", "Events & Media"],
+  ["agency", "Professional Services"],
+  ["granite", "Manufacturing & Trade"],
+  ["mining", "Manufacturing & Trade"],
+  ["paints", "Manufacturing & Trade"],
+  ["hardware", "Manufacturing & Trade"],
+  ["dealer", "Manufacturing & Trade"],
+];
+
 function normalize(value) {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function dedupeKey(personName, companyName) {
+  return `${normalize(personName)}|${normalize(companyName)}`;
+}
+
+function inferSector(companyName, personName) {
+  const hay = `${companyName ?? ""} ${personName ?? ""}`.toLowerCase();
+  for (const [alias, sector] of SECTOR_ALIASES.sort((a, b) => b[0].length - a[0].length)) {
+    if (hay.includes(alias)) return sector;
+  }
+  return null;
+}
+
+function encodeNotes(contactVia, sector) {
+  const via = String(contactVia ?? "").trim();
+  const sec = String(sector ?? "").trim();
+  if (!sec) return via || null;
+  return via ? `[sector:${sec}] ${via}` : `[sector:${sec}]`;
 }
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -83,59 +144,98 @@ const sb = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
   realtime: { transport: ws },
 });
+const db = sb.schema("admark");
 
-const { data, error } = await sb
-  .from("operations_data")
-  .select("payload")
-  .eq("id", "default")
-  .maybeSingle();
-if (error) throw error;
-if (!data?.payload) throw new Error("No operations payload found.");
+const { data: orgs, error: orgError } = await db
+  .from("organizations")
+  .select("id, legacy_id")
+  .limit(5);
+if (orgError) throw orgError;
+const org =
+  (orgs ?? []).find((row) => row.legacy_id === "org_default") ?? (orgs ?? [])[0];
+if (!org?.id) throw new Error("No organization row found.");
 
-const payload = data.payload;
-const existing = payload.contacts ?? [];
-const existingKeys = new Set(
-  existing.map(
-    (contact) => `${normalize(contact.personName)}|${normalize(contact.companyName ?? "")}`,
-  ),
-);
+const { data: existingRows, error: existingError } = await db
+  .from("leads")
+  .select("id, company_name, contact_person, phone, notes, deleted_at")
+  .eq("organization_id", org.id)
+  .eq("source", "Directory")
+  .is("deleted_at", null);
+if (existingError) throw existingError;
 
-const now = new Date().toISOString().slice(0, 10);
-const added = [];
+const existingKeys = new Set();
+for (const row of existingRows ?? []) {
+  const person = row.contact_person || row.company_name || "";
+  const company =
+    row.company_name && row.company_name !== person ? row.company_name : "";
+  existingKeys.add(dedupeKey(person, company));
+  // Also key by person|company_name as stored (covers person == company cases).
+  existingKeys.add(dedupeKey(person, row.company_name ?? ""));
+}
+
+const now = new Date().toISOString();
+const toInsert = [];
 const skipped = [];
+const seenInBatch = new Set();
 
 for (const [personName, companyName, phone, contactVia] of rawContacts) {
-  const key = `${normalize(personName)}|${normalize(companyName)}`;
-  if (existingKeys.has(key)) {
+  const company = companyName || personName;
+  const key = dedupeKey(personName, companyName);
+  const altKey = dedupeKey(personName, company);
+  if (existingKeys.has(key) || existingKeys.has(altKey) || seenInBatch.has(key)) {
     skipped.push(`${personName} (${companyName || "no company"})`);
     continue;
   }
+  seenInBatch.add(key);
   existingKeys.add(key);
-  added.push({
-    id: `contact-${crypto.randomUUID().slice(0, 8)}`,
-    personName,
-    companyName: companyName || undefined,
-    phone: phone ? encrypt(phone) : undefined,
-    contactVia: contactVia || undefined,
-    createdAt: now,
+  existingKeys.add(altKey);
+
+  const sector = inferSector(companyName, personName);
+  const legacyId = `contact-${randomUUID().slice(0, 8)}`;
+  toInsert.push({
+    id: randomUUID(),
+    organization_id: org.id,
+    legacy_id: legacyId,
+    company_name: company,
+    contact_person: personName,
+    email: null,
+    phone: phone || null,
+    status: "new_lead",
+    source: "Directory",
+    expected_revenue: null,
+    probability: null,
+    expected_closing_date: null,
+    notes: encodeNotes(contactVia, sector),
+    created_at: now,
+    deleted_at: null,
   });
 }
 
-mkdirSync(resolve(root, "backups"), { recursive: true });
-const backupPath = resolve(root, `backups/operations-before-contact-import-${Date.now()}.json`);
-writeFileSync(backupPath, JSON.stringify(payload));
+if (toInsert.length > 0) {
+  const { error: insertError } = await db.from("leads").insert(toInsert);
+  if (insertError) throw insertError;
+}
 
-payload.contacts = [...existing, ...added];
+// Bump ops version so UI caches refresh.
+await sb
+  .from("operations_data")
+  .update({ updated_at: new Date().toISOString() })
+  .eq("id", "default");
 
-const { error: saveError } = await sb.from("operations_data").upsert({
-  id: "default",
-  payload,
-  updated_at: new Date().toISOString(),
-});
-if (saveError) throw saveError;
-
-console.log(`Backup: ${backupPath}`);
-console.log(`Imported: ${added.length}`);
+console.log(`Organization: ${org.id}`);
+console.log(`Imported: ${toInsert.length}`);
 console.log(`Skipped duplicates: ${skipped.length}`);
-console.log(`Directory total: ${payload.contacts.length}`);
-if (skipped.length) console.log("Skipped:", skipped);
+console.log(`Directory total after: ${(existingRows?.length ?? 0) + toInsert.length}`);
+if (skipped.length) console.log("Skipped:", skipped.join("; "));
+if (toInsert.length) {
+  const bySector = new Map();
+  for (const row of toInsert) {
+    const match = String(row.notes ?? "").match(/^\[sector:([^\]]+)\]/);
+    const sector = match?.[1] ?? "Uncategorized";
+    bySector.set(sector, (bySector.get(sector) ?? 0) + 1);
+  }
+  console.log(
+    "Sectors:",
+    [...bySector.entries()].map(([s, n]) => `${s}=${n}`).join(", "),
+  );
+}

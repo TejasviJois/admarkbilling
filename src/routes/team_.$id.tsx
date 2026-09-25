@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Pencil } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { StartPayrollDialog } from "@/components/team/StartPayrollDialog";
 import { TeamMemberFormDialog } from "@/components/team/TeamMemberFormDialog";
@@ -8,6 +10,9 @@ import { MemberAvatar } from "@/components/team/team-ui";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useCompany } from "@/hooks/use-company";
 import { useOperations } from "@/hooks/use-operations";
+import { writeClientCache } from "@/lib/client-data-cache";
+import { logClientError } from "@/lib/client-logger";
+import { queryKeys } from "@/lib/query-keys";
 import { saveCompany } from "@/lib/storage";
 import { formatINRWhole } from "@/lib/invoice-calc";
 import {
@@ -20,7 +25,7 @@ import {
   upsertSalarySchedule,
   withDirectoryCatalogs,
 } from "@/lib/team-payroll";
-import type { CompanyMember } from "@/lib/types";
+import type { CompanyMember, CompanySettings } from "@/lib/types";
 
 export const Route = createFileRoute("/team_/$id")({
   component: TeamMemberDetailPage,
@@ -28,6 +33,7 @@ export const Route = createFileRoute("/team_/$id")({
 
 function TeamMemberDetailPage() {
   const { id } = Route.useParams();
+  const queryClient = useQueryClient();
   const { company, loading: companyLoading, invalidate } = useCompany();
   const { ops, persist, loading: operationsLoading } = useOperations();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -42,11 +48,14 @@ function TeamMemberDetailPage() {
 
   const persistMember = async (next: CompanyMember) => {
     const nextMembers = members.map((candidate) => (candidate.id === next.id ? next : candidate));
-    await saveCompany({
+    const nextCompany: CompanySettings = {
       ...company,
       companyMembers: nextMembers,
       ...withDirectoryCatalogs(company, nextMembers),
-    });
+    };
+    queryClient.setQueryData(queryKeys.company, nextCompany);
+    writeClientCache("company", nextCompany);
+    await saveCompany(nextCompany);
     await persist(upsertSalarySchedule(ops, next));
     await invalidate();
   };
@@ -56,6 +65,11 @@ function TeamMemberDetailPage() {
     try {
       await persistMember(next);
       setDialogOpen(false);
+      toast.success("Member updated.");
+    } catch (error) {
+      logClientError("team.detail.saveMember", error);
+      toast.error(error instanceof Error ? error.message : "Could not save member.");
+      await invalidate();
     } finally {
       setSaving(false);
     }

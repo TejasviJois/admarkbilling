@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { assertAppSession } from "./app-session";
+import { requireAdmin } from "./app-session.server";
 import { requireServerSupabase } from "./supabase-admin";
 import {
   ADMARK_FILES_BUCKET,
@@ -49,7 +49,7 @@ export const uploadFileFn = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data }) => {
-    await assertAppSession();
+    await requireAdmin();
     const sb = requireServerSupabase();
     const url = await uploadDataUrlToStorage(sb, data.dataUrl, data.folder.trim(), data.fileName);
     return { url };
@@ -64,7 +64,7 @@ export const resolveFileAccessFn = createServerFn({ method: "POST" })
     return { url: data.url.trim() };
   })
   .handler(async ({ data }) => {
-    await assertAppSession();
+    await requireAdmin();
     const sb = requireServerSupabase();
     const url = (await resolveStoredFileUrl(sb, data.url)) ?? data.url;
     return { url };
@@ -82,7 +82,7 @@ export const fetchFilePreviewFn = createServerFn({ method: "POST" })
     return { url: data.url.trim() };
   })
   .handler(async ({ data }) => {
-    await assertAppSession();
+    await requireAdmin();
     const path = extractAdmarkFilesPath(data.url);
     if (!path) {
       throw new Error("Only Admark storage files can be previewed this way.");

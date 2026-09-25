@@ -96,7 +96,7 @@ describe("shared encryption-core single source of truth", () => {
     const filesThatMustNotContainFallback = [
       "shared/encryption-core.mjs",
       "src/lib/encryption.ts",
-      "src/server/app-session.ts",
+      "src/server/app-session.server.ts",
       "src/start.ts",
       "scripts/migrate-json-to-relational.mjs",
       "scripts/import-directory-contacts.mjs",
@@ -111,9 +111,11 @@ describe("shared encryption-core single source of truth", () => {
 
   it("start.ts and app-session import crypto-free secret module only", () => {
     const start = readFileSync(resolve(process.cwd(), "src/start.ts"), "utf8");
-    const session = readFileSync(resolve(process.cwd(), "src/server/app-session.ts"), "utf8");
-    expect(start).toMatch(/encryption-secret\.mjs/);
+    const session = readFileSync(resolve(process.cwd(), "src/server/app-session.server.ts"), "utf8");
+    // start.ts must stay client-safe — no encryption/env FATAL imports.
     expect(start).not.toMatch(/encryption-core\.mjs/);
+    expect(start).not.toMatch(/encryption-secret\.mjs/);
+    expect(start).not.toMatch(/assertProductionSecurityEnv/);
     expect(session).toMatch(/encryption-secret\.mjs/);
     expect(session).not.toMatch(/encryption-core\.mjs/);
   });

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { assertAppSession } from "./app-session";
+import { requireAdmin } from "./app-session.server";
 import {
   readActivityLogsCore,
   saveActivityLogsCore,
@@ -12,7 +12,7 @@ export type { SaveActivityLogsInput, SaveActivityLogsResult, VersionedActivityLo
 
 export const getActivityLogsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<VersionedActivityLogs> => {
-    await assertAppSession();
+    await requireAdmin();
     return readActivityLogsCore();
   },
 );
@@ -20,6 +20,6 @@ export const getActivityLogsFn = createServerFn({ method: "GET" }).handler(
 export const saveActivityLogsFn = createServerFn({ method: "POST" })
   .inputValidator((data: SaveActivityLogsInput) => data)
   .handler(async ({ data }): Promise<SaveActivityLogsResult> => {
-    await assertAppSession();
+    await requireAdmin();
     return saveActivityLogsCore(data);
   });

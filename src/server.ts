@@ -11,6 +11,9 @@ try {
   assertProductionSecurityEnv();
 } catch (error) {
   console.error(error);
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "production") {
+    throw error;
+  }
 }
 
 type ServerEntry = {

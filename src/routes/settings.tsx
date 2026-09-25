@@ -21,6 +21,7 @@ import {
 import { ComplianceDocumentsPanel } from "@/components/settings/ComplianceDocumentsPanel";
 import { CompanyPartnersPanel } from "@/components/settings/CompanyPartnersPanel";
 import { CloudUsagePanel } from "@/components/settings/CloudUsagePanel";
+import { PortalUsersPanel } from "@/components/settings/PortalUsersPanel";
 import { FormOptionsPanel } from "@/components/settings/FormOptionsPanel";
 import {
   SettingsField,
@@ -62,6 +63,7 @@ type SettingsTab =
   | "security"
   | "storage"
   | "users"
+  | "portalUsers"
   | "permissions"
   | "integrations";
 
@@ -504,7 +506,8 @@ function SettingsPage() {
       label: "People",
       tabs: [
         { value: "users", label: "Partners", icon: <Users className="h-4 w-4" /> },
-        { value: "permissions", label: "Permissions", icon: <Key className="h-4 w-4" /> },
+        { value: "portalUsers", label: "Portal users", icon: <Key className="h-4 w-4" /> },
+        { value: "permissions", label: "Permissions", icon: <Shield className="h-4 w-4" /> },
         { value: "security", label: "Security", icon: <Shield className="h-4 w-4" /> },
       ],
     },
@@ -861,7 +864,7 @@ function SettingsPage() {
               <div className="divide-y divide-border/80 border-y border-border/80">
                 <div className="flex items-center justify-between gap-4 py-3.5 text-sm">
                   <span className="text-muted-foreground">Access role</span>
-                  <span className="font-medium text-foreground">Owner / Admin</span>
+                  <span className="font-medium text-foreground">Admin</span>
                 </div>
                 <div className="flex items-center justify-between gap-4 py-3.5 text-sm">
                   <span className="text-muted-foreground">Encryption</span>
@@ -1028,6 +1031,9 @@ function SettingsPage() {
               onRemove={removeMember}
             />
           )}
+            {activeTab === "portalUsers" && (
+            <PortalUsersPanel members={c.companyMembers ?? []} />
+          )}
             {activeTab === "permissions" && (
             <div className="space-y-5">
               <div>
@@ -1035,7 +1041,7 @@ function SettingsPage() {
                   Permissions
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  What each role can do in this workspace.
+                  Enforced on the server. Sales cannot call admin APIs even if they guess a URL.
                 </p>
               </div>
               <div className="overflow-x-auto border-y border-border/80">
@@ -1043,28 +1049,22 @@ function SettingsPage() {
                   <thead>
                     <tr className="border-b border-border/80 text-xs text-muted-foreground">
                       <th className="py-3 font-medium">Role</th>
-                      <th className="py-3 font-medium">Read</th>
+                      <th className="py-3 font-medium">Access</th>
                       <th className="py-3 font-medium">Write</th>
                       <th className="py-3 font-medium">Settings</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
                     <tr>
-                      <td className="py-3 font-medium text-foreground">Partner (Owner)</td>
-                      <td className="py-3 text-emerald-500">Full</td>
+                      <td className="py-3 font-medium text-foreground">Admin</td>
+                      <td className="py-3 text-emerald-500">Full app</td>
                       <td className="py-3 text-emerald-500">Full</td>
                       <td className="py-3 text-emerald-500">Full</td>
                     </tr>
                     <tr>
-                      <td className="py-3 font-medium text-foreground">Operator</td>
-                      <td className="py-3 text-emerald-500">Full</td>
-                      <td className="py-3 text-emerald-500">Full</td>
-                      <td className="py-3 text-rose-500">None</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 font-medium text-foreground">Auditor</td>
-                      <td className="py-3 text-emerald-500">Full</td>
-                      <td className="py-3 text-rose-500">None</td>
+                      <td className="py-3 font-medium text-foreground">Sales</td>
+                      <td className="py-3 text-emerald-500">Lead List only</td>
+                      <td className="py-3 text-amber-500">Contacted toggle</td>
                       <td className="py-3 text-rose-500">None</td>
                     </tr>
                   </tbody>

@@ -3,7 +3,11 @@ import { useState } from "react";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 
 import { DEFAULT_PUBLIC_LOGO_URL } from "@/lib/constants";
-import { clearAuthStatusCache, getAuthStatusCached } from "@/lib/auth-status-cache";
+import {
+  clearAuthStatusCache,
+  getAuthStatusCached,
+  setAuthStatusCache,
+} from "@/lib/auth-status-cache";
 import { logClientError } from "@/lib/client-logger";
 import { loginFn } from "@/server/auth-fns";
 
@@ -17,9 +21,11 @@ export const Route = createFileRoute("/login")({
     };
   },
   beforeLoad: async ({ search }) => {
-    const { ok } = await getAuthStatusCached();
-    if (ok) {
-      throw redirect({ to: search.redirect ?? "/" });
+    const status = await getAuthStatusCached();
+    if (status.ok) {
+      throw redirect({
+        to: status.role === "sales" ? "/lead-list" : (search.redirect ?? "/"),
+      });
     }
   },
   component: LoginPage,
@@ -40,9 +46,18 @@ function LoginPage() {
     setError(null);
     setPending(true);
     void loginFn({ data: { username, password } })
-      .then(() => {
+      .then((result) => {
         clearAuthStatusCache();
-        void navigate({ to: redirectTo ?? "/", replace: true });
+        setAuthStatusCache({
+          ok: true,
+          role: result.role,
+          userId: result.userId,
+          teamMemberId: result.teamMemberId,
+          displayName: result.displayName,
+        });
+        const dest =
+          result.role === "sales" ? "/lead-list" : (redirectTo ?? "/");
+        void navigate({ to: dest, replace: true });
       })
       .catch((err: unknown) => {
         logClientError("login.submit", err);

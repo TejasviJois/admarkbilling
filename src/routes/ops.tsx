@@ -117,6 +117,17 @@ function OpsPage() {
     persist(upsertProjectCommission(ops, saved));
   };
 
+  const markCommissionPaid = (item: ProjectCommission) => {
+    persist(
+      upsertProjectCommission(ops, {
+        ...item,
+        status: "paid",
+        paidAt: toLocalISODate(),
+        updatedAt: Date.now(),
+      }),
+    );
+  };
+
   const deleteCommission = (item: ProjectCommission) => {
     if (!confirm("Remove this commission plan?")) return;
     persist(removeProjectCommission(ops, item.id), {
@@ -313,7 +324,7 @@ function OpsPage() {
                 Project commissions
               </h2>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                Fixed splits · Log payout posts to Accounts only when you confirm
+                Fixed splits · Mark paid never hits Accounts · Log payout is optional
               </p>
             </div>
             {commissions.length === 0 ? (
@@ -366,14 +377,23 @@ function OpsPage() {
                       </ul>
                       <div className="flex flex-wrap items-center gap-2">
                         {item.status !== "paid" ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => logCommissionPayout(item)}
-                          >
-                            Log payout
-                          </Button>
+                          <>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => markCommissionPaid(item)}
+                            >
+                              Mark paid
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => logCommissionPayout(item)}
+                            >
+                              Log payout
+                            </Button>
+                          </>
                         ) : (
                           <span className="text-[11px] text-muted-foreground">
                             Paid{item.paidAt ? ` · ${item.paidAt}` : ""}

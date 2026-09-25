@@ -29,7 +29,7 @@ import { requireServerSupabase } from "./supabase-admin";
 import { assertRelationalMode } from "./env";
 import { loadRelationalOperations } from "./relational-read-repository";
 import { saveRelationalOperations } from "./relational-write-repository";
-import { assertAppSession } from "./app-session";
+import { requireAdmin } from "./app-session.server";
 import { CACHE_KEYS, cacheSet, cacheThrough } from "./data-cache";
 import { applyProductionBillingRepairs } from "@/lib/ground-zero";
 import { parseOpsExpenseNotes } from "@/lib/ops-costs";
@@ -342,7 +342,11 @@ function parseContact(raw: unknown): Contact | null {
     personName: c.personName,
     companyName: typeof c.companyName === "string" ? c.companyName : undefined,
     phone: typeof c.phone === "string" ? c.phone : undefined,
+    email: typeof c.email === "string" ? c.email : undefined,
+    designation: typeof c.designation === "string" ? c.designation : undefined,
     contactVia: typeof c.contactVia === "string" ? c.contactVia : undefined,
+    sector: typeof c.sector === "string" ? c.sector : undefined,
+    contacted: c.contacted === true,
     createdAt: typeof c.createdAt === "string" ? c.createdAt : undefined,
   };
 }
@@ -831,7 +835,7 @@ async function withSignedOperationsFileUrls(data: OperationsData): Promise<Opera
 
 export const getOperationsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<VersionedOperations> => {
-    await assertAppSession();
+    await requireAdmin();
     assertRelationalMode();
     const sb = requireServerSupabase();
     const [{ data: versionRow, error }, operations] = await Promise.all([
@@ -866,7 +870,7 @@ function assertDeletesAuthorized(input: SaveOperationsMutationInput): void {
 export const saveOperationsFn = createServerFn({ method: "POST" })
   .inputValidator((data: SaveOperationsMutationInput) => data)
   .handler(async ({ data }): Promise<SaveOperationsMutationResult> => {
-    await assertAppSession();
+    await requireAdmin();
     assertRelationalMode();
     assertDeletesAuthorized(data);
 

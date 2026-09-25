@@ -15,7 +15,7 @@ import {
   softDeleteRelationalInvoice,
   upsertRelationalInvoice,
 } from "./relational-write-repository";
-import { assertAppSession } from "./app-session";
+import { requireAdmin, requireRole } from "./app-session.server";
 import { CACHE_KEYS, cacheDel, cacheThrough } from "./data-cache";
 import { resolveStoredFileUrl } from "./file-storage";
 import { requireServerSupabase } from "./supabase-admin";
@@ -57,7 +57,7 @@ export const getDataBackendStatus = createServerFn({ method: "GET" }).handler(as
 
 export const listInvoicesFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<Invoice[]> => {
-    await assertAppSession();
+    await requireAdmin();
     assertRelationalMode();
     return cacheThrough(CACHE_KEYS.invoices, listRelationalInvoices);
   },
@@ -69,7 +69,7 @@ export const getInvoiceFn = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data }): Promise<Invoice | null> => {
-    await assertAppSession();
+    await requireAdmin();
     assertRelationalMode();
     return getRelationalInvoice(data.id);
   });
@@ -80,7 +80,7 @@ export const upsertInvoiceFn = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data }) => {
-    await assertAppSession();
+    await requireAdmin();
     assertRelationalMode();
 
     let candidate: Invoice = data;
@@ -111,7 +111,7 @@ export const deleteInvoiceFn = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data }) => {
-    await assertAppSession();
+    await requireAdmin();
     assertRelationalMode();
     await softDeleteRelationalInvoice(data.id);
     cacheDel(CACHE_KEYS.invoices);
@@ -120,17 +120,43 @@ export const deleteInvoiceFn = createServerFn({ method: "POST" })
 
 export const getCompanyFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<CompanySettings> => {
-    await assertAppSession();
+    const session = await requireRole(["admin", "sales"]);
     assertRelationalMode();
     const company = await cacheThrough(CACHE_KEYS.company, loadRelationalCompany);
-    return withSignedCompanyUrls(company);
+    const signed = await withSignedCompanyUrls(company);
+    if (session.role === "admin") return signed;
+
+    // Sales shell only needs branding + feature flags — strip banking / salary PII.
+    return {
+      name: signed.name,
+      tagline: signed.tagline,
+      address: "",
+      email: "",
+      phone: undefined,
+      website: signed.website,
+      logoDataUrl: signed.logoDataUrl,
+      companyValuationEnabled: signed.companyValuationEnabled === true,
+      projectAssignmentsEnabled: signed.projectAssignmentsEnabled === true,
+      partnershipsEnabled: signed.partnershipsEnabled === true,
+      companyMembers: (signed.companyMembers ?? []).map((member) => ({
+        id: member.id,
+        name: member.name,
+        email: "",
+        phone: "",
+        employeeId: member.employeeId,
+        role: member.role,
+        memberType: member.memberType,
+        teamGroup: member.teamGroup,
+        status: member.status,
+      })),
+    };
   },
 );
 
 export const saveCompanyFn = createServerFn({ method: "POST" })
   .inputValidator((data: CompanySettings) => data)
   .handler(async ({ data }) => {
-    await assertAppSession();
+    await requireAdmin();
     assertRelationalMode();
     await saveRelationalCompany(data);
     cacheDel(CACHE_KEYS.company);

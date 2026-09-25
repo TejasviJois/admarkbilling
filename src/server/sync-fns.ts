@@ -8,7 +8,7 @@ import type {
 } from "@/lib/types";
 import { countDocumentsRecords, countOperationsRecords } from "@/lib/stabilize-file-refs";
 import { requireServerSupabase } from "./supabase-admin";
-import { assertAppSession } from "./app-session";
+import { requireAdmin } from "./app-session.server";
 import { CACHE_KEYS, cacheDel } from "./data-cache";
 import { externalizeDocumentsData, externalizeOperationsData } from "./payload-files";
 import { assertRelationalMode } from "./env";
@@ -34,7 +34,7 @@ const DEFAULT_ORG_ID = "org-admark-digitals";
 export const syncAllToCloudFn = createServerFn({ method: "POST" })
   .inputValidator((data: SyncAllPayload) => data)
   .handler(async ({ data }) => {
-    await assertAppSession();
+    await requireAdmin();
     assertRelationalMode();
     const sb = requireServerSupabase();
     const synced: string[] = [];

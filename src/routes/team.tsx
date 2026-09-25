@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Pencil, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PayrollOnboardingDialog, StartPayrollDialog } from "@/components/team/StartPayrollDialog";
 import { SalaryMonthPaymentDialog } from "@/components/team/SalaryMonthPaymentDialog";
@@ -9,6 +11,9 @@ import { MemberAvatar, PayrollMonthCell } from "@/components/team/team-ui";
 import { OperationsLoading } from "@/components/operations/operations-ui";
 import { useCompany } from "@/hooks/use-company";
 import { useOperations } from "@/hooks/use-operations";
+import { logClientError } from "@/lib/client-logger";
+import { writeClientCache } from "@/lib/client-data-cache";
+import { queryKeys } from "@/lib/query-keys";
 import { saveCompany } from "@/lib/storage";
 import { formatINRWhole } from "@/lib/invoice-calc";
 import {
@@ -32,12 +37,13 @@ import {
   upsertSalarySchedule,
   withDirectoryCatalogs,
 } from "@/lib/team-payroll";
-import type { CompanyMember, SalaryMonthPayment, TeamMemberType } from "@/lib/types";
+import type { CompanyMember, CompanySettings, SalaryMonthPayment, TeamMemberType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/team")({ component: TeamPage });
 
 function TeamPage() {
+  const queryClient = useQueryClient();
   const { company, loading: companyLoading, invalidate } = useCompany();
   const { ops, persist, loading: operationsLoading } = useOperations();
   const [editing, setEditing] = useState<CompanyMember | null>(null);
@@ -62,6 +68,13 @@ function TeamPage() {
   );
   const selectedDirectory =
     directoryGroups.find((group) => group.type === directoryType) ?? directoryGroups[0];
+
+  // If the selected type tab disappears (e.g. after an edit), land on a real group.
+  useEffect(() => {
+    if (!directoryGroups.some((group) => group.type === directoryType) && directoryGroups[0]) {
+      setDirectoryType(directoryGroups[0].type);
+    }
+  }, [directoryGroups, directoryType]);
 
   const opsRef = useRef(ops);
   opsRef.current = ops;
@@ -92,11 +105,15 @@ function TeamPage() {
   ).length;
 
   const persistMember = async (member: CompanyMember, nextMembers: CompanyMember[]) => {
-    await saveCompany({
+    const nextCompany: CompanySettings = {
       ...company,
       companyMembers: nextMembers,
       ...withDirectoryCatalogs(company, nextMembers),
-    });
+    };
+    // Paint the Team page immediately — don't wait on the server round-trip.
+    queryClient.setQueryData(queryKeys.company, nextCompany);
+    writeClientCache("company", nextCompany);
+    await saveCompany(nextCompany);
     await persist(upsertSalarySchedule(ops, member));
     await invalidate();
   };
@@ -110,19 +127,33 @@ function TeamPage() {
         : [...members, member];
       await persistMember(member, nextMembers);
       setDialogOpen(false);
+      setEditing(null);
       if (member.memberType) setDirectoryType(member.memberType);
       if (!exists) setOnboardingMember(member);
+      toast.success(exists ? "Member updated." : "Member added.");
+    } catch (error) {
+      logClientError("team.saveMember", error);
+      toast.error(error instanceof Error ? error.message : "Could not save member.");
+      // Roll back optimistic paint if the server rejected the write.
+      await invalidate();
     } finally {
       setSaving(false);
     }
   };
 
   const applyStartPayroll = async (member: CompanyMember, month: string) => {
-    const next = startPayroll(member, month);
-    const nextMembers = members.map((candidate) => (candidate.id === next.id ? next : candidate));
-    await persistMember(next, nextMembers);
-    setStartTarget(null);
-    setOnboardingMember(null);
+    try {
+      const next = startPayroll(member, month);
+      const nextMembers = members.map((candidate) => (candidate.id === next.id ? next : candidate));
+      await persistMember(next, nextMembers);
+      setStartTarget(null);
+      setOnboardingMember(null);
+      toast.success(`Payroll started for ${next.name}.`);
+    } catch (error) {
+      logClientError("team.startPayroll", error);
+      toast.error(error instanceof Error ? error.message : "Could not start payroll.");
+      await invalidate();
+    }
   };
 
   if (companyLoading || operationsLoading) return <OperationsLoading />;
@@ -152,7 +183,11 @@ function TeamPage() {
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat label="Active team" value={String(activeMembers.length)} />
-        <Stat label="Monthly base payroll" value={formatINRWhole(monthlyBase)} />
+        <Stat
+          label="Monthly base payroll"
+          value={formatINRWhole(monthlyBase)}
+          hint={`${onPayroll.length} on payroll`}
+        />
         <Stat label="This month marked paid" value={`${markedThisMonth} of ${onPayroll.length}`} />
       </div>
 
@@ -438,11 +473,19 @@ function TeamPage() {
         }
         onSave={(payment: SalaryMonthPayment) => {
           if (!paymentTarget) return;
-          persist(recordSalaryPayment(ops, paymentTarget.member, payment));
+          void persist(recordSalaryPayment(ops, paymentTarget.member, payment)).then(() => {
+            setPaymentTarget(null);
+            toast.success("Salary payment saved.");
+          });
         }}
         onClear={() => {
           if (!paymentTarget) return;
-          persist(clearSalaryPayment(ops, paymentTarget.member, paymentTarget.month));
+          void persist(clearSalaryPayment(ops, paymentTarget.member, paymentTarget.month)).then(
+            () => {
+              setPaymentTarget(null);
+              toast.success("Salary payment cleared.");
+            },
+          );
         }}
       />
       <StartPayrollDialog
@@ -472,13 +515,14 @@ function TeamPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-xl border border-border/60 bg-card px-5 py-5">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
         {value}
       </p>
+      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }

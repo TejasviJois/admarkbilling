@@ -16,6 +16,7 @@ const ENTITY_FILTERS: Array<ActivityEntity | "all"> = [
   "invoice",
   "settings",
   "security",
+  "lead",
 ];
 
 function actionTone(action: ActivityLogEntry["action"]): string {

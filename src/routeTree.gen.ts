@@ -18,6 +18,7 @@ import { Route as PipelineHistoryRouteImport } from './routes/pipeline-history'
 import { Route as PartnershipsRouteImport } from './routes/partnerships'
 import { Route as OpsRouteImport } from './routes/ops'
 import { Route as NewRouteImport } from './routes/new'
+import { Route as MyWinsRouteImport } from './routes/my-wins'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeadsRouteImport } from './routes/leads'
@@ -25,6 +26,7 @@ import { Route as LeadListRouteImport } from './routes/lead-list'
 import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as DirectoryRouteImport } from './routes/directory'
 import { Route as CredentialsRouteImport } from './routes/credentials'
+import { Route as ContactedRouteImport } from './routes/contacted'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as AccountsRouteImport } from './routes/accounts'
@@ -102,6 +104,11 @@ const NewRoute = NewRouteImport.update({
   path: '/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MyWinsRoute = MyWinsRouteImport.update({
+  id: '/my-wins',
+  path: '/my-wins',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LogsRoute = LogsRouteImport.update({
   id: '/logs',
   path: '/logs',
@@ -135,6 +142,11 @@ const DirectoryRoute = DirectoryRouteImport.update({
 const CredentialsRoute = CredentialsRouteImport.update({
   id: '/credentials',
   path: '/credentials',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactedRoute = ContactedRouteImport.update({
+  id: '/contacted',
+  path: '/contacted',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientsRoute = ClientsRouteImport.update({
@@ -305,6 +317,7 @@ export interface FileRoutesByFullPath {
   '/accounts': typeof AccountsRouteWithChildren
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRouteWithChildren
+  '/contacted': typeof ContactedRoute
   '/credentials': typeof CredentialsRoute
   '/directory': typeof DirectoryRoute
   '/invoices': typeof InvoicesRoute
@@ -312,6 +325,7 @@ export interface FileRoutesByFullPath {
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
+  '/my-wins': typeof MyWinsRoute
   '/new': typeof NewRoute
   '/ops': typeof OpsRoute
   '/partnerships': typeof PartnershipsRoute
@@ -352,6 +366,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
+  '/contacted': typeof ContactedRoute
   '/credentials': typeof CredentialsRoute
   '/directory': typeof DirectoryRoute
   '/invoices': typeof InvoicesRoute
@@ -359,6 +374,7 @@ export interface FileRoutesByTo {
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
+  '/my-wins': typeof MyWinsRoute
   '/new': typeof NewRoute
   '/ops': typeof OpsRoute
   '/partnerships': typeof PartnershipsRoute
@@ -402,6 +418,7 @@ export interface FileRoutesById {
   '/accounts': typeof AccountsRouteWithChildren
   '/calendar': typeof CalendarRoute
   '/clients': typeof ClientsRouteWithChildren
+  '/contacted': typeof ContactedRoute
   '/credentials': typeof CredentialsRoute
   '/directory': typeof DirectoryRoute
   '/invoices': typeof InvoicesRoute
@@ -409,6 +426,7 @@ export interface FileRoutesById {
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
+  '/my-wins': typeof MyWinsRoute
   '/new': typeof NewRoute
   '/ops': typeof OpsRoute
   '/partnerships': typeof PartnershipsRoute
@@ -453,6 +471,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/calendar'
     | '/clients'
+    | '/contacted'
     | '/credentials'
     | '/directory'
     | '/invoices'
@@ -460,6 +479,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/login'
     | '/logs'
+    | '/my-wins'
     | '/new'
     | '/ops'
     | '/partnerships'
@@ -500,6 +520,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/calendar'
+    | '/contacted'
     | '/credentials'
     | '/directory'
     | '/invoices'
@@ -507,6 +528,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/login'
     | '/logs'
+    | '/my-wins'
     | '/new'
     | '/ops'
     | '/partnerships'
@@ -549,6 +571,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/calendar'
     | '/clients'
+    | '/contacted'
     | '/credentials'
     | '/directory'
     | '/invoices'
@@ -556,6 +579,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/login'
     | '/logs'
+    | '/my-wins'
     | '/new'
     | '/ops'
     | '/partnerships'
@@ -599,6 +623,7 @@ export interface RootRouteChildren {
   AccountsRoute: typeof AccountsRouteWithChildren
   CalendarRoute: typeof CalendarRoute
   ClientsRoute: typeof ClientsRouteWithChildren
+  ContactedRoute: typeof ContactedRoute
   CredentialsRoute: typeof CredentialsRoute
   DirectoryRoute: typeof DirectoryRoute
   InvoicesRoute: typeof InvoicesRoute
@@ -606,6 +631,7 @@ export interface RootRouteChildren {
   LeadsRoute: typeof LeadsRoute
   LoginRoute: typeof LoginRoute
   LogsRoute: typeof LogsRoute
+  MyWinsRoute: typeof MyWinsRoute
   NewRoute: typeof NewRoute
   OpsRoute: typeof OpsRoute
   PartnershipsRoute: typeof PartnershipsRoute
@@ -703,6 +729,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/my-wins': {
+      id: '/my-wins'
+      path: '/my-wins'
+      fullPath: '/my-wins'
+      preLoaderRoute: typeof MyWinsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/logs': {
       id: '/logs'
       path: '/logs'
@@ -750,6 +783,13 @@ declare module '@tanstack/react-router' {
       path: '/credentials'
       fullPath: '/credentials'
       preLoaderRoute: typeof CredentialsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contacted': {
+      id: '/contacted'
+      path: '/contacted'
+      fullPath: '/contacted'
+      preLoaderRoute: typeof ContactedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clients': {
@@ -1018,6 +1058,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountsRoute: AccountsRouteWithChildren,
   CalendarRoute: CalendarRoute,
   ClientsRoute: ClientsRouteWithChildren,
+  ContactedRoute: ContactedRoute,
   CredentialsRoute: CredentialsRoute,
   DirectoryRoute: DirectoryRoute,
   InvoicesRoute: InvoicesRoute,
@@ -1025,6 +1066,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeadsRoute: LeadsRoute,
   LoginRoute: LoginRoute,
   LogsRoute: LogsRoute,
+  MyWinsRoute: MyWinsRoute,
   NewRoute: NewRoute,
   OpsRoute: OpsRoute,
   PartnershipsRoute: PartnershipsRoute,

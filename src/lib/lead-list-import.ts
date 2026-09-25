@@ -1,4 +1,8 @@
 import type { LeadListEntry } from "@/lib/types";
+import {
+  isWhatsAppLeadExportFile,
+  parseWhatsAppLeadExport,
+} from "@/lib/lead-list-whatsapp";
 
 type XlsxModule = typeof import("xlsx");
 type WorkBook = import("xlsx").WorkBook;
@@ -207,6 +211,19 @@ export async function parseLeadListWorkbook(
   return { entries, sheetName, rowCount: entries.length };
 }
 
+/** Excel workbook or WhatsApp chat export (.zip / .txt / .md). */
+export async function parseLeadListFile(file: File): Promise<LeadListImportResult> {
+  if (isWhatsAppLeadExportFile(file)) {
+    const parsed = await parseWhatsAppLeadExport(file);
+    return {
+      entries: parsed.entries,
+      sheetName: parsed.sourceLabel,
+      rowCount: parsed.rowCount,
+    };
+  }
+  return parseLeadListWorkbook(file);
+}
+
 /** Merge imported rows into existing list — same externalId updates in place. */
 export function mergeLeadListEntries(
   existing: LeadListEntry[],
@@ -252,11 +269,15 @@ const TECH_KEYWORDS = [
   "website designer",
   "website redesign",
   "website rebrand",
+  "website development",
+  "web development",
   "ui/ux",
   "uiux",
   "ui ux",
   "wordpress",
   "elementor",
+  "shopify",
+  "cms",
   "seo agency",
   "seo ",
   "application developer",
@@ -271,6 +292,10 @@ const TECH_KEYWORDS = [
   "javascript",
   "database",
   "devops",
+  "e-learning",
+  "elearning",
+  "technology partner",
+  "tech partner",
 ];
 
 const NON_TECH_KEYWORDS = [
@@ -298,20 +323,14 @@ const NON_TECH_KEYWORDS = [
   "reels",
   "podcast",
   "ads agency",
+  "advertising agency",
+  "advertising",
 ];
 
+/** Short signals only — long briefs pollute tech/non-tech scoring. */
 function haystackForTrack(entry: LeadListEntry): string {
-  return [
-    entry.title,
-    entry.oneLiner,
-    entry.projectType,
-    entry.category,
-    entry.techFocus,
-    entry.focus,
-    entry.technicalStack,
-    entry.engagementType,
-    entry.whatTheyWant,
-  ]
+  const oneLiner = (entry.oneLiner ?? "").slice(0, 220);
+  return [entry.title, oneLiner, entry.projectType, entry.category, entry.techFocus, entry.focus]
     .filter(Boolean)
     .join("\n")
     .toLowerCase();
@@ -319,9 +338,30 @@ function haystackForTrack(entry: LeadListEntry): string {
 
 /**
  * Classify Inner Circle leads into tech delivery vs marketing/creative.
- * Website/SEO/design builds count as tech; ads/branding/video stay non-tech.
+ * Title wins first; website/SEO/Shopify/CMS count as tech; ads/branding/video stay non-tech.
  */
 export function classifyLeadListTrack(entry: LeadListEntry): LeadListTrack {
+  const title = entry.title ?? "";
+
+  const strongTechTitle =
+    /\b(developer|development|full-?stack|saas|flutter|mern|laravel|ios developer|seo|web designer|website designer|website|ui\/?ux|uiux|wordpress|elementor|shopify|cms|software|engineer|technology partner|tech partner|e-?learning|ai training)\b/i.test(
+      title,
+    );
+  const strongNonTechTitle =
+    /\b(social media|marketing pro|marketing|video editor|advertising|ads agency|branding|brand building|pr freelancer|meta ads|google ads|digital\/social)\b/i.test(
+      title,
+    );
+
+  // Title is authoritative when both sides fire — prefer delivery platforms over brand wording.
+  if (strongTechTitle && strongNonTechTitle) {
+    if (/\b(shopify|wordpress|cms|developer|website|seo|software|saas)\b/i.test(title)) {
+      return "tech";
+    }
+    return "non_tech";
+  }
+  if (strongTechTitle) return "tech";
+  if (strongNonTechTitle) return "non_tech";
+
   const text = haystackForTrack(entry);
   let techHits = 0;
   let nonTechHits = 0;
@@ -331,31 +371,11 @@ export function classifyLeadListTrack(entry: LeadListEntry): LeadListTrack {
   for (const keyword of NON_TECH_KEYWORDS) {
     if (text.includes(keyword)) nonTechHits += 1;
   }
-  // Strong tech title signals — web design / SEO / WordPress count as tech.
-  if (
-    /\b(developer|full-?stack|saas|flutter|mern|laravel|ios developer|seo|web designer|website designer|ui\/?ux|uiux|wordpress|elementor)\b/i.test(
-      entry.title,
-    )
-  ) {
-    techHits += 3;
-  }
-  if (
-    /\b(ads agency|marketing|branding|video editor|pr freelancer|social media)\b/i.test(
-      entry.title,
-    )
-  ) {
-    nonTechHits += 2;
-  }
-  // Website / product design roles are tech delivery.
-  if (
-    /\b(designer|design agency|ui\/?ux|uiux)\b/i.test(entry.title) &&
-    !/\b(brand|logo|motion|video)\b/i.test(entry.title)
-  ) {
-    techHits += 2;
-  }
+
   if (entry.technicalStack?.trim()) techHits += 1;
+
   if (techHits === 0 && nonTechHits === 0) {
-    return /\b(web|app|software|code|stack|seo|wordpress|website)\b/i.test(text)
+    return /\b(web|app|software|code|stack|seo|wordpress|website|shopify|cms)\b/i.test(text)
       ? "tech"
       : "non_tech";
   }

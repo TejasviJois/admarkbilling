@@ -17,6 +17,7 @@ import {
   parseArchiveDocumentType,
 } from "@/lib/document-vault";
 import { decodeLeadNotesFromStorage } from "@/lib/lead-stats";
+import { decodeDirectoryNotes } from "@/lib/sales-sectors";
 import { parseOpsExpenseNotes } from "@/lib/ops-costs";
 import type {
   ActivityAction,
@@ -524,6 +525,49 @@ function parseStringList(value: unknown): string[] | undefined {
   return labels.length > 0 ? labels : undefined;
 }
 
+/** Preference overlay for team fields missing from older DBs (member_type / team_group / employee_code). */
+function parseTeamDirectoryOverlay(
+  value: unknown,
+): Map<
+  string,
+  {
+    memberType?: string;
+    teamGroup?: string;
+    employeeId?: string;
+    role?: string;
+  }
+> {
+  const map = new Map<
+    string,
+    {
+      memberType?: string;
+      teamGroup?: string;
+      employeeId?: string;
+      role?: string;
+    }
+  >();
+  if (!Array.isArray(value)) return map;
+  for (const item of value) {
+    if (!isRecord(item) || typeof item.id !== "string" || !item.id.trim()) continue;
+    map.set(item.id, {
+      memberType:
+        typeof item.memberType === "string" && item.memberType.trim()
+          ? item.memberType.trim()
+          : undefined,
+      teamGroup:
+        typeof item.teamGroup === "string" && item.teamGroup.trim()
+          ? item.teamGroup.trim()
+          : undefined,
+      employeeId:
+        typeof item.employeeId === "string" && item.employeeId.trim()
+          ? item.employeeId.trim()
+          : undefined,
+      role: typeof item.role === "string" && item.role.trim() ? item.role.trim() : undefined,
+    });
+  }
+  return map;
+}
+
 function parseFormOptions(value: unknown): FormOptionCatalogs | undefined {
   if (!isRecord(value)) return undefined;
   const expenseCategories = parseStringList(value.expenseCategories);
@@ -977,6 +1021,7 @@ function parseApplicationPreferences(raw: unknown): ParsedApplicationPreferences
               ? entry.importedAt
               : new Date().toISOString(),
           contacted: entry.contacted === true,
+          salesWon: entry.salesWon === true,
           sourceFileName: str(entry.sourceFileName),
         } as import("@/lib/types").LeadListEntry;
       })
@@ -1277,13 +1322,19 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
     const legacyId = legacyIdOf(row);
     if (row.source === "Directory") {
       const personName = row.contact_person ?? row.company_name;
+      const decoded = decodeDirectoryNotes(row.notes);
       contacts.push({
         id: legacyId,
         organizationId: org.legacyId,
         personName,
         companyName: row.company_name !== personName ? row.company_name : undefined,
         phone: orUndefined(row.phone),
-        contactVia: orUndefined(row.notes),
+        email: orUndefined(row.email) ?? decoded.emailFromNotes,
+        designation: decoded.designation,
+        contactVia: decoded.contactVia,
+        sector: decoded.sector,
+        contacted: decoded.contacted === true,
+        salesWon: decoded.salesWon === true,
         createdAt: row.created_at,
       });
       continue;
@@ -1578,24 +1629,35 @@ export async function loadRelationalCompany(): Promise<CompanySettings> {
 
   const featureToggles = isRecord(settingsRow?.feature_toggles) ? settingsRow.feature_toggles : {};
 
-  const companyMembers: CompanyMember[] = teamMemberRows.map((row) =>
-    stripUndefined({
-      id: legacyIdOf(row),
+  const directoryOverlay = parseTeamDirectoryOverlay(
+    isRecord(settingsRow?.application_preferences)
+      ? settingsRow.application_preferences.legacyTeamDirectory
+      : undefined,
+  );
+
+  const companyMembers: CompanyMember[] = teamMemberRows.map((row) => {
+    const id = legacyIdOf(row);
+    const overlay = directoryOverlay.get(id);
+    return stripUndefined({
+      id,
       name: row.name,
       email: row.email ?? "",
       phone: row.phone ?? "",
-      employeeId: orUndefined(row.employee_code),
-      role: orUndefined(row.job_title),
-      memberType: orUndefined(row.member_type) ?? MEMBER_TYPE_BY_ROLE[row.role],
-      teamGroup: orUndefined(row.team_group),
+      employeeId: orUndefined(row.employee_code) ?? overlay?.employeeId,
+      role: orUndefined(row.job_title) ?? overlay?.role,
+      memberType:
+        orUndefined(row.member_type) ??
+        overlay?.memberType ??
+        MEMBER_TYPE_BY_ROLE[row.role],
+      teamGroup: orUndefined(row.team_group) ?? overlay?.teamGroup,
       joinDate: orUndefined(row.join_date),
       status: row.status === "inactive" ? ("inactive" as const) : ("active" as const),
       baseMonthlySalary: asNumber(row.base_monthly_salary),
       monthlyBonusCap: asNumber(row.monthly_bonus_limit),
       salaryStartDate: orUndefined(row.salary_start_date),
       salaryDueDay: asNumber(row.salary_due_day),
-    }),
-  );
+    });
+  });
 
   const complianceDocuments: ComplianceDocument[] = documentRows
     .filter((doc) => doc.company_id !== null && doc.document_type === "compliance")
