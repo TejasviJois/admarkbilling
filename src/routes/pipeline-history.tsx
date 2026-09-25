@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Trophy, XCircle, TrendingUp, Filter } from "lucide-react";
 import { OperationsLoading } from "@/components/operations/operations-ui";
@@ -8,16 +8,13 @@ import { leadDisplayName } from "@/lib/lead-conversion";
 import { computeLeadCrmStats, isLeadArchived } from "@/lib/lead-stats";
 import { leadStatusLabel } from "@/lib/lead-utils";
 import { cn } from "@/lib/utils";
-import type { Lead, LeadStatus, OperationsData } from "@/lib/types";
+import type { LeadStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/pipeline-history")({
   component: PipelineHistoryPage,
 });
 
 type LedgerFilter = "all" | "won" | "lost";
-
-/** One-shot: wipe pre-reset closed CRM history (won / lost / archived). */
-const HISTORY_RESET_KEY = "admark.pipeline-history.reset.2026-09-15";
 
 const FUNNEL_STATUSES: LeadStatus[] = [
   "new_lead",
@@ -37,52 +34,11 @@ const STAGE_TONE: Record<LeadStatus, string> = {
   lost: "bg-rose-400",
 };
 
-function clearClosedPipelineHistory(ops: OperationsData): {
-  data: OperationsData;
-  deleteIds: string[];
-} | null {
-  const leads = ops.leads ?? [];
-  const deleteIds = leads
-    .filter((lead) => lead.status === "won" || lead.status === "lost" || isLeadArchived(lead))
-    .map((lead) => lead.id);
-  if (deleteIds.length === 0) return null;
-  const remove = new Set(deleteIds);
-  return {
-    data: {
-      ...ops,
-      leads: leads.filter((lead) => !remove.has(lead.id)),
-      // Keep client projects — only detach the cleared CRM lead link.
-      projects: ops.projects.map((project) =>
-        project.leadId && remove.has(project.leadId) ? { ...project, leadId: undefined } : project,
-      ),
-    },
-    deleteIds,
-  };
-}
-
 function PipelineHistoryPage() {
-  const { ops, persist, loading, ready } = useOperations();
+  const { ops, loading } = useOperations();
   const [ledgerFilter, setLedgerFilter] = useState<LedgerFilter>("all");
-  const resetStarted = useRef(false);
   const leads = ops.leads ?? [];
   const stats = useMemo(() => computeLeadCrmStats(leads), [leads]);
-
-  useEffect(() => {
-    if (!ready || resetStarted.current) return;
-    if (typeof localStorage !== "undefined" && localStorage.getItem(HISTORY_RESET_KEY)) {
-      resetStarted.current = true;
-      return;
-    }
-    resetStarted.current = true;
-    const cleared = clearClosedPipelineHistory(ops);
-    if (!cleared) {
-      localStorage.setItem(HISTORY_RESET_KEY, "1");
-      return;
-    }
-    void persist(cleared.data, { deleteIds: { leads: cleared.deleteIds } }).then(() => {
-      localStorage.setItem(HISTORY_RESET_KEY, "1");
-    });
-  }, [ready, ops, persist]);
 
   const wonLeads = useMemo(() => leads.filter((l) => l.status === "won"), [leads]);
   const lostLeads = useMemo(() => leads.filter((l) => l.status === "lost"), [leads]);
@@ -140,7 +96,7 @@ function PipelineHistoryPage() {
             Pipeline history
           </h1>
           <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-            Fresh from today — new wins and losses land here. Open deals stay on the pipeline board.
+            Fresh wins and losses stay here and on the Pipeline WON / Lost columns.
           </p>
         </div>
         <Link
