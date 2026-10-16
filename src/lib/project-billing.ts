@@ -293,21 +293,22 @@ export function computeBookedRevenue(project: Project, asOfDate: string): number
     return Math.max(oneTime, totalReceived(project));
   }
 
-  if (oneTime > 0) return oneTime;
-  // Explicit form entries win over legacy revenueValue text — a typed 0 sticks.
+  const minReceived = totalReceived(project);
+  if (oneTime > 0) return Math.max(oneTime, minReceived);
+  // Explicit form entries win over legacy revenueValue text — a typed 0 sticks unless payments were collected.
   if (
     billing.contractValue === 0 ||
     billing.upfrontAmount != null ||
     billing.maintenanceAmount != null
   ) {
-    return 0;
+    return minReceived;
   }
 
   const text = project.revenueValue?.trim() ?? "";
-  if (!text || /partner|discount|tbd|—/i.test(text)) return 0;
-  if (/\/\s*month/i.test(text) && !billing.upfrontAmount) return 0;
+  if (!text || /partner|discount|tbd|—/i.test(text)) return minReceived;
+  if (/\/\s*month/i.test(text) && !billing.upfrontAmount) return minReceived;
 
-  return parseFirstRupee(text) ?? 0;
+  return Math.max(parseFirstRupee(text) ?? 0, minReceived);
 }
 
 /** Full contract value including maintenance — for payment targets. */

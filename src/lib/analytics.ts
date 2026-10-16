@@ -2,6 +2,7 @@ import { formatINRWhole } from "./invoice-calc";
 import { projectClientLabel } from "./project-status";
 import { sumActiveMrr, sumFutureMonthlyPipeline } from "./project-billing";
 import { GROUND_ZERO_DATE } from "./ground-zero";
+import { withDefaultFinancialBaseline } from "./default-financial-baseline";
 import type { OperationsData, Payment, Project, Transaction } from "./types";
 import {
   computeFinancialSummary,
@@ -234,16 +235,15 @@ function periodTotalIncome(ops: OperationsData, period: PeriodKey): number {
   if (period === "all") {
     return computeFinancialSummary(ops).totalRevenueReceived;
   }
-  return flattenProjectIncome(ops.payments ?? [], ops.projects)
-    .filter((row) => row.hasProof && isWithinPeriod(row.date, period))
-    .reduce((sum, row) => sum + row.amount, 0);
-}
-
-function periodLoggedExpenses(ops: OperationsData, period: PeriodKey): number {
-  return ops.expenses
-    .filter((e) => !e.isBaseline && isWithinPeriod(e.date, period))
-    .filter((e) => normalizeCategory(e.category) !== "handout")
-    .reduce((sum, e) => sum + (e.amount || 0), 0);
+  const baseline = withDefaultFinancialBaseline(ops).financialBaseline!;
+  let total = 0;
+  if (isWithinPeriod(baseline.asOfDate, period)) {
+    total += baseline.totalRevenueReceived;
+  }
+  const txIncome = ledgerTransactions(ops)
+    .filter((t) => isMoneyInTransaction(t) && isWithinPeriod(t.date, period))
+    .reduce((sum, t) => sum + moneyInAmount(t), 0);
+  return total + txIncome;
 }
 
 function periodMoneyOutTotal(ops: OperationsData, period: PeriodKey): number {
@@ -257,8 +257,11 @@ function periodMoneyOutTotal(ops: OperationsData, period: PeriodKey): number {
       baseline.totalExternalPayouts + baseline.totalCompanyExpenses + baseline.founderPayoutPool;
   }
 
-  total += periodLoggedExpenses(ops, period);
-  return total;
+  const txExpenses = ledgerTransactions(ops)
+    .filter((t) => isMoneyOutTransaction(t) && isWithinPeriod(t.date, period))
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  return total + txExpenses;
 }
 
 export function buildMonthlyChartForPeriod(ops: OperationsData, period: PeriodKey, month?: string) {

@@ -60,18 +60,18 @@ function DocumentsPartnerDetailPage() {
       />
 
       {(partnership.phone || partnership.email || partnership.contact || partnership.type) && (
-        <section className="mb-6 rounded-lg border border-border bg-card p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-foreground">Partner details</h2>
-          <dl className="mt-2 space-y-1 text-sm text-muted-foreground">
+        <section className="mb-6 rounded-3xl border border-white/10 bg-[#141419]/80 p-5 shadow-xl backdrop-blur-2xl">
+          <h2 className="text-base font-bold text-white">Partner details</h2>
+          <dl className="mt-2 space-y-1 text-sm text-white/70">
             {partnership.type && (
               <div>
-                <dt className="inline font-medium text-foreground">Type: </dt>
+                <dt className="inline font-medium text-white">Type: </dt>
                 <dd className="inline">{partnership.type}</dd>
               </div>
             )}
             {(partnership.phone || partnership.email || partnership.contact) && (
               <div>
-                <dt className="mb-1 font-medium text-foreground">Contact</dt>
+                <dt className="mb-1 font-medium text-white">Contact</dt>
                 <dd>
                   <ContactLinks
                     phone={partnership.phone}
@@ -82,21 +82,21 @@ function DocumentsPartnerDetailPage() {
               </div>
             )}
             <div>
-              <dt className="inline font-medium text-foreground">Status: </dt>
-              <dd className="inline capitalize">{partnership.status}</dd>
+              <dt className="inline font-medium text-white">Status: </dt>
+              <dd className="inline capitalize text-[#ff6b2b]">{partnership.status}</dd>
             </div>
           </dl>
           <Link
             to="/partnerships"
-            className="mt-3 inline-block text-xs text-primary hover:underline"
+            className="mt-3 inline-block text-xs font-semibold text-[#ff6b2b] hover:underline"
           >
-            Edit in Partnerships
+            Edit in Partnerships →
           </Link>
         </section>
       )}
 
-      <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
-        <h2 className="mb-4 text-sm font-semibold text-foreground">Payout history</h2>
+      <section className="rounded-3xl border border-white/10 bg-[#141419]/80 p-5 shadow-xl backdrop-blur-2xl sm:p-6">
+        <h2 className="mb-4 text-base font-bold text-white">Payout history</h2>
         <OutgoingPaymentHistoryTable rows={rows} ops={ops} persist={persist} />
       </section>
     </div>

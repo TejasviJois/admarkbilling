@@ -189,21 +189,21 @@ function OpsPage() {
         title="Office & Ops"
         description="Monthly office and infrastructure obligations, renewals, and project commissions — separate from Accounts and payroll."
         action={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             <MonthSelector month={month} onChange={setMonth} />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button type="button">
+                <Button type="button" className="rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-lg shadow-orange-500/25 hover:brightness-110 active:scale-95 font-bold transition-all px-4">
                   <Plus className="mr-1.5 h-4 w-4" />
                   Add
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem onClick={() => openAdd("office")}>Office expense</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openAdd("renewal")}>
+              <DropdownMenuContent align="end" className="w-52 glass-panel border border-white/10 rounded-2xl p-1 shadow-2xl">
+                <DropdownMenuItem onClick={() => openAdd("office")} className="rounded-xl text-white/80 hover:text-white hover:bg-white/10 cursor-pointer">Office expense</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openAdd("renewal")} className="rounded-xl text-white/80 hover:text-white hover:bg-white/10 cursor-pointer">
                   Software / infrastructure
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openAdd("commission")}>
+                <DropdownMenuItem onClick={() => openAdd("commission")} className="rounded-xl text-white/80 hover:text-white hover:bg-white/10 cursor-pointer">
                   Project commission
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -230,16 +230,16 @@ function OpsPage() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         {/* Dominant This Month panel */}
-        <section className="min-w-0 overflow-hidden rounded-xl border border-border/70 bg-card/40">
-          <div className="flex items-end justify-between gap-3 border-b border-border/60 px-5 py-4">
+        <section className="glass-panel min-w-0 overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
+          <div className="flex items-end justify-between gap-3 border-b border-white/10 px-6 py-5">
             <div>
-              <h2 className="text-base font-semibold tracking-tight text-foreground">This month</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
+              <h2 className="text-base font-bold tracking-tight text-white">This month</h2>
+              <p className="mt-0.5 text-xs text-white/50">
                 {formatOpsMonthLabel(month)} · office and software obligations
               </p>
             </div>
-            <p className="text-xs tabular-nums text-muted-foreground">
-              {formatINRWhole(monthTotals.unpaid)} unpaid of {formatINRWhole(monthTotals.due)}
+            <p className="text-xs font-semibold tabular-nums text-white/60">
+              <span className="text-rose-400 font-bold">{formatINRWhole(monthTotals.unpaid)}</span> unpaid of {formatINRWhole(monthTotals.due)}
             </p>
           </div>
 
@@ -268,41 +268,41 @@ function OpsPage() {
 
         {/* Secondary column */}
         <div className="flex min-w-0 flex-col gap-6">
-          <section className="overflow-hidden rounded-xl border border-border/70 bg-card/40">
-            <div className="border-b border-border/60 px-5 py-4">
-              <h2 className="text-base font-semibold tracking-tight text-foreground">Upcoming</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
+          <section className="glass-panel overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
+            <div className="border-b border-white/10 px-6 py-5">
+              <h2 className="text-base font-bold tracking-tight text-white">Upcoming Renewals</h2>
+              <p className="mt-0.5 text-xs text-white/50">
                 Software, domain, and infrastructure renewals · next 30 days
               </p>
             </div>
             {upcoming.length === 0 ? (
-              <p className="px-5 py-8 text-sm text-muted-foreground">
+              <p className="px-6 py-10 text-center text-xs text-white/40">
                 Nothing due in the next 30 days.
               </p>
             ) : (
-              <ul className="divide-y divide-border/50">
+              <ul className="divide-y divide-white/5">
                 {upcoming.map((item) => (
-                  <li key={item.id} className="flex items-start justify-between gap-3 px-5 py-3.5">
+                  <li key={item.id} className="flex items-start justify-between gap-3 px-6 py-4 hover:bg-white/[0.03] transition-colors">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">{item.label}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
+                      <p className="truncate text-sm font-bold text-white">{item.label}</p>
+                      <p className="mt-0.5 text-xs text-white/50">
                         {[item.vendor, recurrenceLabel(item), item.nextDueDate]
                           .filter(Boolean)
                           .join(" · ")}
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-sm font-semibold tabular-nums text-foreground">
+                      <p className="text-sm font-bold tabular-nums text-white">
                         {formatINRWhole(item.amountPerMonth)}
                       </p>
                       <p
                         className={cn(
-                          "mt-0.5 text-[11px] font-medium tabular-nums",
+                          "mt-0.5 text-[11px] font-semibold tabular-nums",
                           item.daysLeft < 0
                             ? "text-rose-400"
                             : item.daysLeft <= 7
-                              ? "text-rose-400/90"
-                              : "text-muted-foreground",
+                              ? "text-rose-400"
+                              : "text-white/40",
                         )}
                       >
                         {item.daysLeft < 0
@@ -318,35 +318,35 @@ function OpsPage() {
             )}
           </section>
 
-          <section className="overflow-hidden rounded-xl border border-border/70 bg-card/40">
-            <div className="border-b border-border/60 px-5 py-4">
-              <h2 className="text-base font-semibold tracking-tight text-foreground">
-                Project commissions
+          <section className="glass-panel overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
+            <div className="border-b border-white/10 px-6 py-5">
+              <h2 className="text-base font-bold tracking-tight text-white">
+                Project Commissions
               </h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
+              <p className="mt-0.5 text-xs text-white/50">
                 Fixed splits · Mark paid never hits Accounts · Log payout is optional
               </p>
             </div>
             {commissions.length === 0 ? (
-              <p className="px-5 py-8 text-sm text-muted-foreground">
+              <p className="px-6 py-10 text-center text-xs text-white/40">
                 No project commission commitments yet.
               </p>
             ) : (
-              <ul className="divide-y divide-border/50">
+              <ul className="divide-y divide-white/5">
                 {commissions.map((item) => {
                   const project = ops.projects.find((p) => p.id === item.projectId);
                   const title = project?.name || project?.client || item.projectId;
                   return (
-                    <li key={item.id} className="space-y-3 px-5 py-4">
+                    <li key={item.id} className="space-y-3 px-6 py-4 hover:bg-white/[0.03] transition-colors">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-foreground">{title}</p>
+                          <p className="truncate text-sm font-bold text-white">{title}</p>
                           {item.label ? (
-                            <p className="mt-0.5 text-xs text-muted-foreground">{item.label}</p>
+                            <p className="mt-0.5 text-xs text-white/50">{item.label}</p>
                           ) : null}
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="text-sm font-semibold tabular-nums">
+                          <p className="text-sm font-bold tabular-nums text-white">
                             {formatINRWhole(commissionTotal(item))}
                           </p>
                           <StatusPill
@@ -447,22 +447,22 @@ function MonthSelector({
   onChange: (month: string) => void;
 }) {
   return (
-    <div className="inline-flex items-center rounded-md border border-border/70 bg-background">
+    <div className="glass-pill inline-flex items-center rounded-2xl border border-white/10 p-1 shadow-lg">
       <button
         type="button"
         aria-label="Previous month"
-        className="inline-flex h-9 w-9 items-center justify-center text-muted-foreground hover:text-foreground"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/50 hover:bg-white/10 hover:text-white transition-colors"
         onClick={() => onChange(shiftMonthKey(month, -1))}
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
-      <span className="min-w-[9.5rem] select-none text-center text-sm font-medium tabular-nums text-foreground">
+      <span className="min-w-[9rem] select-none text-center text-xs font-bold uppercase tracking-wider tabular-nums text-white px-2">
         {formatOpsMonthLabel(month)}
       </span>
       <button
         type="button"
         aria-label="Next month"
-        className="inline-flex h-9 w-9 items-center justify-center text-muted-foreground hover:text-foreground"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/50 hover:bg-white/10 hover:text-white transition-colors"
         onClick={() => onChange(shiftMonthKey(month, 1))}
       >
         <ChevronRight className="h-4 w-4" />
@@ -483,19 +483,19 @@ function Kpi({
   emphasize?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border/70 bg-card/40 px-4 py-4">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+    <div className="glass-card rounded-2xl border border-white/10 p-4 sm:p-5 transition-all duration-200 hover:border-white/20">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-white/50 sm:text-xs">
         {label}
       </p>
       <p
         className={cn(
-          "mt-2 text-xl font-semibold tabular-nums tracking-tight",
-          emphasize ? "text-rose-400" : "text-foreground",
+          "mt-2 text-xl font-black tabular-nums tracking-tight sm:text-2xl",
+          emphasize ? "text-rose-400" : "text-white",
         )}
       >
         {value}
       </p>
-      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-xs text-white/45">{hint}</p> : null}
     </div>
   );
 }

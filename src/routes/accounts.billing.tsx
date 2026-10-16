@@ -15,7 +15,7 @@ function AccountsBillingPage() {
     <div>
       <Link
         to="/accounts"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary"
+        className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10 hover:text-white transition-all active:scale-[0.98]"
       >
         <ChevronLeft className="h-4 w-4" />
         Back to Accounts
@@ -24,7 +24,7 @@ function AccountsBillingPage() {
         title="Billing details"
         description="Ongoing and done projects — search, review, and edit billing per client. In discussions, on hold, and not interested are excluded."
       />
-      <section className="rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
+      <section className="mt-6 rounded-3xl border border-white/10 bg-[#141419]/80 p-5 shadow-xl backdrop-blur-2xl sm:p-6">
         <BillingDetailsLedger ops={ops} persist={persist} />
       </section>
     </div>

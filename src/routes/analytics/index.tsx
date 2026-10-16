@@ -111,16 +111,16 @@ function AnalyticsPage() {
           description="Cash for the window you pick, then outlook and clients."
         />
 
-        <div className="flex flex-col gap-3 border-y border-border/80 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="glass-panel flex flex-col gap-4 rounded-3xl border border-white/10 p-5 shadow-2xl sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-white/50">
               Time window
             </p>
-            <p className="mt-0.5 text-sm font-medium text-foreground">{rangeHint}</p>
+            <p className="mt-0.5 text-sm font-bold text-white">{rangeHint}</p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
             <div
-              className="inline-flex flex-wrap gap-0.5"
+              className="glass-pill inline-flex flex-wrap gap-1 p-1 rounded-2xl border border-white/10"
               role="group"
               aria-label="Analytics time range"
             >
@@ -132,10 +132,10 @@ function AnalyticsPage() {
                     type="button"
                     onClick={() => selectRange(option.value as "all" | "3mo" | "6mo")}
                     className={cn(
-                      "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                      "rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all",
                       active
-                        ? "bg-muted text-foreground"
-                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                        ? "bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-md shadow-orange-500/25"
+                        : "text-white/50 hover:bg-white/10 hover:text-white",
                     )}
                   >
                     {option.label}
@@ -150,18 +150,18 @@ function AnalyticsPage() {
               <SelectTrigger
                 aria-label="Calendar month"
                 className={cn(
-                  "h-9 w-full min-w-[11rem] gap-1.5 rounded-md border-border/80 bg-transparent px-3 text-xs font-medium sm:w-auto",
-                  view.kind === "month" && "bg-muted text-foreground",
+                  "h-9 w-full min-w-[11rem] gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-bold text-white shadow-none sm:w-auto hover:bg-white/10 transition-colors",
+                  view.kind === "month" && "border-orange-500/50 bg-orange-500/10 text-white",
                 )}
               >
-                <SelectValue placeholder="Month…" />
+                <SelectValue placeholder="Pick Month…" />
               </SelectTrigger>
-              <SelectContent align="end" className="bg-popover text-foreground">
+              <SelectContent align="end" className="glass-panel border border-white/10 rounded-2xl p-1 shadow-2xl text-white">
                 {monthOptions.map((value) => (
                   <SelectItem
                     key={value}
                     value={value}
-                    className="text-foreground focus:bg-accent focus:text-foreground"
+                    className="rounded-xl text-white/80 hover:text-white hover:bg-white/10 cursor-pointer"
                   >
                     {formatCalendarMonthLabel(value)}
                   </SelectItem>

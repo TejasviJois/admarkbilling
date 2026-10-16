@@ -211,6 +211,8 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
+const LEAD_TABLE_PAGE_SIZE = 50;
+
 function LeadTable({
   entries,
   emptyMessage,
@@ -232,53 +234,68 @@ function LeadTable({
   onPushWin?: (entry: LeadListEntry) => void;
   startNumber?: number;
 }) {
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(entries.length / LEAD_TABLE_PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+
+  useEffect(() => {
+    if (page >= pageCount) setPage(0);
+  }, [page, pageCount]);
+
+  const pagedEntries = useMemo(() => {
+    const start = safePage * LEAD_TABLE_PAGE_SIZE;
+    return entries.slice(start, start + LEAD_TABLE_PAGE_SIZE);
+  }, [entries, safePage]);
+
+  const pageOffset = safePage * LEAD_TABLE_PAGE_SIZE;
+
   return (
     <>
       {/* Mobile cards */}
-      <div className="space-y-2 md:hidden">
-        {entries.length === 0 ? (
-          <div className="rounded-lg border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+      <div className="space-y-3 md:hidden">
+        {pagedEntries.length === 0 ? (
+          <div className="glass-panel rounded-2xl border border-white/10 px-4 py-12 text-center text-sm text-white/40">
             {emptyMessage}
           </div>
         ) : (
-          entries.map((entry, index) => {
+          pagedEntries.map((entry, index) => {
             const oneLiner = entry.oneLiner?.replace(/^\s*[*•\-–]+\s*/, "").trim();
             return (
               <div
                 key={entry.id}
                 className={cn(
-                  "rounded-lg border border-border bg-card p-3 shadow-sm",
-                  entry.contacted && "opacity-70",
+                  "glass-panel rounded-2xl border border-white/10 p-4 transition-all hover:border-white/20",
+                  entry.contacted && "opacity-60",
                 )}
               >
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] tabular-nums text-muted-foreground">
-                      #{startNumber + index}
-                    </p>
-                    <p className="font-medium leading-snug text-foreground">{entry.title}</p>
+                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-mono text-white/40 bg-white/[0.04] border border-white/10 mb-1">
+                      #{startNumber + pageOffset + index}
+                    </span>
+                    <p className="font-semibold text-white leading-snug">{entry.title}</p>
                     {oneLiner ? (
-                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{oneLiner}</p>
+                      <p className="mt-1 line-clamp-2 text-xs text-white/60 leading-relaxed">{oneLiner}</p>
                     ) : null}
                   </div>
                   <button
                     type="button"
                     onClick={() => onContacted(entry.id, true)}
-                    className="shrink-0 rounded-md border border-border bg-background px-2.5 py-1 text-[11px] font-medium hover:bg-emerald-500/15 hover:text-emerald-600"
+                    className="shrink-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white/80 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-400 transition-all cursor-pointer"
                   >
-                    Yes
+                    Contacted?
                   </button>
                 </div>
-                <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
-                  {entry.phone ? <p>{entry.phone}</p> : null}
-                  {entry.email ? <p className="truncate">{entry.email}</p> : null}
+                <div className="mt-2.5 space-y-0.5 text-xs text-white/50">
+                  {entry.phone ? <p className="font-mono">{entry.phone}</p> : null}
+                  {entry.email ? <p className="truncate font-mono">{entry.email}</p> : null}
                 </div>
-                <div className="mt-3 flex flex-wrap gap-1.5">
+                <div className="mt-3.5 flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
                   {onPushWin ? (
                     <Button
                       type="button"
                       size="sm"
-                      className="h-8 gap-1 px-2.5 text-xs"
+                      className="h-8 gap-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-3 text-xs font-semibold text-white shadow-md shadow-emerald-500/20 hover:brightness-110"
                       onClick={() => onPushWin(entry)}
                     >
                       <Plus className="h-3.5 w-3.5" />
@@ -288,7 +305,7 @@ function LeadTable({
                   <button
                     type="button"
                     onClick={() => onCopy(entry)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/60 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
                     title="Copy"
                   >
                     {copiedId === entry.id ? (
@@ -300,7 +317,7 @@ function LeadTable({
                   <button
                     type="button"
                     onClick={() => onView(entry)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/60 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
                     title="View"
                   >
                     <Eye className="h-4 w-4" />
@@ -309,7 +326,7 @@ function LeadTable({
                     <button
                       type="button"
                       onClick={() => onRemove(entry.id)}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-rose-400"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-400 hover:bg-rose-500/15 transition-all cursor-pointer"
                       title="Remove"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -323,67 +340,72 @@ function LeadTable({
       </div>
 
       {/* Desktop table */}
-      <div className="hidden overflow-hidden rounded-lg border border-border bg-card shadow-sm md:block">
+      <div className="hidden overflow-hidden rounded-2xl border border-white/10 glass-panel md:block shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-sm">
             <thead>
-              <tr className="border-b border-border bg-muted/40 font-medium text-muted-foreground">
-                <th className="w-0 whitespace-nowrap px-3 py-2.5">#</th>
-                <th className="min-w-[16rem] px-3 py-2.5">Title</th>
-                <th className="w-[11rem] px-3 py-2.5">Contact</th>
-                <th className="w-0 whitespace-nowrap px-3 py-2.5">Contacted</th>
-                <th className="w-0 whitespace-nowrap px-3 py-2.5 text-right">Actions</th>
+              <tr className="border-b border-white/10 bg-white/[0.02] text-xs font-semibold uppercase tracking-wider text-white/40">
+                <th className="w-0 whitespace-nowrap px-4 py-3.5">#</th>
+                <th className="min-w-[16rem] px-4 py-3.5">Title & Summary</th>
+                <th className="w-[12rem] px-4 py-3.5">Contact</th>
+                <th className="w-0 whitespace-nowrap px-4 py-3.5 text-center">Status</th>
+                <th className="w-0 whitespace-nowrap px-4 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
-              {entries.length === 0 ? (
+            <tbody className="divide-y divide-white/10">
+              {pagedEntries.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-10 text-center text-muted-foreground">
+                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-white/40">
                     {emptyMessage}
                   </td>
                 </tr>
               ) : (
-                entries.map((entry, index) => {
+                pagedEntries.map((entry, index) => {
                   const oneLiner = entry.oneLiner?.replace(/^\s*[*•\-–]+\s*/, "").trim();
                   return (
                     <tr
                       key={entry.id}
-                      className={cn("hover:bg-muted/30", entry.contacted && "opacity-70")}
+                      className={cn("hover:bg-white/[0.02] transition-colors", entry.contacted && "opacity-60")}
                     >
-                      <td className="whitespace-nowrap px-3 py-2.5 align-middle tabular-nums font-medium text-foreground">
-                        {startNumber + index}
+                      <td className="whitespace-nowrap px-4 py-3 align-middle tabular-nums font-mono text-xs text-white/50">
+                        {startNumber + pageOffset + index}
                       </td>
-                      <td className="px-3 py-2.5 align-middle">
-                        <p className="font-medium leading-snug text-foreground">{entry.title}</p>
+                      <td className="px-4 py-3 align-middle">
+                        <p className="font-semibold leading-snug text-white">{entry.title}</p>
                         {oneLiner ? (
-                          <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                          <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-white/60">
                             {oneLiner}
                           </p>
                         ) : null}
                       </td>
-                      <td className="px-3 py-2.5 align-middle text-muted-foreground">
-                        <div className="space-y-0.5 text-xs leading-relaxed">
-                          {entry.phone ? <p className="break-words">{entry.phone}</p> : null}
-                          {entry.email ? <p className="truncate">{entry.email}</p> : null}
-                          {!entry.phone && !entry.email ? <p>—</p> : null}
+                      <td className="px-4 py-3 align-middle text-white/60">
+                        <div className="space-y-0.5 text-xs leading-relaxed font-mono">
+                          {entry.phone ? <p className="text-white/80">{entry.phone}</p> : null}
+                          {entry.email ? <p className="truncate text-white/50">{entry.email}</p> : null}
+                          {!entry.phone && !entry.email ? <p className="text-white/30">—</p> : null}
                         </div>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2.5 align-middle">
+                      <td className="whitespace-nowrap px-4 py-3 align-middle text-center">
                         <button
                           type="button"
                           onClick={() => onContacted(entry.id, true)}
-                          className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-emerald-500/15 hover:text-emerald-600 dark:hover:text-emerald-400"
+                          className={cn(
+                            "rounded-xl border px-3 py-1 text-xs font-semibold transition-all cursor-pointer",
+                            entry.contacted
+                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                              : "border-white/10 bg-white/[0.03] text-white/70 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-400",
+                          )}
                         >
-                          Yes
+                          {entry.contacted ? "Contacted" : "Mark Yes"}
                         </button>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2.5 align-middle">
-                        <div className="ml-auto flex w-max items-center justify-end gap-0.5">
+                      <td className="whitespace-nowrap px-4 py-3 align-middle">
+                        <div className="ml-auto flex w-max items-center justify-end gap-1.5">
                           {onPushWin ? (
                             <Button
                               type="button"
                               size="sm"
-                              className="h-8 shrink-0 gap-1 px-2.5 text-xs"
+                              className="h-8 shrink-0 gap-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-3 text-xs font-semibold text-white shadow-md shadow-emerald-500/20 hover:brightness-110"
                               onClick={() => onPushWin(entry)}
                             >
                               <Plus className="h-3.5 w-3.5" />
@@ -393,7 +415,7 @@ function LeadTable({
                           <button
                             type="button"
                             onClick={() => onCopy(entry)}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/60 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
                             title="Copy full lead for ChatGPT"
                           >
                             {copiedId === entry.id ? (
@@ -405,7 +427,7 @@ function LeadTable({
                           <button
                             type="button"
                             onClick={() => onView(entry)}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/60 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
                             title="View details"
                           >
                             <Eye className="h-4 w-4" />
@@ -414,7 +436,7 @@ function LeadTable({
                             <button
                               type="button"
                               onClick={() => onRemove(entry.id)}
-                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-rose-500/10 hover:text-rose-400"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-400 hover:bg-rose-500/15 transition-all cursor-pointer"
                               title="Remove"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -430,6 +452,35 @@ function LeadTable({
           </table>
         </div>
       </div>
+
+      {pageCount > 1 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 px-2 pt-2 text-xs text-white/50">
+          <p>
+            Showing {pageOffset + 1}–{Math.min(entries.length, pageOffset + LEAD_TABLE_PAGE_SIZE)} of {entries.length} leads
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={safePage <= 0}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+            >
+              Previous
+            </button>
+            <span className="font-mono text-white/60">
+              {safePage + 1} / {pageCount}
+            </span>
+            <button
+              type="button"
+              disabled={safePage >= pageCount - 1}
+              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -565,7 +616,7 @@ function SalesLeadListPage() {
         nonTechCount={nonTechCount}
       />
       {openLeads.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
+        <div className="glass-panel rounded-2xl border border-dashed border-white/10 py-16 text-center text-sm text-white/40">
           {leadList.length === 0
             ? "No leads yet. Upload a WhatsApp Inner Circle chat export (.zip)."
             : "All open leads are contacted. See Contacted for follow-ups and wins."}
@@ -642,12 +693,12 @@ function LeadListFilters({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
       <div className="relative w-full sm:max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search title, phone, email, category…"
-          className="pl-9"
+          className="pl-10 rounded-xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/40 focus:border-[#ff6b2b]/50 focus:ring-1 focus:ring-[#ff6b2b]"
         />
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -663,16 +714,16 @@ function LeadListFilters({
             type="button"
             onClick={() => setTrackFilter(option.id)}
             className={cn(
-              "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+              "rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer",
               trackFilter === option.id
-                ? "border-primary/40 bg-primary/10 text-foreground"
-                : "border-border text-muted-foreground hover:text-foreground",
+                ? "bg-gradient-to-r from-[#ff6b2b]/15 to-[#ff6b2b]/5 text-[#ff6b2b] border-[#ff6b2b]/30 shadow-[0_0_12px_rgba(255,107,43,0.15)]"
+                : "border-white/10 bg-white/[0.02] text-white/60 hover:text-white hover:bg-white/[0.06]",
             )}
           >
             {option.label}
           </button>
         ))}
-        <p className="w-full text-xs text-muted-foreground sm:w-auto">
+        <p className="w-full text-xs text-white/50 sm:w-auto font-mono">
           {filteredCount} showing
           {leadList.length > 0
             ? ` · ${leadList.filter((entry) => entry.contacted).length} contacted`
@@ -711,17 +762,17 @@ function LeadListSections({
     <div className="space-y-10">
       {showTech ? (
         <section className="space-y-3">
-          <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border pb-2">
+          <div className="flex flex-wrap items-end justify-between gap-2 border-b border-white/10 pb-3">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-white/40">
                 Track
               </p>
-              <h2 className="text-base font-semibold text-foreground">Tech</h2>
-              <p className="text-xs text-muted-foreground">
+              <h2 className="text-lg font-bold text-white">Tech Leads</h2>
+              <p className="text-xs text-white/50">
                 Dev, SEO, web/UI, WordPress, Shopify, CMS
               </p>
             </div>
-            <p className="text-xs tabular-nums text-muted-foreground">{techLeads.length}</p>
+            <p className="text-xs tabular-nums font-mono text-white/50">{techLeads.length} leads</p>
           </div>
           <LeadTable
             entries={techLeads}
@@ -739,23 +790,23 @@ function LeadListSections({
 
       {showTech && showNonTech ? (
         <div className="relative py-1" aria-hidden>
-          <div className="border-t border-dashed border-border" />
+          <div className="border-t border-dashed border-white/10" />
         </div>
       ) : null}
 
       {showNonTech ? (
         <section className="space-y-3">
-          <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border pb-2">
+          <div className="flex flex-wrap items-end justify-between gap-2 border-b border-white/10 pb-3">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-white/40">
                 Track
               </p>
-              <h2 className="text-base font-semibold text-foreground">Non-tech</h2>
-              <p className="text-xs text-muted-foreground">
+              <h2 className="text-lg font-bold text-white">Non-Tech Leads</h2>
+              <p className="text-xs text-white/50">
                 Ads, branding, video, social, PR, marketing
               </p>
             </div>
-            <p className="text-xs tabular-nums text-muted-foreground">{nonTechLeads.length}</p>
+            <p className="text-xs tabular-nums font-mono text-white/50">{nonTechLeads.length} leads</p>
           </div>
           <LeadTable
             entries={nonTechLeads}
@@ -791,12 +842,12 @@ function LeadDetailDialog({
 }) {
   return (
     <Dialog open={selected != null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[min(92vh,900px)] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="max-h-[min(92vh,900px)] overflow-y-auto sm:max-w-3xl rounded-3xl border border-white/10 bg-[#0e0e14]/95 backdrop-blur-2xl text-white shadow-2xl">
         {selected ? (
           <>
             <DialogHeader>
-              <DialogTitle className="pr-6">{selected.title}</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="pr-6 text-xl font-bold text-white">{selected.title}</DialogTitle>
+              <DialogDescription className="text-white/60">
                 {[
                   selected.externalId,
                   classifyLeadListTrack(selected) === "tech" ? "Tech" : "Non-tech",
@@ -807,11 +858,11 @@ function LeadDetailDialog({
                   .join(" · ")}
               </DialogDescription>
             </DialogHeader>
-            <div className="mb-4 flex flex-wrap gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => onCopy(selected)}>
+            <div className="mb-4 flex flex-wrap gap-2 pt-2">
+              <Button type="button" size="sm" variant="outline" className="rounded-xl border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]" onClick={() => onCopy(selected)}>
                 {copiedId === selected.id ? (
                   <>
-                    <Check className="mr-1.5 h-4 w-4" /> Copied
+                    <Check className="mr-1.5 h-4 w-4 text-emerald-400" /> Copied
                   </>
                 ) : (
                   <>
@@ -820,7 +871,7 @@ function LeadDetailDialog({
                 )}
               </Button>
               {onRecordWin ? (
-                <Button type="button" size="sm" onClick={() => onRecordWin(selected)}>
+                <Button type="button" size="sm" className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold hover:brightness-110 shadow-md shadow-emerald-500/20" onClick={() => onRecordWin(selected)}>
                   <Plus className="mr-1.5 h-4 w-4" />
                   Win
                 </Button>
@@ -828,13 +879,14 @@ function LeadDetailDialog({
               <Button
                 type="button"
                 size="sm"
+                className="rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white font-semibold hover:brightness-110 shadow-lg shadow-[#ff6b2b]/20"
                 onClick={() => onContacted(selected.id, true)}
                 disabled={selected.contacted === true}
               >
                 Yes — mark contacted
               </Button>
             </div>
-            <div className="space-y-6">
+            <div className="space-y-5">
               {DETAIL_SECTIONS.map((section) => {
                 const rows = section.keys
                   .map((key) => {
@@ -845,17 +897,17 @@ function LeadDetailDialog({
                   .filter(Boolean) as { key: string; label: string; value: string }[];
                 if (rows.length === 0) return null;
                 return (
-                  <section key={section.title} className="space-y-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <section key={section.title} className="glass-panel rounded-2xl border border-white/10 p-4 space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#ff6b2b]">
                       {section.title}
                     </h3>
-                    <dl className="space-y-3">
+                    <dl className="grid gap-3 sm:grid-cols-2">
                       {rows.map((row) => (
-                        <div key={row.key}>
-                          <dt className="text-[11px] font-medium text-muted-foreground">
+                        <div key={row.key} className={row.value.length > 80 ? "sm:col-span-2" : ""}>
+                          <dt className="text-[11px] font-semibold text-white/40">
                             {row.label}
                           </dt>
-                          <dd className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                          <dd className="mt-0.5 whitespace-pre-wrap text-sm text-white/90 leading-relaxed font-normal">
                             {row.value}
                           </dd>
                         </div>
@@ -1005,7 +1057,7 @@ function AdminLeadListPage() {
             <Button
               type="button"
               size="sm"
-              className="h-10 gap-1.5 rounded-lg px-4"
+              className="h-10 gap-2 rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] px-4 font-semibold text-white shadow-lg shadow-[#ff6b2b]/25 hover:brightness-110 active:scale-95 transition-all"
               disabled={uploading}
               onClick={() => fileRef.current?.click()}
             >
@@ -1013,7 +1065,7 @@ function AdminLeadListPage() {
               {uploading ? "Uploading…" : "Upload chat"}
             </Button>
             {leadList.length > 0 ? (
-              <Button type="button" size="sm" variant="outline" onClick={clearAll}>
+              <Button type="button" size="sm" variant="outline" className="rounded-xl border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]" onClick={clearAll}>
                 Clear list
               </Button>
             ) : null}
@@ -1023,12 +1075,12 @@ function AdminLeadListPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="relative w-full max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search title, phone, email, category…"
-            className="pl-9"
+            className="pl-10 rounded-xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/40 focus:border-[#ff6b2b]/50 focus:ring-1 focus:ring-[#ff6b2b]"
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -1044,16 +1096,16 @@ function AdminLeadListPage() {
               type="button"
               onClick={() => setTrackFilter(option.id)}
               className={cn(
-                "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                "rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer",
                 trackFilter === option.id
-                  ? "border-primary/40 bg-primary/10 text-foreground"
-                  : "border-border text-muted-foreground hover:text-foreground",
+                  ? "bg-gradient-to-r from-[#ff6b2b]/15 to-[#ff6b2b]/5 text-[#ff6b2b] border-[#ff6b2b]/30 shadow-[0_0_12px_rgba(255,107,43,0.15)]"
+                  : "border-white/10 bg-white/[0.02] text-white/60 hover:text-white hover:bg-white/[0.06]",
               )}
             >
               {option.label}
             </button>
           ))}
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-white/50 font-mono">
             {filtered.length} showing
             {leadList.length > 0
               ? ` · ${leadList.filter((entry) => entry.contacted).length} contacted`
@@ -1063,24 +1115,24 @@ function AdminLeadListPage() {
       </div>
 
       {leadList.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
+        <div className="glass-panel rounded-2xl border border-dashed border-white/10 py-16 text-center text-sm text-white/40">
           No leads yet. Upload a WhatsApp chat export (.zip) or Inner Circle Excel.
         </div>
       ) : (
         <div className="space-y-10">
           {trackFilter !== "non_tech" ? (
             <section className="space-y-3">
-              <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border pb-2">
+              <div className="flex flex-wrap items-end justify-between gap-2 border-b border-white/10 pb-3">
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-white/40">
                     Track
                   </p>
-                  <h2 className="text-base font-semibold text-foreground">Tech</h2>
-                  <p className="text-xs text-muted-foreground">
+                  <h2 className="text-lg font-bold text-white">Tech Leads</h2>
+                  <p className="text-xs text-white/50">
                     Dev, SEO, web/UI, WordPress, Shopify, CMS
                   </p>
                 </div>
-                <p className="text-xs tabular-nums text-muted-foreground">{techLeads.length}</p>
+                <p className="text-xs tabular-nums font-mono text-white/50">{techLeads.length} leads</p>
               </div>
               <LeadTable
                 entries={techLeads}
@@ -1097,23 +1149,23 @@ function AdminLeadListPage() {
 
           {trackFilter === "all" ? (
             <div className="relative py-1" aria-hidden>
-              <div className="border-t border-dashed border-border" />
+              <div className="border-t border-dashed border-white/10" />
             </div>
           ) : null}
 
           {trackFilter !== "tech" ? (
             <section className="space-y-3">
-              <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border pb-2">
+              <div className="flex flex-wrap items-end justify-between gap-2 border-b border-white/10 pb-3">
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-white/40">
                     Track
                   </p>
-                  <h2 className="text-base font-semibold text-foreground">Non-tech</h2>
-                  <p className="text-xs text-muted-foreground">
+                  <h2 className="text-lg font-bold text-white">Non-Tech Leads</h2>
+                  <p className="text-xs text-white/50">
                     Ads, branding, video, social, PR, marketing
                   </p>
                 </div>
-                <p className="text-xs tabular-nums text-muted-foreground">{nonTechLeads.length}</p>
+                <p className="text-xs tabular-nums font-mono text-white/50">{nonTechLeads.length} leads</p>
               </div>
               <LeadTable
                 entries={nonTechLeads}
@@ -1131,12 +1183,12 @@ function AdminLeadListPage() {
       )}
 
       <Dialog open={selected != null} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="max-h-[min(92vh,900px)] overflow-y-auto sm:max-w-3xl">
+        <DialogContent className="max-h-[min(92vh,900px)] overflow-y-auto sm:max-w-3xl rounded-3xl border border-white/10 bg-[#0e0e14]/95 backdrop-blur-2xl text-white shadow-2xl">
           {selected ? (
             <>
               <DialogHeader>
-                <DialogTitle className="pr-6">{selected.title}</DialogTitle>
-                <DialogDescription>
+                <DialogTitle className="pr-6 text-xl font-bold text-white">{selected.title}</DialogTitle>
+                <DialogDescription className="text-white/60">
                   {[
                     selected.externalId,
                     classifyLeadListTrack(selected) === "tech" ? "Tech" : "Non-tech",
@@ -1147,16 +1199,17 @@ function AdminLeadListPage() {
                     .join(" · ")}
                 </DialogDescription>
               </DialogHeader>
-              <div className="mb-4 flex flex-wrap gap-2">
+              <div className="mb-4 flex flex-wrap gap-2 pt-2">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
+                  className="rounded-xl border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"
                   onClick={() => void handleCopy(selected)}
                 >
                   {copiedId === selected.id ? (
                     <>
-                      <Check className="mr-1.5 h-4 w-4" /> Copied
+                      <Check className="mr-1.5 h-4 w-4 text-emerald-400" /> Copied
                     </>
                   ) : (
                     <>
@@ -1167,13 +1220,14 @@ function AdminLeadListPage() {
                 <Button
                   type="button"
                   size="sm"
+                  className="rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white font-semibold hover:brightness-110 shadow-lg shadow-[#ff6b2b]/20"
                   onClick={() => setContacted(selected.id, true)}
                   disabled={selected.contacted === true}
                 >
                   Yes — mark contacted
                 </Button>
               </div>
-              <div className="space-y-6">
+              <div className="space-y-5">
                 {DETAIL_SECTIONS.map((section) => {
                   const rows = section.keys
                     .map((key) => {
@@ -1184,17 +1238,17 @@ function AdminLeadListPage() {
                     .filter(Boolean) as { key: string; label: string; value: string }[];
                   if (rows.length === 0) return null;
                   return (
-                    <section key={section.title} className="space-y-3">
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <section key={section.title} className="glass-panel rounded-2xl border border-white/10 p-4 space-y-3">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[#ff6b2b]">
                         {section.title}
                       </h3>
-                      <dl className="space-y-3">
+                      <dl className="grid gap-3 sm:grid-cols-2">
                         {rows.map((row) => (
-                          <div key={row.key}>
-                            <dt className="text-[11px] font-medium text-muted-foreground">
+                          <div key={row.key} className={row.value.length > 80 ? "sm:col-span-2" : ""}>
+                            <dt className="text-[11px] font-semibold text-white/40">
                               {row.label}
                             </dt>
-                            <dd className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                            <dd className="mt-0.5 whitespace-pre-wrap text-sm text-white/90 leading-relaxed font-normal">
                               {row.value}
                             </dd>
                           </div>

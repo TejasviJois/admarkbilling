@@ -20,17 +20,17 @@ export function AnalyticsPageHeader({
         {backTo !== "/analytics" && (
           <Link
             to={backTo}
-            className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/50 transition-colors hover:text-white"
           >
             <ChevronLeft className="h-4 w-4" />
             Back to analytics
           </Link>
         )}
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+        <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
           {title}
         </h1>
         {description && (
-          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-white/60">
             {description}
           </p>
         )}
@@ -40,7 +40,7 @@ export function AnalyticsPageHeader({
   );
 }
 
-/** Quiet chapter — top-to-bottom reading order without heavy chrome. */
+/** Quiet chapter — top-to-bottom reading order with frosted glass panel. */
 export function AnalyticsChapter({
   step,
   title,
@@ -55,16 +55,16 @@ export function AnalyticsChapter({
   className?: string;
 }) {
   return (
-    <section className={cn("space-y-4", className)}>
-      <header className="space-y-1 border-b border-border/80 pb-3">
+    <section className={cn("glass-panel rounded-3xl p-6 border border-white/10 space-y-5 shadow-2xl", className)}>
+      <header className="space-y-1 border-b border-white/10 pb-4">
         <div className="flex items-baseline gap-2.5">
-          <span className="text-[11px] font-medium tabular-nums text-muted-foreground/70">
+          <span className="text-xs font-bold tabular-nums px-2 py-0.5 rounded-full bg-white/5 text-[#ff6b2b] border border-[#ff6b2b]/20">
             {step}
           </span>
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>
+          <h2 className="text-lg font-bold tracking-tight text-white">{title}</h2>
         </div>
         {subtitle ? (
-          <p className="pl-[1.65rem] text-sm text-muted-foreground">{subtitle}</p>
+          <p className="pl-[2rem] text-xs text-white/50">{subtitle}</p>
         ) : null}
       </header>
       {children}
@@ -81,7 +81,7 @@ export function AnalyticsKpiSection({
 }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-white/40">
         {title}
       </h2>
       {children}
@@ -104,7 +104,7 @@ export function AnalyticsKpiGrid({
   className?: string;
 }) {
   return (
-    <div className={cn("grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border/80 bg-border/80 xl:grid-cols-4", className)}>
+    <div className={cn("grid grid-cols-2 gap-3 xl:grid-cols-4", className)}>
       {items.map((item) => {
         const Icon = item.icon;
         const valueClass =
@@ -113,49 +113,51 @@ export function AnalyticsKpiGrid({
             : item.tone === "negative"
               ? "text-rose-400"
               : item.tone === "accent"
-                ? "text-sky-300"
-                : "text-foreground";
+                ? "text-sky-400"
+                : "text-white";
         const iconClass =
           item.tone === "positive"
-            ? "text-emerald-400/70"
+            ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
             : item.tone === "negative"
-              ? "text-rose-400/70"
+              ? "text-rose-400 bg-rose-500/10 border-rose-500/20"
               : item.tone === "accent"
-                ? "text-sky-400/70"
-                : "text-muted-foreground";
+                ? "text-sky-400 bg-sky-500/10 border-sky-500/20"
+                : "text-white/70 bg-white/5 border-white/10";
 
         const body = (
           <>
             <div className="flex items-start justify-between gap-2">
-              <p className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">
+              <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-white/50 sm:text-xs">
                 {item.label}
               </p>
-              <Icon className={cn("h-3.5 w-3.5 shrink-0", iconClass)} aria-hidden />
+              <span className={cn("p-1.5 rounded-lg border", iconClass)}>
+                <Icon className="h-4 w-4" aria-hidden />
+              </span>
             </div>
-            <p className={cn("mt-1.5 text-lg font-semibold tabular-nums sm:mt-2 sm:text-2xl", valueClass)}>
+            <p className={cn("mt-2 text-xl font-black tabular-nums tracking-tight sm:text-2xl", valueClass)}>
               {item.value}
             </p>
             {item.hint && (
-              <p className="mt-1 text-[10px] leading-snug text-muted-foreground sm:text-[11px]">
+              <p className="mt-1 text-[11px] leading-snug text-white/45">
                 {item.hint}
               </p>
             )}
           </>
         );
 
-        const cellClass =
-          "bg-background p-3 transition-colors sm:p-4 hover:bg-muted/20";
+        const cardClass =
+          "glass-card rounded-2xl p-4 sm:p-5 border border-white/10 hover:border-white/20 transition-all block";
 
         if (item.to) {
           return (
-            <Link key={item.label} to={item.to} className={cn(cellClass, "group block")}>
+            <Link key={item.label} to={item.to} className={cn(cardClass, "group hover:translate-y-[-2px]")}>
               {body}
             </Link>
           );
         }
 
         return (
-          <div key={item.label} className={cellClass}>
+          <div key={item.label} className={cardClass}>
             {body}
           </div>
         );

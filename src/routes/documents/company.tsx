@@ -97,7 +97,7 @@ function DocumentsCompanyPage() {
         }
       />
 
-      <section className="rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
+      <section className="rounded-3xl border border-white/10 bg-[#141419]/80 p-6 shadow-xl backdrop-blur-2xl sm:p-7">
         <ComplianceDocumentsPanel
           company={company}
           onUdyamUpload={handleUdyamPdf}

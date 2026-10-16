@@ -43,7 +43,7 @@ function isSafeHttpUrl(u: string): boolean {
 }
 
 const btnRow =
-  "inline-flex items-center gap-1.5 rounded-md border border-input bg-card px-2.5 py-1.5 text-xs font-medium hover:bg-secondary";
+  "inline-flex items-center gap-1.5 rounded-xl border border-white/10 glass-card px-3 py-1.5 text-xs font-semibold text-white/80 transition-colors hover:border-white/25 hover:text-white";
 
 function AgreementFileLinks({
   fileDataUrl,
@@ -211,11 +211,11 @@ export function AgreementsPanel({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-foreground">Agreements</h2>
+        <h2 className="text-xs font-bold uppercase tracking-wider text-white/50">Stored Agreements</h2>
         <Button
           type="button"
           size="sm"
-          className="h-10 gap-1.5 rounded-lg px-4"
+          className="h-10 gap-1.5 rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] px-4 font-bold text-white shadow-lg shadow-[#ff6b2b]/20 hover:shadow-[0_0_20px_rgba(255,107,43,0.4)] transition-all"
           onClick={openAdd}
           disabled={saving}
         >
@@ -231,39 +231,39 @@ export function AgreementsPanel({
           else setFormOpen(true);
         }}
       >
-        <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-lg">
-          <DialogHeader className="border-b border-border/80 px-5 py-4 text-left">
-            <DialogTitle className="text-base font-semibold tracking-tight">
+        <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto border-white/10 bg-[#121217]/95 p-0 sm:max-w-lg backdrop-blur-2xl">
+          <DialogHeader className="border-b border-white/10 px-6 py-4 text-left">
+            <DialogTitle className="text-base font-bold tracking-tight text-white">
               {editingId ? "Edit agreement" : "New agreement"}
             </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Attach a file or paste a link.
+            <DialogDescription className="text-xs text-white/50">
+              Attach a PDF/document file or paste a secure cloud link.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 px-5 py-4">
-            <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-4 px-6 py-5">
+            <div className="grid gap-3.5 sm:grid-cols-2">
               <label className="block sm:col-span-2">
-                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</span>
+                <span className="mb-1.5 block text-xs font-semibold text-white/60">Title</span>
                 <input
                   value={form.title}
                   onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
                   placeholder="e.g. Website development MOU"
-                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-sm outline-none focus:border-border"
+                  className="h-9 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-[#ff6b2b]/50"
                 />
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                <span className="mb-1.5 block text-xs font-semibold text-white/60">
                   Counterparty
                 </span>
                 <input
                   value={form.counterpartyName}
                   onChange={(e) => setForm((p) => ({ ...p, counterpartyName: e.target.value }))}
                   placeholder="Client / partner / vendor name"
-                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-sm outline-none focus:border-border"
+                  className="h-9 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-[#ff6b2b]/50"
                 />
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Type</span>
+                <span className="mb-1.5 block text-xs font-semibold text-white/60">Type</span>
                 <select
                   value={form.counterpartyType}
                   onChange={(e) =>
@@ -272,39 +272,39 @@ export function AgreementsPanel({
                       counterpartyType: e.target.value as AgreementCounterpartyType,
                     }))
                   }
-                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-sm outline-none focus:border-border"
+                  className="h-9 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-[#ff6b2b]/50"
                 >
                   {COUNTERPARTY_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
+                    <option key={t.value} value={t.value} className="bg-[#16161c]">
                       {t.label}
                     </option>
                   ))}
                 </select>
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                <span className="mb-1.5 block text-xs font-semibold text-white/60">
                   Signed date
                 </span>
                 <input
                   type="date"
                   value={form.signedDate ?? ""}
                   onChange={(e) => setForm((p) => ({ ...p, signedDate: e.target.value }))}
-                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-sm outline-none focus:border-border"
+                  className="h-9 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-[#ff6b2b]/50 [color-scheme:dark]"
                 />
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                <span className="mb-1.5 block text-xs font-semibold text-white/60">
                   Expiry (optional)
                 </span>
                 <input
                   type="date"
                   value={form.expiryDate ?? ""}
                   onChange={(e) => setForm((p) => ({ ...p, expiryDate: e.target.value }))}
-                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-sm outline-none focus:border-border"
+                  className="h-9 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-[#ff6b2b]/50 [color-scheme:dark]"
                 />
               </label>
               <label className="block sm:col-span-2">
-                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                <span className="mb-1.5 block text-xs font-semibold text-white/60">
                   Or paste a link
                 </span>
                 <input
@@ -317,28 +317,28 @@ export function AgreementsPanel({
                     }))
                   }
                   placeholder="https://…"
-                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-sm outline-none focus:border-border"
+                  className="h-9 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-[#ff6b2b]/50"
                 />
               </label>
               <label className="block sm:col-span-2">
-                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Notes</span>
+                <span className="mb-1.5 block text-xs font-semibold text-white/60">Notes</span>
                 <textarea
                   value={form.notes ?? ""}
                   onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                   rows={2}
-                  className="w-full rounded-md border border-border/80 bg-background px-3 py-2 text-sm outline-none focus:border-border"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-[#ff6b2b]/50"
                 />
               </label>
             </div>
 
             <div>
-              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">File</span>
+              <span className="mb-1.5 block text-xs font-semibold text-white/60">File</span>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex h-9 w-full items-center gap-2 rounded-md border border-dashed border-border/80 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+                className="flex h-10 w-full items-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-3.5 text-sm text-white/60 transition-colors hover:border-[#ff6b2b]/40 hover:text-white"
               >
-                <Upload className="h-3.5 w-3.5 shrink-0" />
+                <Upload className="h-4 w-4 shrink-0 text-[#ff6b2b]" />
                 <span className="truncate">
                   {form.fileName ?? (form.fileDataUrl ? "Replace file" : "Choose file (max 5MB)")}
                 </span>
@@ -352,11 +352,17 @@ export function AgreementsPanel({
               />
             </div>
 
-            <DialogFooter className="gap-2 border-t border-border/80 pt-4 sm:justify-end">
-              <Button type="button" size="sm" variant="outline" onClick={resetForm}>
+            <DialogFooter className="gap-2 border-t border-white/10 pt-4 sm:justify-end">
+              <Button type="button" size="sm" variant="outline" className="rounded-xl border-white/10 glass-card text-white hover:bg-white/5" onClick={resetForm}>
                 Cancel
               </Button>
-              <Button type="button" size="sm" onClick={() => void save()} disabled={saving}>
+              <Button
+                type="button"
+                size="sm"
+                className="rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white font-bold"
+                onClick={() => void save()}
+                disabled={saving}
+              >
                 {saving ? "Saving…" : editingId ? "Update" : "Save"}
               </Button>
             </DialogFooter>
@@ -365,26 +371,26 @@ export function AgreementsPanel({
       </Dialog>
 
       {agreements.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/80 py-12 text-center text-sm text-muted-foreground">
+        <div className="rounded-2xl border border-white/10 glass-panel py-16 text-center text-sm text-white/40">
           No agreements stored yet. Add your first contract or MOU.
-        </p>
+        </div>
       ) : (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {agreements.map((a) => (
             <li
               key={a.id}
-              className="rounded-xl border border-border/80 bg-card/40 p-4 transition-colors hover:border-border hover:bg-card/70"
+              className="rounded-2xl border border-white/10 glass-panel p-5 transition-all duration-300 hover:border-white/20 hover:scale-[1.01] hover:shadow-xl"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-semibold text-foreground">{a.title}</p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
+                  <p className="font-bold text-white text-base">{a.title}</p>
+                  <p className="mt-1 text-xs text-white/60">
                     {a.counterpartyName}
-                    <span className="mx-1.5 text-border">·</span>
-                    <span className="capitalize">{a.counterpartyType}</span>
+                    <span className="mx-1.5 text-white/30">·</span>
+                    <span className="capitalize font-semibold text-[#ff6b2b]">{a.counterpartyType}</span>
                   </p>
                   {(a.signedDate || a.expiryDate) && (
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1.5 text-[11px] font-mono text-white/40">
                       {a.signedDate && `Signed ${a.signedDate}`}
                       {a.signedDate && a.expiryDate && " · "}
                       {a.expiryDate && `Expires ${a.expiryDate}`}
@@ -395,7 +401,7 @@ export function AgreementsPanel({
                   <button
                     type="button"
                     onClick={() => openEdit(a)}
-                    className="rounded-md p-1.5 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                    className="rounded-lg p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
                     title="Edit"
                   >
                     <Pencil className="h-4 w-4" />
@@ -403,14 +409,14 @@ export function AgreementsPanel({
                   <button
                     type="button"
                     onClick={() => remove(a.id)}
-                    className="rounded-md p-1.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-400"
+                    className="rounded-lg p-1.5 text-white/50 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
                     title="Remove"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2 pt-3 border-t border-white/5">
                 {safeHref(a.externalUrl) && (
                   <a
                     href={safeHref(a.externalUrl)}

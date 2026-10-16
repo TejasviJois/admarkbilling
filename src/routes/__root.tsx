@@ -41,6 +41,8 @@ import { isServerApiConfigured } from "@/lib/backend-status-cache";
 import { logoutFn, type PortalRole } from "@/server/auth-fns";
 import { safeLocalStorageSet } from "@/lib/browser-storage";
 import { LoadingDog } from "@/components/ui/loading-dog";
+import { useOperations } from "@/hooks/use-operations";
+import { useMeetingNotifications } from "@/lib/meeting-notifications";
 
 function NotFoundComponent() {
   const router = useRouter();
@@ -170,10 +172,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 const navLinkClass = (active: boolean) => {
   const base =
-    "flex w-full items-center justify-start gap-2.5 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200";
+    "flex w-full items-center justify-start gap-2.5 rounded-xl px-4 py-2.5 text-sm transition-all duration-300";
   const tone = active
-    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
-    : "text-muted-foreground hover:bg-muted hover:text-foreground";
+    ? "bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-lg shadow-orange-500/30 font-bold"
+    : "text-white/60 hover:bg-white/[0.06] hover:text-white font-medium";
   return `${base} ${tone}`;
 };
 
@@ -197,8 +199,8 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/lead-list", label: "Lead List" },
       { to: "/directory", label: "Directory" },
       { to: "/contacted", label: "Contacted" },
-      { to: "/leads", label: "Pipeline" },
       { to: "/clients", label: "Clients" },
+      { to: "/leads", label: "Pipeline" },
     ],
   },
   {
@@ -313,9 +315,7 @@ function SidebarNavigation({
   }
 
   const renderGroup = (group: NavGroup) => {
-    const items = group.items.filter(
-      (item) => item.to !== "/partnerships" || showPartnerships,
-    );
+    const items = group.items;
     const expanded = expandedGroups.includes(group.id);
     const active = items.some((item) => isActive(item.to, item.exact));
     const GroupIcon = group.icon;
@@ -329,10 +329,10 @@ function SidebarNavigation({
           aria-controls={regionId}
           title="Expand section. Hold Shift to keep other sections open."
           onClick={(event) => onToggleGroup(group.id, event.shiftKey)}
-          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 ${
             active
-              ? "bg-primary/10 text-primary"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              ? "border border-orange-500/25 bg-orange-500/15 text-orange-400 shadow-inner"
+              : "text-white/60 hover:bg-white/[0.06] hover:text-white"
           }`}
         >
           <GroupIcon className="h-4 w-4 shrink-0" strokeWidth={2} />
@@ -350,7 +350,7 @@ function SidebarNavigation({
           }`}
         >
           <div className="overflow-hidden">
-            <div className="ml-5 space-y-0.5 border-l border-border/80 pb-1 pl-3 pt-0.5">
+            <div className="ml-5 space-y-0.5 border-l border-white/10 pb-1 pl-3 pt-0.5">
               {items.map(({ to, label, exact }) => {
                 const childActive = isActive(to, exact);
                 return (
@@ -361,15 +361,15 @@ function SidebarNavigation({
                     tabIndex={expanded ? 0 : -1}
                     aria-current={childActive ? "page" : undefined}
                     onClick={onNavigate}
-                    className={`flex items-center gap-2 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors ${
+                    className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] transition-all ${
                       childActive
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        ? "bg-gradient-to-r from-orange-500 to-amber-600 font-bold text-white shadow-md shadow-orange-500/20"
+                        : "font-medium text-white/60 hover:bg-white/[0.06] hover:text-white"
                     }`}
                   >
                     <Circle
                       className={`h-1.5 w-1.5 shrink-0 ${
-                        childActive ? "fill-current" : "fill-muted-foreground/35"
+                        childActive ? "fill-current" : "fill-white/30"
                       }`}
                     />
                     {label}
@@ -385,7 +385,7 @@ function SidebarNavigation({
 
   return (
     <nav className="flex-1 overflow-y-auto px-3 py-5" aria-label="Primary navigation">
-      <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/70">
+      <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-orange-400/80">
         Daily Work
       </p>
       <Link
@@ -402,7 +402,7 @@ function SidebarNavigation({
         {NAV_GROUPS.filter((group) => group.section === "Daily Work").map(renderGroup)}
       </div>
 
-      <p className="mb-2 mt-6 border-t border-border/70 px-3 pt-5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/70">
+      <p className="mb-2 mt-6 border-t border-white/10 px-3 pt-5 text-[10px] font-bold uppercase tracking-[0.16em] text-orange-400/80">
         Business Intelligence
       </p>
       <div className="space-y-1">
@@ -416,21 +416,19 @@ function SidebarNavigation({
           <BarChart3 className="h-4 w-4 shrink-0" />
           Analytics
         </Link>
-        {showValuation && (
-          <Link
-            to="/valuation"
-            preload="intent"
-            aria-current={isActive("/valuation") ? "page" : undefined}
-            onClick={onNavigate}
-            className={navLinkClass(isActive("/valuation"))}
-          >
-            <TrendingUp className="h-4 w-4 shrink-0" />
-            Company Valuation
-          </Link>
-        )}
+        <Link
+          to="/valuation"
+          preload="intent"
+          aria-current={isActive("/valuation") ? "page" : undefined}
+          onClick={onNavigate}
+          className={navLinkClass(isActive("/valuation"))}
+        >
+          <TrendingUp className="h-4 w-4 shrink-0" />
+          Company Valuation
+        </Link>
       </div>
 
-      <p className="mb-2 mt-6 border-t border-border/70 px-3 pt-5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/70">
+      <p className="mb-2 mt-6 border-t border-white/10 px-3 pt-5 text-[10px] font-bold uppercase tracking-[0.16em] text-orange-400/80">
         System
       </p>
       <div className="space-y-1">
@@ -464,6 +462,8 @@ function AppShell() {
   });
 
   const { company } = useCompany();
+  const { ops } = useOperations();
+  useMeetingNotifications(ops?.scheduleEvents);
 
   const brandLogo = companyLogoSrc(company);
   const isLogin = path === "/login";
@@ -580,20 +580,32 @@ function AppShell() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
+    <div className="relative flex min-h-screen bg-[#0e0e14] text-foreground selection:bg-orange-500/30 selection:text-orange-200">
+      {/* Dynamic Ambient Gradient Meshes (Powers frosted glassmorphism across all pages) */}
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
+        {/* Top Right Amber/Orange aura */}
+        <div className="absolute -right-32 -top-40 h-[650px] w-[650px] rounded-full bg-gradient-to-br from-[#ff6b2b]/15 via-[#f04400]/05 to-transparent blur-[140px]" />
+        {/* Mid Left Violet/Indigo aura */}
+        <div className="absolute -left-32 top-1/3 h-[600px] w-[600px] rounded-full bg-gradient-to-tr from-indigo-600/10 via-purple-600/05 to-transparent blur-[150px]" />
+        {/* Bottom Right Emerald/Teal aura */}
+        <div className="absolute -bottom-32 right-1/4 h-[550px] w-[550px] rounded-full bg-gradient-to-tl from-emerald-500/08 via-teal-500/04 to-transparent blur-[140px]" />
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.03)_1px,transparent_1px)] [background-size:28px_28px] opacity-60" />
+      </div>
+
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden flex-col border-r border-border bg-card shrink-0 sticky top-0 h-screen overflow-hidden transition-[width] duration-200 ${
+        className={`hidden flex-col border-r border-white/[0.08] bg-[#121217]/75 backdrop-blur-2xl shrink-0 sticky top-0 h-screen overflow-hidden transition-[width] duration-300 z-20 shadow-[10px_0_30px_-10px_rgba(0,0,0,0.5)] ${
           sidebarCollapsed ? "md:flex w-0 border-r-0" : "md:flex w-64"
         }`}
       >
         <div className="flex h-full w-64 shrink-0 flex-col">
-          <div className="flex h-16 items-center border-b border-border px-6">
+          <div className="flex h-16 items-center border-b border-white/[0.08] px-6">
             <Link to={homePath} className="flex items-center shrink-0">
               <img
                 src={brandLogo}
-                alt="Admark Digitals Logo"
-                className="h-10 w-auto max-h-10 object-contain"
+                alt="Admark Logo"
+                className="h-8 w-auto max-h-9 object-contain drop-shadow-[0_2px_12px_rgba(255,107,43,0.35)]"
               />
             </Link>
           </div>
@@ -612,14 +624,14 @@ function AppShell() {
       {/* Right Area */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Header Bar */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:h-16 sm:px-6">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-white/[0.08] bg-[#121217]/70 px-4 backdrop-blur-2xl supports-[backdrop-filter]:bg-[#121217]/60 sm:h-16 sm:px-6">
           {/* Left: Mobile branding */}
           <div className="flex items-center gap-3 md:hidden">
             <Link to={homePath} className="flex items-center shrink-0">
               <img
                 src={brandLogo}
-                alt="Admark Digitals Logo"
-                className="h-9 w-auto object-contain"
+                alt="Admark Logo"
+                className="h-7 w-auto object-contain drop-shadow-[0_2px_10px_rgba(255,107,43,0.3)]"
               />
             </Link>
           </div>
@@ -628,7 +640,7 @@ function AppShell() {
             <button
               type="button"
               onClick={toggleSidebar}
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-xl border border-white/10 bg-white/5 p-2 text-white/70 transition-colors hover:border-orange-500/30 hover:bg-white/10 hover:text-white"
               aria-label={sidebarCollapsed ? "Open sidebar" : "Close sidebar"}
               title={sidebarCollapsed ? "Open sidebar" : "Close sidebar"}
             >
@@ -638,7 +650,7 @@ function AppShell() {
                 <PanelLeftClose className="h-5 w-5" />
               )}
             </button>
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest bg-muted/60 px-2.5 py-1 rounded">
+            <span className="text-[11px] font-bold text-orange-400 uppercase tracking-widest bg-orange-500/10 border border-orange-500/20 px-3 py-1 rounded-full shadow-inner">
               Admark Operating System
             </span>
           </div>
@@ -651,7 +663,7 @@ function AppShell() {
                 <SheetTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-sm transition-colors hover:bg-muted"
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white shadow-sm transition-colors hover:bg-white/10"
                     aria-expanded={mobileMenuOpen}
                     aria-label="Open sidebar menu"
                   >
@@ -660,9 +672,9 @@ function AppShell() {
                 </SheetTrigger>
                 <SheetContent
                   side="left"
-                  className="flex w-full max-w-[min(100vw,20rem)] flex-col sm:max-w-sm"
+                  className="flex w-full max-w-[min(100vw,20rem)] flex-col border-r border-white/10 bg-[#141419]/95 text-white backdrop-blur-3xl sm:max-w-sm"
                 >
-                  <SheetTitle className="text-left font-bold text-foreground border-b border-border pb-3 flex items-center gap-2">
+                  <SheetTitle className="text-left font-bold text-white border-b border-white/10 pb-3 flex items-center gap-2">
                     Navigation Menu
                   </SheetTitle>
                   <SidebarNavigation
@@ -674,14 +686,14 @@ function AppShell() {
                     salesOnly={salesOnly}
                     onNavigate={() => setMobileMenuOpen(false)}
                   />
-                  <div className="border-t border-border pt-4">
+                  <div className="border-t border-white/10 pt-4">
                     <button
                       type="button"
                       onClick={() => {
                         setMobileMenuOpen(false);
                         handleSignOut();
                       }}
-                      className="inline-flex w-full items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-500/10 transition-colors"
+                      className="inline-flex w-full items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-rose-400 hover:bg-rose-500/10 transition-colors"
                     >
                       <LogOut className="h-4 w-4" />
                       <span>Sign out</span>
@@ -695,7 +707,7 @@ function AppShell() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="hidden md:inline-flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-xs font-bold hover:bg-muted text-foreground transition-all duration-200"
+              className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400 text-white transition-all duration-200"
               aria-label="Sign out"
             >
               <LogOut className="h-4 w-4 shrink-0" strokeWidth={2.5} />
@@ -727,12 +739,16 @@ function AppShell() {
           className={
             path === "/settings"
               ? "flex min-h-0 flex-1 flex-col overflow-hidden"
-              : "flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-8"
+              : "flex-1 overflow-y-auto px-2.5 py-3 sm:px-6 sm:py-8"
           }
         >
           <div
             className={
-              path === "/settings" ? "flex h-full min-h-0 flex-1 flex-col" : "mx-auto w-full min-w-0 max-w-6xl"
+              path === "/settings"
+                ? "flex h-full min-h-0 flex-1 flex-col"
+                : path === "/"
+                  ? "mx-auto w-full min-w-0 max-w-[1720px]"
+                  : "mx-auto w-full min-w-0 max-w-6xl"
             }
           >
             <Outlet />

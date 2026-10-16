@@ -31,6 +31,7 @@ import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as AccountsRouteImport } from './routes/accounts'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as DocumentsIndexRouteImport } from './routes/documents/index'
 import { Route as ClientsIndexRouteImport } from './routes/clients.index'
 import { Route as AnalyticsIndexRouteImport } from './routes/analytics/index'
@@ -168,6 +169,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProjectsRoute,
 } as any)
 const DocumentsIndexRoute = DocumentsIndexRouteImport.update({
   id: '/documents/',
@@ -350,6 +356,7 @@ export interface FileRoutesByFullPath {
   '/analytics/': typeof AnalyticsIndexRoute
   '/clients/': typeof ClientsIndexRoute
   '/documents/': typeof DocumentsIndexRoute
+  '/projects/': typeof ProjectsIndexRoute
   '/documents/clients/$id': typeof DocumentsClientsIdRoute
   '/documents/proposals/$companyKey': typeof DocumentsProposalsCompanyKeyRoute
   '/invoice/$id/edit': typeof InvoiceIdEditRoute
@@ -379,7 +386,6 @@ export interface FileRoutesByTo {
   '/ops': typeof OpsRoute
   '/partnerships': typeof PartnershipsRoute
   '/pipeline-history': typeof PipelineHistoryRoute
-  '/projects': typeof ProjectsRouteWithChildren
   '/reminders': typeof RemindersRoute
   '/settings': typeof SettingsRoute
   '/team': typeof TeamRoute
@@ -399,6 +405,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof AnalyticsIndexRoute
   '/clients': typeof ClientsIndexRoute
   '/documents': typeof DocumentsIndexRoute
+  '/projects': typeof ProjectsIndexRoute
   '/documents/clients/$id': typeof DocumentsClientsIdRoute
   '/documents/proposals/$companyKey': typeof DocumentsProposalsCompanyKeyRoute
   '/invoice/$id/edit': typeof InvoiceIdEditRoute
@@ -451,6 +458,7 @@ export interface FileRoutesById {
   '/analytics/': typeof AnalyticsIndexRoute
   '/clients/': typeof ClientsIndexRoute
   '/documents/': typeof DocumentsIndexRoute
+  '/projects/': typeof ProjectsIndexRoute
   '/documents/clients/$id': typeof DocumentsClientsIdRoute
   '/documents/proposals/$companyKey': typeof DocumentsProposalsCompanyKeyRoute
   '/invoice_/$id/edit': typeof InvoiceIdEditRoute
@@ -504,6 +512,7 @@ export interface FileRouteTypes {
     | '/analytics/'
     | '/clients/'
     | '/documents/'
+    | '/projects/'
     | '/documents/clients/$id'
     | '/documents/proposals/$companyKey'
     | '/invoice/$id/edit'
@@ -533,7 +542,6 @@ export interface FileRouteTypes {
     | '/ops'
     | '/partnerships'
     | '/pipeline-history'
-    | '/projects'
     | '/reminders'
     | '/settings'
     | '/team'
@@ -553,6 +561,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/clients'
     | '/documents'
+    | '/projects'
     | '/documents/clients/$id'
     | '/documents/proposals/$companyKey'
     | '/invoice/$id/edit'
@@ -604,6 +613,7 @@ export interface FileRouteTypes {
     | '/analytics/'
     | '/clients/'
     | '/documents/'
+    | '/projects/'
     | '/documents/clients/$id'
     | '/documents/proposals/$companyKey'
     | '/invoice_/$id/edit'
@@ -819,6 +829,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/projects/': {
+      id: '/projects/'
+      path: '/'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof ProjectsIndexRouteImport
+      parentRoute: typeof ProjectsRoute
     }
     '/documents/': {
       id: '/documents/'
@@ -1043,10 +1060,12 @@ const ClientsRouteWithChildren =
 
 interface ProjectsRouteChildren {
   ProjectsIdRoute: typeof ProjectsIdRoute
+  ProjectsIndexRoute: typeof ProjectsIndexRoute
 }
 
 const ProjectsRouteChildren: ProjectsRouteChildren = {
   ProjectsIdRoute: ProjectsIdRoute,
+  ProjectsIndexRoute: ProjectsIndexRoute,
 }
 
 const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(

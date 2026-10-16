@@ -15,12 +15,15 @@ export function OperationsPageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-col items-start gap-3 sm:mb-8 sm:flex-row sm:justify-between sm:gap-4">
+    <div className="mb-6 flex flex-col items-start gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
       <div className="min-w-0 flex-1">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl md:text-3xl">
-          {title}
-        </h1>
-        <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground md:mt-2 md:text-[15px]">
+        <div className="flex items-center gap-3">
+          <span className="h-6 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-[#ff6b2b] to-[#f04400] shadow-[0_0_12px_#ff6b2b]" />
+          <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl md:text-3xl">
+            {title}
+          </h1>
+        </div>
+        <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-white/60 md:mt-2 md:text-sm">
           {description}
         </p>
       </div>
@@ -58,15 +61,17 @@ export function DataSection({
 
   const headerBody = (
     <>
-      <span className="mt-0.5 shrink-0">{icon}</span>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-orange-500/20 bg-orange-500/10 text-orange-400 shadow-inner">
+        {icon}
+      </span>
       <div className="min-w-0 flex-1">
-        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        <h2 className="text-base font-bold tracking-tight text-white sm:text-lg">{title}</h2>
+        <p className="mt-0.5 text-xs text-white/50">{description}</p>
       </div>
       {collapsible && (
         <ChevronDown
           className={cn(
-            "mt-1 h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200",
+            "mt-1 h-5 w-5 shrink-0 text-white/40 transition-transform duration-200",
             open && "rotate-180",
           )}
           aria-hidden
@@ -79,9 +84,9 @@ export function DataSection({
     return (
       <section
         id={id}
-        className="scroll-mt-24 rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6"
+        className="scroll-mt-24 rounded-[28px] border border-white/[0.08] bg-[#141419]/80 p-6 shadow-2xl backdrop-blur-2xl transition-all duration-300 hover:border-white/15 sm:p-7"
       >
-        <div className="mb-5 flex items-start justify-between gap-3">
+        <div className="mb-5 flex items-start justify-between gap-3 border-b border-white/5 pb-4">
           <div className="flex min-w-0 flex-1 items-start gap-3">{headerBody}</div>
           {action ? <div className="shrink-0">{action}</div> : null}
         </div>
@@ -94,13 +99,13 @@ export function DataSection({
     <Collapsible open={open} onOpenChange={setOpen}>
       <section
         id={id}
-        className="scroll-mt-24 rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6"
+        className="scroll-mt-24 rounded-[28px] border border-white/[0.08] bg-[#141419]/80 p-6 shadow-2xl backdrop-blur-2xl transition-all duration-300 hover:border-white/15 sm:p-7"
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 border-b border-white/5 pb-4">
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="flex min-w-0 flex-1 items-start gap-3 rounded-md text-left transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="flex min-w-0 flex-1 items-start gap-3 rounded-xl text-left transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40"
               aria-expanded={open}
             >
               {headerBody}
@@ -131,7 +136,7 @@ export function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id} className="text-xs text-muted-foreground">
+      <Label htmlFor={id} className="text-xs font-semibold uppercase tracking-wider text-white/50">
         {label}
       </Label>
       {children}
@@ -149,12 +154,12 @@ export function DataTable({
   footerRow?: React.ReactNode[];
 }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <div className="overflow-x-auto rounded-2xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl shadow-lg">
       <table className="w-full min-w-[32rem] text-sm">
-        <thead className="border-b border-border bg-muted/60 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <thead className="border-b border-white/[0.08] bg-white/[0.03] text-left text-[11px] font-bold uppercase tracking-wider text-white/50">
           <tr>
             {headers.map((h) => (
-              <th key={h} className="px-4 py-3 font-normal">
+              <th key={h} className="px-4 py-3 font-semibold">
                 {h}
               </th>
             ))}
@@ -162,9 +167,9 @@ export function DataTable({
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i} className="border-t border-border transition-colors hover:bg-muted/30">
+            <tr key={i} className="border-t border-white/5 transition-colors hover:bg-white/[0.04]">
               {row.map((cell, j) => (
-                <td key={j} className="px-4 py-3 text-foreground">
+                <td key={j} className="px-4 py-3 text-xs text-white">
                   {cell}
                 </td>
               ))}
@@ -173,9 +178,9 @@ export function DataTable({
         </tbody>
         {footerRow ? (
           <tfoot>
-            <tr className="border-t border-border bg-muted/30 font-medium">
+            <tr className="border-t border-white/10 bg-white/[0.03] text-xs font-bold text-white">
               {footerRow.map((cell, j) => (
-                <td key={j} className="px-4 py-3 text-foreground">
+                <td key={j} className="px-4 py-3">
                   {cell}
                 </td>
               ))}
@@ -189,7 +194,7 @@ export function DataTable({
 
 export function StatusPill({ label }: { label: string }) {
   return (
-    <span className="inline-flex rounded-full bg-primary/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
+    <span className="inline-flex rounded-full border border-orange-500/30 bg-orange-500/15 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-orange-400 shadow-[0_0_8px_rgba(255,107,43,0.2)]">
       {label}
     </span>
   );
@@ -210,25 +215,34 @@ export function ContactLinks({
   const legacy = legacyContact?.trim();
 
   if (!tel && !mail && !legacy) {
-    return <span className="text-xs text-muted-foreground">—</span>;
+    return <span className="text-xs text-white/40">—</span>;
   }
 
   return (
-    <div className="flex min-w-[8rem] flex-col gap-0.5 text-xs">
+    <div className="flex min-w-[6rem] max-w-[14rem] flex-col gap-0.5 text-xs">
       {tel && (
         <a
           href={`tel:${tel.replace(/\s/g, "")}`}
-          className="font-medium text-primary hover:underline"
+          className="truncate font-medium text-orange-400 transition-colors hover:text-orange-300 hover:underline"
+          title={tel}
         >
           {tel}
         </a>
       )}
       {mail && (
-        <a href={`mailto:${mail}`} className="text-primary hover:underline">
+        <a
+          href={`mailto:${mail}`}
+          className="truncate break-all text-white/60 transition-colors hover:text-orange-400 hover:underline"
+          title={mail}
+        >
           {mail}
         </a>
       )}
-      {!tel && !mail && legacy && <span className="text-muted-foreground">{legacy}</span>}
+      {!tel && !mail && legacy && (
+        <span className="truncate text-white/40" title={legacy}>
+          {legacy}
+        </span>
+      )}
     </div>
   );
 }
@@ -238,10 +252,10 @@ export function RowEdit({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary/15 hover:text-primary"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition-all hover:border-orange-500/40 hover:bg-orange-500/20 hover:text-white"
       aria-label="Edit"
     >
-      <Pencil className="h-4 w-4" />
+      <Pencil className="h-3.5 w-3.5" />
     </button>
   );
 }
@@ -251,17 +265,17 @@ export function RowDelete({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition-all hover:border-rose-500/40 hover:bg-rose-500/20 hover:text-rose-400"
       aria-label="Remove"
     >
-      <Trash2 className="h-4 w-4" />
+      <Trash2 className="h-3.5 w-3.5" />
     </button>
   );
 }
 
 export function EmptyRow({ message }: { message: string }) {
   return (
-    <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+    <p className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-8 text-center text-xs text-white/40">
       {message}
     </p>
   );

@@ -33,12 +33,25 @@ export function cacheDelPrefix(prefix: string): void {
   }
 }
 
+const inFlight = new Map<string, Promise<unknown>>();
+
 export async function cacheThrough<T>(key: string, loader: () => Promise<T>): Promise<T> {
   const hit = cacheGet<T>(key);
   if (hit !== undefined) return hit;
-  const value = await loader();
-  cacheSet(key, value);
-  return value;
+
+  let existing = inFlight.get(key) as Promise<T> | undefined;
+  if (!existing) {
+    existing = loader()
+      .then((value) => {
+        cacheSet(key, value);
+        return value;
+      })
+      .finally(() => {
+        inFlight.delete(key);
+      });
+    inFlight.set(key, existing);
+  }
+  return existing;
 }
 
 export const CACHE_KEYS = {

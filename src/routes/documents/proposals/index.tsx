@@ -34,33 +34,31 @@ function DocumentsProposalsPage() {
 
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500/10 text-rose-400">
-              <FolderOpen className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+          <div className="flex items-center gap-3">
+            <span className="h-6 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-[#ff6b2b] to-[#f04400] shadow-[0_0_12px_#ff6b2b]" />
+            <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
               Proposals & quotations
             </h1>
           </div>
-          <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+          <p className="mt-1.5 max-w-xl text-xs text-white/50 md:text-sm">
             One folder per company. When they win, open it and press Proceed.
           </p>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
+        <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center lg:w-auto">
           <div className="relative min-w-0 flex-1 sm:w-64 lg:w-72">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search companies…"
-              className="h-10 w-full rounded-lg border border-border/80 bg-card/40 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-border"
+              className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] pl-9 pr-3 text-sm text-white placeholder:text-white/30 outline-none focus:border-[#ff6b2b]/50 focus:ring-1 focus:ring-[#ff6b2b]/20 transition-all"
               aria-label="Search companies"
             />
           </div>
           <button
             type="button"
             onClick={() => setUploadOpen(true)}
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] px-5 text-sm font-semibold text-white shadow-[0_0_15px_rgba(255,107,43,0.3)] hover:brightness-110 transition-all active:scale-[0.98]"
           >
             <Plus className="h-4 w-4" />
             Upload

@@ -36,18 +36,18 @@ function DocumentsClientDetailPage() {
       />
 
       {projects.length > 0 && totalContractValue > 0 && (
-        <section className="mb-6 rounded-lg border border-border bg-card p-4 shadow-sm">
-          <p className="text-sm text-muted-foreground">
+        <section className="mb-6 rounded-3xl border border-white/10 bg-[#141419]/80 p-5 shadow-xl backdrop-blur-2xl">
+          <p className="text-xs font-medium uppercase tracking-wider text-white/50">
             Total project value across {projects.length} project{projects.length === 1 ? "" : "s"}
           </p>
-          <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+          <p className="mt-1 text-2xl font-bold tabular-nums text-white">
             {formatINRWhole(totalContractValue)}
           </p>
         </section>
       )}
 
-      <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
-        <h2 className="mb-4 text-sm font-semibold text-foreground">Payment history</h2>
+      <section className="rounded-3xl border border-white/10 bg-[#141419]/80 p-5 shadow-xl backdrop-blur-2xl sm:p-6">
+        <h2 className="mb-4 text-base font-bold text-white">Payment history</h2>
         <ClientPaymentHistoryTable rows={rows} ops={ops} persist={persist} />
       </section>
     </div>

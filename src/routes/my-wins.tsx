@@ -91,12 +91,12 @@ function MyWinsPage() {
       />
 
       {commissions.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
+        <div className="glass-panel rounded-2xl border border-dashed border-white/10 py-16 text-center text-sm text-white/40">
           No wins yet. Mark Contacted on Lead List or Directory, then record Win with the closed price.
         </div>
       ) : (
         <>
-          <div className="space-y-2 md:hidden">
+          <div className="space-y-3 md:hidden">
             {commissions.map((commission) => {
               const project = projects.find((item) => item.id === commission.projectId);
               const closedPrice = project?.billing?.contractValue;
@@ -105,39 +105,39 @@ function MyWinsPage() {
               return (
                 <div
                   key={commission.id}
-                  className="rounded-lg border border-border bg-card p-3 shadow-sm"
+                  className="glass-panel rounded-2xl border border-white/10 p-4 transition-all hover:border-white/20"
                 >
-                  <p className="font-medium text-foreground">
+                  <p className="font-semibold text-white">
                     {project?.name || project?.client || commission.label || commission.projectId}
                   </p>
                   {project?.client && project.client !== project.name ? (
-                    <p className="text-xs text-muted-foreground">{project.client}</p>
+                    <p className="text-xs text-white/50">{project.client}</p>
                   ) : null}
-                  <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                  <dl className="mt-3 grid grid-cols-2 gap-2 text-xs pt-2 border-t border-white/10">
                     <div>
-                      <dt className="text-muted-foreground">Closed price</dt>
-                      <dd className="tabular-nums text-foreground">
+                      <dt className="text-white/40">Closed price</dt>
+                      <dd className="tabular-nums font-mono font-semibold text-emerald-400">
                         {closedPrice != null ? formatINRWhole(closedPrice) : "—"}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-muted-foreground">Commission</dt>
-                      <dd className="tabular-nums text-muted-foreground">
+                      <dt className="text-white/40">Commission</dt>
+                      <dd className="tabular-nums font-mono text-white/70">
                         {total > 0 ? formatINRWhole(total) : "Admin sets"}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-muted-foreground">Status</dt>
-                      <dd className="capitalize text-foreground">{commission.status}</dd>
+                      <dt className="text-white/40">Status</dt>
+                      <dd className="capitalize font-medium text-white/80">{commission.status}</dd>
                     </div>
                   </dl>
-                  <div className="mt-3">
+                  <div className="mt-3.5 pt-2 border-t border-white/10">
                     {canRevert ? (
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="h-8 gap-1.5 text-xs"
+                        className="h-8 gap-1.5 text-xs rounded-xl border-white/10 bg-white/[0.04] text-white/70 hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400"
                         disabled={revertingId === commission.id}
                         onClick={() => revert(commission)}
                       >
@@ -145,7 +145,7 @@ function MyWinsPage() {
                         {revertingId === commission.id ? "Reverting…" : "Revert"}
                       </Button>
                     ) : (
-                      <span className="text-xs text-muted-foreground">Paid — ask admin</span>
+                      <span className="text-xs text-emerald-400 font-medium">Paid — ask admin</span>
                     )}
                   </div>
                 </div>
@@ -153,55 +153,61 @@ function MyWinsPage() {
             })}
           </div>
 
-          <div className="hidden overflow-hidden rounded-lg border border-border md:block">
+          <div className="hidden overflow-hidden rounded-2xl border border-white/10 glass-panel md:block shadow-xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
-                    <th className="px-4 py-3 font-medium">Project</th>
-                    <th className="px-4 py-3 font-medium">Closed price</th>
-                    <th className="px-4 py-3 font-medium">Commission</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 text-right font-medium">Actions</th>
+                  <tr className="border-b border-white/10 bg-white/[0.02] text-xs font-semibold uppercase tracking-wider text-white/40">
+                    <th className="px-4 py-3.5">Project</th>
+                    <th className="px-4 py-3.5">Closed price</th>
+                    <th className="px-4 py-3.5">Commission</th>
+                    <th className="px-4 py-3.5">Status</th>
+                    <th className="px-4 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-white/10">
                   {commissions.map((commission) => {
                     const project = projects.find((item) => item.id === commission.projectId);
                     const closedPrice = project?.billing?.contractValue;
                     const total = commissionTotal(commission);
                     const canRevert = commission.status === "planned";
                     return (
-                      <tr key={commission.id}>
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-foreground">
+                      <tr key={commission.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-4 py-3 align-middle">
+                          <p className="font-semibold text-white">
                             {project?.name ||
                               project?.client ||
                               commission.label ||
                               commission.projectId}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-white/50">
                             {project?.client && project.client !== project.name
                               ? project.client
                               : null}
                           </p>
                         </td>
-                        <td className="px-4 py-3 tabular-nums text-foreground">
+                        <td className="px-4 py-3 align-middle tabular-nums font-mono font-semibold text-emerald-400">
                           {closedPrice != null ? formatINRWhole(closedPrice) : "—"}
                         </td>
-                        <td className="px-4 py-3 tabular-nums text-muted-foreground">
+                        <td className="px-4 py-3 align-middle tabular-nums font-mono text-white/70">
                           {total > 0 ? formatINRWhole(total) : "Admin sets"}
                         </td>
-                        <td className="px-4 py-3 capitalize text-muted-foreground">
-                          {commission.status}
+                        <td className="px-4 py-3 align-middle capitalize text-xs">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-semibold border ${
+                            commission.status === "paid" 
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                              : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                          }`}>
+                            {commission.status}
+                          </span>
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 align-middle text-right">
                           {canRevert ? (
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
-                              className="h-8 gap-1.5 text-xs"
+                              className="h-8 gap-1.5 text-xs rounded-xl border-white/10 bg-white/[0.04] text-white/70 hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400"
                               disabled={revertingId === commission.id}
                               onClick={() => revert(commission)}
                             >
@@ -209,7 +215,7 @@ function MyWinsPage() {
                               {revertingId === commission.id ? "Reverting…" : "Revert"}
                             </Button>
                           ) : (
-                            <span className="text-xs text-muted-foreground">Paid — ask admin</span>
+                            <span className="text-xs font-semibold text-emerald-400">Paid</span>
                           )}
                         </td>
                       </tr>

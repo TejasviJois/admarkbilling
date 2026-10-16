@@ -3,6 +3,8 @@
  * Primary: admark.portal_users (when migration applied).
  * Fallback: settings.feature_toggles.portalUsers (works without SQL migrate).
  */
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { expectedPassword, expectedUsername, normalizeUsername } from "./app-auth-credentials";
 import { getSupabaseServerConfig } from "./env";
 import { hashPassword } from "./password-hash";
@@ -233,12 +235,47 @@ async function tryUpsertTable(user: PortalUser): Promise<boolean> {
   }
 }
 
+const AUTH_DIR = resolve(process.cwd(), ".data");
+const LOCAL_USERS_FILE = resolve(AUTH_DIR, "portal-users.json");
+let memoryUsers: PortalUser[] = [];
+
+function readLocalUsers(): PortalUser[] {
+  try {
+    if (!existsSync(LOCAL_USERS_FILE)) return memoryUsers;
+    const raw = readFileSync(LOCAL_USERS_FILE, "utf8");
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return memoryUsers;
+    const users = parsed.map(parseToggleUser).filter((user): user is PortalUser => user != null);
+    if (users.length > 0) {
+      memoryUsers = users;
+      return users;
+    }
+    return memoryUsers;
+  } catch {
+    return memoryUsers;
+  }
+}
+
+function writeLocalUsers(users: PortalUser[]): void {
+  memoryUsers = users;
+  try {
+    if (!existsSync(AUTH_DIR)) {
+      mkdirSync(AUTH_DIR, { recursive: true });
+    }
+    writeFileSync(LOCAL_USERS_FILE, `${JSON.stringify(users, null, 2)}\n`, "utf8");
+  } catch {
+    // In-memory fallback remains active
+  }
+}
+
 /** List all portal users (secrets included — server only). */
 export async function listPortalUsers(): Promise<PortalUser[]> {
   const fromTable = await tryListFromTable();
   if (fromTable && fromTable.length > 0) return fromTable;
   const fromToggles = await readFeatureToggleUsers();
   if (fromToggles.length > 0) return fromToggles;
+  const fromLocal = readLocalUsers();
+  if (fromLocal.length > 0) return fromLocal;
   return fromTable ?? [];
 }
 
@@ -258,6 +295,10 @@ export async function findPortalUserById(id: string): Promise<PortalUser | null>
 }
 
 async function persistUsers(users: PortalUser[]): Promise<void> {
+  if (!getSupabaseServerConfig()) {
+    writeLocalUsers(users);
+    return;
+  }
   await writeFeatureToggleUsers(users);
   for (const user of users) {
     await tryUpsertTable(user);

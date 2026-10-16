@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   AlertTriangle,
   BadgeIndianRupee,
@@ -37,12 +37,6 @@ import {
 import type { ValuationAuditEntry, ValuationSettings, ValuationSnapshot } from "@/lib/types";
 
 export const Route = createFileRoute("/valuation")({
-  beforeLoad: async () => {
-    const company = await loadCompany();
-    if (company.companyValuationEnabled !== true) {
-      throw redirect({ to: "/analytics" });
-    }
-  },
   component: CompanyValuationPage,
 });
 
@@ -99,7 +93,7 @@ function KpiCard({
   value,
   hint,
   icon,
-  tone = "text-foreground",
+  tone = "text-white",
 }: {
   label: string;
   value: string;
@@ -109,15 +103,15 @@ function KpiCard({
 }) {
   return (
     <div
-      className="rounded-xl border border-border bg-card p-4 shadow-sm"
+      className="glass-card rounded-2xl border border-white/10 p-5 transition-all duration-200 hover:border-white/20"
       title={`${label}: ${hint}`}
     >
-      <div className="flex items-center justify-between text-muted-foreground">
-        <span className="text-[11px] font-bold uppercase tracking-wider">{label}</span>
-        {icon}
+      <div className="flex items-center justify-between text-white/50">
+        <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
+        <div className="p-1.5 rounded-lg border border-white/10 bg-white/5">{icon}</div>
       </div>
-      <p className={`mt-3 text-2xl font-extrabold tabular-nums ${tone}`}>{value}</p>
-      <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">{hint}</p>
+      <p className={`mt-2 text-2xl font-black tabular-nums tracking-tight ${tone}`}>{value}</p>
+      <p className="mt-1 text-xs leading-relaxed text-white/45">{hint}</p>
     </div>
   );
 }
@@ -192,8 +186,14 @@ function CompanyValuationPage() {
         description="Conservative internal management estimate using actual financial performance and audited assumptions."
         action={
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={recordSnapshot}>
-              <Save className="mr-1.5 h-4 w-4" /> Record snapshot
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={recordSnapshot}
+              className="rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10"
+            >
+              <Save className="mr-1.5 h-4 w-4 text-[#ff6b2b]" /> Record snapshot
             </Button>
             <Button
               type="button"
@@ -204,6 +204,7 @@ function CompanyValuationPage() {
                   m.exportValuationPdf(result, settings, snapshots),
                 )
               }
+              className="rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10"
             >
               <Download className="mr-1.5 h-4 w-4" /> PDF
             </Button>
@@ -216,6 +217,7 @@ function CompanyValuationPage() {
                   m.exportValuationExcel(result, settings, snapshots),
                 )
               }
+              className="rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10"
             >
               <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
             </Button>
@@ -228,6 +230,7 @@ function CompanyValuationPage() {
                   m.exportValuationCsv(result, settings, snapshots),
                 )
               }
+              className="rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10"
             >
               CSV
             </Button>
@@ -235,8 +238,8 @@ function CompanyValuationPage() {
         }
       />
 
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
-        <strong>Internal estimate only.</strong> {VALUATION_DISCLAIMER}
+      <div className="glass-card rounded-2xl border border-amber-500/20 bg-amber-500/5 px-5 py-3.5 text-xs leading-relaxed text-amber-300">
+        <strong className="font-bold text-amber-200">Internal estimate only.</strong> {VALUATION_DISCLAIMER}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -244,22 +247,22 @@ function CompanyValuationPage() {
           label="Estimated Company Valuation"
           value={formatINRWhole(result.estimatedValuation)}
           hint={`Hybrid value after goodwill, startup premium and total ${result.riskDeductionPercent.toFixed(1)}% capped risk deduction`}
-          icon={<BadgeIndianRupee className="h-5 w-5 text-primary" />}
-          tone="text-primary"
+          icon={<BadgeIndianRupee className="h-5 w-5 text-[#ff6b2b]" />}
+          tone="text-[#ff6b2b]"
         />
         <KpiCard
           label="Net Worth"
           value={formatINRWhole(result.netWorth)}
           hint="Assets minus liabilities; displayed independently from valuation"
-          icon={<Scale className="h-5 w-5 text-violet-500" />}
-          tone={result.netWorth >= 0 ? "text-violet-500" : "text-rose-600"}
+          icon={<Scale className="h-5 w-5 text-violet-400" />}
+          tone={result.netWorth >= 0 ? "text-violet-400" : "text-rose-400"}
         />
         <KpiCard
           label="Enterprise Value"
           value={formatINRWhole(result.enterpriseValue)}
           hint="Equity valuation plus loan debt minus ledger cash"
-          icon={<Building2 className="h-5 w-5 text-sky-500" />}
-          tone="text-sky-500"
+          icon={<Building2 className="h-5 w-5 text-sky-400" />}
+          tone="text-sky-400"
         />
         <KpiCard
           label="Valuation Confidence"
@@ -275,25 +278,25 @@ function CompanyValuationPage() {
           label="Net Asset Value"
           value={formatINRWhole(result.assetValue)}
           hint="Net asset method"
-          icon={<Landmark className="h-4 w-4 text-muted-foreground" />}
+          icon={<Landmark className="h-4 w-4 text-white/50" />}
         />
         <KpiCard
           label="Goodwill Value"
           value={formatINRWhole(result.goodwillValue)}
           hint={`Score ${result.metrics.goodwillScore.toFixed(0)}/100`}
-          icon={<Gauge className="h-4 w-4 text-muted-foreground" />}
+          icon={<Gauge className="h-4 w-4 text-white/50" />}
         />
         <KpiCard
           label="Revenue Multiple Value"
           value={formatINRWhole(result.revenueMultipleValue)}
           hint={`${settings.revenueMultiple.toFixed(2)}x ${result.annualRevenueBasis} annual revenue`}
-          icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
+          icon={<TrendingUp className="h-4 w-4 text-white/50" />}
         />
         <KpiCard
           label="EBITDA Value"
           value={formatINRWhole(result.ebitdaValue)}
           hint={`${settings.ebitdaMultiple.toFixed(2)}x normalized EBITDA`}
-          icon={<CircleDollarSign className="h-4 w-4 text-muted-foreground" />}
+          icon={<CircleDollarSign className="h-4 w-4 text-white/50" />}
         />
         <KpiCard
           label="Startup Premium"
@@ -303,26 +306,26 @@ function CompanyValuationPage() {
               ? "All ownership, team and recurring-revenue tests passed"
               : "10% applies only when every startup eligibility test passes"
           }
-          icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
-          tone="text-emerald-600"
+          icon={<TrendingUp className="h-4 w-4 text-white/50" />}
+          tone="text-emerald-400"
         />
         <KpiCard
           label="Risk Deduction"
           value={`-${formatINRWhole(result.riskDeductionValue)}`}
           hint={`${result.riskDeductionPercent.toFixed(1)}% combined deduction; maximum 35%`}
-          icon={<AlertTriangle className="h-4 w-4 text-muted-foreground" />}
-          tone="text-rose-600"
+          icon={<AlertTriangle className="h-4 w-4 text-white/50" />}
+          tone="text-rose-400"
         />
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="h-auto w-full flex-wrap justify-start">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="methods">Methods</TabsTrigger>
-          <TabsTrigger value="health">Health & Risk</TabsTrigger>
-          <TabsTrigger value="explain">Explainability</TabsTrigger>
-          <TabsTrigger value="history">History & Audit</TabsTrigger>
-          <TabsTrigger value="settings">Admin Settings</TabsTrigger>
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="glass-pill h-auto w-full flex-wrap justify-start gap-1 p-1 rounded-2xl border border-white/10 bg-transparent">
+          <TabsTrigger value="overview" className="rounded-xl px-4 py-2 text-xs font-bold text-white/60 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff6b2b] data-[state=active]:to-[#f04400] data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-orange-500/25 transition-all">Overview</TabsTrigger>
+          <TabsTrigger value="methods" className="rounded-xl px-4 py-2 text-xs font-bold text-white/60 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff6b2b] data-[state=active]:to-[#f04400] data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-orange-500/25 transition-all">Methods</TabsTrigger>
+          <TabsTrigger value="health" className="rounded-xl px-4 py-2 text-xs font-bold text-white/60 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff6b2b] data-[state=active]:to-[#f04400] data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-orange-500/25 transition-all">Health & Risk</TabsTrigger>
+          <TabsTrigger value="explain" className="rounded-xl px-4 py-2 text-xs font-bold text-white/60 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff6b2b] data-[state=active]:to-[#f04400] data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-orange-500/25 transition-all">Explainability</TabsTrigger>
+          <TabsTrigger value="history" className="rounded-xl px-4 py-2 text-xs font-bold text-white/60 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff6b2b] data-[state=active]:to-[#f04400] data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-orange-500/25 transition-all">History & Audit</TabsTrigger>
+          <TabsTrigger value="settings" className="rounded-xl px-4 py-2 text-xs font-bold text-white/60 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff6b2b] data-[state=active]:to-[#f04400] data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-orange-500/25 transition-all">Admin Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-5">
@@ -615,36 +618,36 @@ function CompanyValuationPage() {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[800px] text-xs">
-                <thead className="bg-muted/50 text-left uppercase text-muted-foreground">
+                <thead className="bg-white/[0.03] text-left uppercase text-white/50 border-b border-white/10">
                   <tr>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Field</th>
-                    <th className="px-4 py-3">Old Value</th>
-                    <th className="px-4 py-3">New Value</th>
-                    <th className="px-4 py-3">User</th>
-                    <th className="px-4 py-3">Reason</th>
+                    <th className="px-4 py-3 font-semibold">Date</th>
+                    <th className="px-4 py-3 font-semibold">Field</th>
+                    <th className="px-4 py-3 font-semibold">Old Value</th>
+                    <th className="px-4 py-3 font-semibold">New Value</th>
+                    <th className="px-4 py-3 font-semibold">User</th>
+                    <th className="px-4 py-3 font-semibold">Reason</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-white/5">
                   {[...auditEntries]
                     .sort((a, b) => b.timestamp - a.timestamp)
                     .map((entry) => (
-                      <tr key={entry.id}>
-                        <td className="whitespace-nowrap px-4 py-3">
+                      <tr key={entry.id} className="hover:bg-white/[0.03] transition-colors">
+                        <td className="whitespace-nowrap px-4 py-3 text-white/80">
                           {new Date(entry.timestamp).toLocaleString("en-IN")}
                         </td>
-                        <td className="px-4 py-3 font-semibold">{entry.field}</td>
-                        <td className="max-w-48 truncate px-4 py-3 text-muted-foreground">
+                        <td className="px-4 py-3 font-semibold text-white">{entry.field}</td>
+                        <td className="max-w-48 truncate px-4 py-3 text-white/40">
                           {entry.oldValue}
                         </td>
-                        <td className="max-w-48 truncate px-4 py-3">{entry.newValue}</td>
-                        <td className="px-4 py-3">{entry.actor}</td>
-                        <td className="px-4 py-3">{entry.reason}</td>
+                        <td className="max-w-48 truncate px-4 py-3 text-orange-400 font-medium">{entry.newValue}</td>
+                        <td className="px-4 py-3 text-white/70">{entry.actor}</td>
+                        <td className="px-4 py-3 text-white/60">{entry.reason}</td>
                       </tr>
                     ))}
                   {auditEntries.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                      <td colSpan={6} className="px-4 py-10 text-center text-white/40">
                         No manual valuation changes have been saved.
                       </td>
                     </tr>
@@ -664,7 +667,7 @@ function CompanyValuationPage() {
         </TabsContent>
       </Tabs>
 
-      <footer className="rounded-xl border border-border bg-muted/15 p-4 text-[11px] leading-relaxed text-muted-foreground">
+      <footer className="glass-card rounded-2xl border border-white/10 p-4 text-[11px] leading-relaxed text-white/50">
         {VALUATION_DISCLAIMER}
       </footer>
     </div>

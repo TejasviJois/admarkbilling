@@ -162,12 +162,11 @@ function TeamPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-[27px] font-semibold leading-tight tracking-tight text-foreground">
-            Team
+          <h1 className="text-2xl font-black leading-tight tracking-tight text-white md:text-3xl">
+            Team & Payroll
           </h1>
-          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Salary tracker from June 2026 onward. Record what you actually paid each month — kept
-            separate from Accounts.
+          <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-white/60">
+            Salary tracker and member directory. Record actual payments each month — kept separate from public accounts.
           </p>
         </div>
         <Button
@@ -175,49 +174,49 @@ function TeamPage() {
             setEditing(null);
             setDialogOpen(true);
           }}
-          className="gap-2"
+          className="gap-2 rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-lg shadow-orange-500/25 hover:brightness-110 active:scale-95 font-bold transition-all px-4"
         >
           <Plus className="h-4 w-4" /> Add Team Member
         </Button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Active team" value={String(activeMembers.length)} />
+        <Stat label="Active Team" value={String(activeMembers.length)} />
         <Stat
-          label="Monthly base payroll"
+          label="Monthly Base Payroll"
           value={formatINRWhole(monthlyBase)}
           hint={`${onPayroll.length} on payroll`}
         />
-        <Stat label="This month marked paid" value={`${markedThisMonth} of ${onPayroll.length}`} />
+        <Stat label="This Month Marked Paid" value={`${markedThisMonth} of ${onPayroll.length}`} />
       </div>
 
       {company.projectAssignmentsEnabled === true && (
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" className="gap-2">
+          <Button asChild variant="outline" className="gap-2 rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10">
             <Link to="/team/assignments">Open Project Assignments</Link>
           </Button>
         </div>
       )}
 
-      <section className="overflow-hidden rounded-xl border border-border/70 bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+      <section className="glass-panel overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-6 py-5">
           <div>
-            <h2 className="text-[15px] font-semibold text-foreground">Salary tracker · {year}</h2>
-            <p className="mt-1 text-[12px] text-muted-foreground">
-              Click a month to record full, partial, or extra pay.
+            <h2 className="text-base font-bold text-white">Salary Tracker · {year}</h2>
+            <p className="mt-0.5 text-xs text-white/50">
+              Click a month cell to record full, partial, or extra pay.
             </p>
           </div>
-          <div className="inline-flex rounded-lg bg-muted/60 p-0.5">
+          <div className="glass-pill inline-flex rounded-xl border border-white/10 p-1">
             {yearOptions.map((option) => (
               <button
                 key={option}
                 type="button"
                 onClick={() => setYear(option)}
                 className={cn(
-                  "rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors",
+                  "rounded-lg px-3 py-1 text-xs font-bold transition-all",
                   option === year
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-md shadow-orange-500/25"
+                    : "text-white/50 hover:bg-white/10 hover:text-white",
                 )}
               >
                 {option}
@@ -227,17 +226,17 @@ function TeamPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[13px]">
+          <table className="w-full border-collapse text-xs">
             <thead>
-              <tr className="border-y border-border/60 text-left text-[11px] font-medium text-muted-foreground">
-                <th className="px-5 py-2.5 font-medium">Employee</th>
-                <th className="px-3 py-2.5 font-medium">Monthly pay</th>
+              <tr className="border-y border-white/10 bg-white/[0.02] text-left text-[11px] font-bold uppercase tracking-wider text-white/50">
+                <th className="px-5 py-3 font-semibold">Employee</th>
+                <th className="px-3 py-3 font-semibold">Monthly pay</th>
                 {monthKeys.map((month) => (
                   <th
                     key={month}
                     className={cn(
-                      "px-1.5 py-2.5 text-center font-medium",
-                      month === thisMonth && "bg-muted/40 text-foreground",
+                      "px-1.5 py-3 text-center font-semibold",
+                      month === thisMonth && "bg-orange-500/10 text-orange-400 border-x border-orange-500/20",
                     )}
                   >
                     {shortMonthLabel(month)}
@@ -250,7 +249,7 @@ function TeamPage() {
                 <tr>
                   <td
                     colSpan={monthKeys.length + 2}
-                    className="px-5 py-12 text-center text-muted-foreground"
+                    className="px-5 py-12 text-center text-white/40"
                   >
                     No team members yet. Add someone to start tracking months.
                   </td>
@@ -262,7 +261,7 @@ function TeamPage() {
                     <tr
                       key={member.id}
                       className={cn(
-                        "border-b border-border/50 last:border-b-0",
+                        "border-b border-white/5 transition-colors hover:bg-white/[0.03] last:border-b-0",
                         member.status === "inactive" && "opacity-60",
                       )}
                     >
@@ -335,33 +334,33 @@ function TeamPage() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-border/70 bg-card">
-        <div className="px-5 py-4">
-          <h2 className="text-[15px] font-semibold text-foreground">Member directory</h2>
-          <p className="mt-1 text-[12px] text-muted-foreground">
+      <section className="glass-panel overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
+        <div className="border-b border-white/10 px-6 py-5">
+          <h2 className="text-base font-bold text-white">Member Directory</h2>
+          <p className="mt-0.5 text-xs text-white/50">
             Choose a type to see its members, sorted by employee ID.
           </p>
         </div>
-        <div className="flex flex-wrap gap-1.5 border-t border-border/60 px-5 py-3">
+        <div className="glass-pill flex flex-wrap gap-1 border-b border-white/10 px-6 py-3">
           {directoryGroups.map((group) => (
             <button
               key={group.type}
               type="button"
               onClick={() => setDirectoryType(group.type)}
               className={cn(
-                "rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
+                "rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all",
                 group.type === selectedDirectory?.type
-                  ? "bg-foreground text-background"
-                  : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
+                  ? "bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-md shadow-orange-500/25"
+                  : "text-white/50 hover:bg-white/10 hover:text-white",
               )}
             >
               {group.label}
               <span
                 className={cn(
-                  "ml-1.5 text-[12px]",
+                  "ml-1.5 text-[11px]",
                   group.type === selectedDirectory?.type
-                    ? "text-background/70"
-                    : "text-muted-foreground",
+                    ? "text-white/80"
+                    : "text-white/40",
                 )}
               >
                 {group.members.length}
@@ -369,9 +368,9 @@ function TeamPage() {
             </button>
           ))}
         </div>
-        <div className="divide-y divide-border/50 border-t border-border/50">
+        <div className="divide-y divide-white/5">
           {!selectedDirectory || selectedDirectory.members.length === 0 ? (
-            <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+            <p className="px-6 py-12 text-center text-xs text-white/40">
               No members in this section yet.
             </p>
           ) : (
@@ -383,8 +382,8 @@ function TeamPage() {
                 <div
                   key={member.id}
                   className={cn(
-                    "flex flex-wrap items-center gap-2.5 px-5 py-3",
-                    member.status === "inactive" && "opacity-60",
+                    "flex flex-wrap items-center gap-3 px-6 py-4 hover:bg-white/[0.03] transition-colors",
+                    member.status === "inactive" && "opacity-50",
                   )}
                 >
                   <MemberAvatar name={member.name} />
@@ -392,18 +391,18 @@ function TeamPage() {
                     <Link
                       to="/team/$id"
                       params={{ id: member.id }}
-                      className="text-[13px] font-medium text-foreground hover:text-primary"
+                      className="text-sm font-bold text-white hover:text-[#ff6b2b] transition-colors"
                     >
                       {member.name || "Unnamed member"}
                     </Link>
-                    <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                    <p className="mt-0.5 truncate text-xs text-white/50">
                       {member.role || "Team member"}
                       {member.employeeId ? ` · ${member.employeeId}` : ""}
                       {teamLabel ? ` · ${teamLabel}` : ""}
                       {member.email ? (
                         <>
                           {" · "}
-                          <span className="text-muted-foreground/60">{member.email}</span>
+                          <span className="text-white/40">{member.email}</span>
                         </>
                       ) : null}
                       {member.status === "inactive" ? " · Inactive" : ""}
@@ -413,8 +412,8 @@ function TeamPage() {
                   <div className="flex min-w-[7.5rem] items-center justify-end">
                     <p
                       className={cn(
-                        "text-[13px] font-medium tabular-nums",
-                        salaryLabel === "—" ? "text-muted-foreground" : "text-foreground",
+                        "text-sm font-bold tabular-nums",
+                        salaryLabel === "—" ? "text-white/40" : "text-emerald-400",
                       )}
                     >
                       {salaryLabel === "—" ? "—" : `${salaryLabel} / mo`}
@@ -425,7 +424,7 @@ function TeamPage() {
                       type="button"
                       variant="destructive"
                       size="sm"
-                      className="h-7 px-2.5 text-[11px] shadow-none"
+                      className="h-8 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-3 text-xs font-bold text-white shadow-md shadow-rose-500/20"
                       onClick={() => setStartTarget(member)}
                     >
                       Start Payroll
@@ -434,13 +433,13 @@ function TeamPage() {
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-8 w-8 text-muted-foreground"
+                    className="h-8 w-8 rounded-lg border border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                     onClick={() => {
                       setEditing(member);
                       setDialogOpen(true);
                     }}
                   >
-                    <Pencil className="h-4 w-4" />
+                    <Pencil className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               );
@@ -517,12 +516,12 @@ function TeamPage() {
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-card px-5 py-5">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
+    <div className="glass-card rounded-2xl border border-white/10 p-5 transition-all duration-200 hover:border-white/20">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-white/50 sm:text-xs">{label}</p>
+      <p className="mt-2 text-2xl font-black tabular-nums tracking-tight text-white">
         {value}
       </p>
-      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-xs text-white/45">{hint}</p> : null}
     </div>
   );
 }

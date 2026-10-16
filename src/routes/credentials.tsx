@@ -224,19 +224,24 @@ function CredentialsPage() {
   return (
     <div className="space-y-6">
       <OperationsPageHeader
-        title="Credentials"
-        description="Company emails, service logins, and OTP contacts. Visible only after you sign in to Admark."
+        title="Credentials Vault"
+        description="Company emails, service logins, and OTP contacts. Encrypted and secured within Admark Digitals."
         action={
           <div className="flex flex-wrap items-center gap-2">
             {credentials.length === 0 ? (
-              <Button type="button" size="sm" variant="outline" onClick={importDefaults}>
-                <KeyRound className="h-4 w-4" />
+              <Button type="button" size="sm" variant="outline" onClick={importDefaults} className="rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10">
+                <KeyRound className="h-4 w-4 text-[#ff6b2b]" />
                 Load Admark accounts
               </Button>
             ) : null}
-            <Button type="button" size="sm" className="h-10 gap-1.5 rounded-lg px-4" onClick={openCreate}>
+            <Button
+              type="button"
+              size="sm"
+              className="h-10 gap-1.5 rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-lg shadow-orange-500/25 hover:brightness-110 active:scale-95 font-bold px-4 transition-all"
+              onClick={openCreate}
+            >
               <Plus className="h-4 w-4" />
-              Add credential
+              Add Credential
             </Button>
           </div>
         }
@@ -244,23 +249,23 @@ function CredentialsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="relative w-full max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search service, email, username…"
-            className="pl-9"
+            className="rounded-xl border border-white/10 bg-white/5 pl-10 text-white placeholder-white/30 focus:border-orange-500/50 focus:bg-white/[0.08] transition-all"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="glass-pill flex flex-wrap items-center gap-1 p-1 rounded-2xl border border-white/10">
           <button
             type="button"
             onClick={() => setCategoryFilter("all")}
             className={cn(
-              "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+              "rounded-xl px-3 py-1.5 text-xs font-bold transition-all",
               categoryFilter === "all"
-                ? "border-primary/40 bg-primary/10 text-foreground"
-                : "border-border text-muted-foreground hover:text-foreground",
+                ? "bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-md shadow-orange-500/25"
+                : "text-white/50 hover:bg-white/10 hover:text-white",
             )}
           >
             All ({credentials.length})
@@ -272,10 +277,10 @@ function CredentialsPage() {
                 type="button"
                 onClick={() => setCategoryFilter(category)}
                 className={cn(
-                  "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                  "rounded-xl px-3 py-1.5 text-xs font-bold transition-all",
                   categoryFilter === category
-                    ? "border-primary/40 bg-primary/10 text-foreground"
-                    : "border-border text-muted-foreground hover:text-foreground",
+                    ? "bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-md shadow-orange-500/25"
+                    : "text-white/50 hover:bg-white/10 hover:text-white",
                 )}
               >
                 {category} ({countsByCategory.get(category) ?? 0})
@@ -286,40 +291,45 @@ function CredentialsPage() {
       </div>
 
       {credentials.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border py-16 text-center">
-          <KeyRound className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">
+        <div className="glass-panel rounded-3xl border border-dashed border-white/10 py-16 text-center shadow-2xl">
+          <KeyRound className="mx-auto h-8 w-8 text-[#ff6b2b]" />
+          <p className="mt-3 text-sm text-white/50">
             No credentials yet. Load the Admark account set or add one manually.
           </p>
           <div className="mt-4 flex justify-center gap-2">
-            <Button type="button" size="sm" variant="outline" onClick={importDefaults}>
+            <Button type="button" size="sm" variant="outline" onClick={importDefaults} className="rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10">
               Load Admark accounts
             </Button>
-            <Button type="button" size="sm" onClick={openCreate}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={openCreate}
+              className="rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white font-bold"
+            >
               Add credential
             </Button>
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+        <div className="glass-panel overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[64rem] table-auto border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/40 font-medium text-muted-foreground">
-                  <th className="px-4 py-3">Category</th>
-                  <th className="px-4 py-3">Service</th>
-                  <th className="px-4 py-3">Email / ID</th>
-                  <th className="px-4 py-3">Username</th>
-                  <th className="px-4 py-3">Password</th>
-                  <th className="px-4 py-3">Linked to</th>
-                  <th className="px-4 py-3">OTP</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                <tr className="border-b border-white/10 bg-white/[0.03] text-xs font-semibold uppercase tracking-wider text-white/50">
+                  <th className="px-5 py-4">Category</th>
+                  <th className="px-5 py-4">Service</th>
+                  <th className="px-5 py-4">Email / ID</th>
+                  <th className="px-5 py-4">Username</th>
+                  <th className="px-5 py-4">Password</th>
+                  <th className="px-5 py-4">Linked to</th>
+                  <th className="px-5 py-4">OTP</th>
+                  <th className="px-5 py-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-white/5">
                 {visible.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
+                    <td colSpan={8} className="px-5 py-12 text-center text-xs text-white/40">
                       No credentials match this filter.
                     </td>
                   </tr>
@@ -327,20 +337,20 @@ function CredentialsPage() {
                   visible.map((entry) => {
                     const revealed = revealedIds.has(entry.id);
                     return (
-                      <tr key={entry.id} className="hover:bg-muted/30">
-                        <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                      <tr key={entry.id} className="hover:bg-white/[0.04] transition-colors">
+                        <td className="whitespace-nowrap px-5 py-3.5 text-xs font-semibold text-white/45">
                           {entry.category}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 font-medium text-foreground">
+                        <td className="whitespace-nowrap px-5 py-3.5 font-bold text-white">
                           {entry.service}
                         </td>
-                        <td className="max-w-[14rem] px-4 py-3 text-muted-foreground break-all">
-                          <div className="flex items-center gap-1">
+                        <td className="max-w-[14rem] px-5 py-3.5 text-white/70 break-all text-xs">
+                          <div className="flex items-center gap-1.5">
                             <span className="min-w-0 flex-1">{entry.email || "—"}</span>
                             {entry.email ? (
                               <button
                                 type="button"
-                                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                className="rounded-lg p-1 text-white/40 hover:bg-white/10 hover:text-white transition-colors"
                                 onClick={() =>
                                   void handleCopy(`${entry.id}-email`, entry.email, "email")
                                 }
@@ -355,12 +365,12 @@ function CredentialsPage() {
                             ) : null}
                           </div>
                         </td>
-                        <td className="max-w-[10rem] px-4 py-3 text-muted-foreground break-words">
+                        <td className="max-w-[10rem] px-5 py-3.5 text-white/70 break-words text-xs">
                           {entry.username || "—"}
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1">
-                            <span className="font-mono text-xs text-foreground">
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-xs text-white">
                               {entry.password
                                 ? revealed
                                   ? entry.password
@@ -371,7 +381,7 @@ function CredentialsPage() {
                               <>
                                 <button
                                   type="button"
-                                  className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                  className="rounded-lg p-1 text-white/40 hover:bg-white/10 hover:text-white transition-colors"
                                   onClick={() => toggleReveal(entry.id)}
                                   title={revealed ? "Hide password" : "Show password"}
                                 >
@@ -383,7 +393,7 @@ function CredentialsPage() {
                                 </button>
                                 <button
                                   type="button"
-                                  className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                  className="rounded-lg p-1 text-white/40 hover:bg-white/10 hover:text-white transition-colors"
                                   onClick={() =>
                                     void handleCopy(
                                       `${entry.id}-password`,
@@ -403,29 +413,29 @@ function CredentialsPage() {
                             ) : null}
                           </div>
                         </td>
-                        <td className="max-w-[12rem] px-4 py-3 text-xs text-muted-foreground break-all">
+                        <td className="max-w-[12rem] px-5 py-3.5 text-xs text-white/50 break-all">
                           {entry.linkedTo || "—"}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
+                        <td className="whitespace-nowrap px-5 py-3.5 text-xs text-white/50">
                           {entry.otpMethod || "—"}
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex justify-end gap-1">
+                        <td className="px-5 py-3.5">
+                          <div className="flex justify-end gap-1.5">
                             <button
                               type="button"
                               onClick={() => openEdit(entry)}
-                              className="rounded-md p-1.5 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                              className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
                               title="Edit"
                             >
-                              <Pencil className="h-4 w-4" />
+                              <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <button
                               type="button"
                               onClick={() => removeEntry(entry.id)}
-                              className="rounded-md p-1.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-400"
+                              className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-rose-400/60 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
                               title="Remove"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         </td>

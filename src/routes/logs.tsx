@@ -116,9 +116,19 @@ function LogsPage() {
     });
   }, [logs, q, entityFilter, dateFrom, dateTo]);
 
+  const [visibleLimit, setVisibleLimit] = useState(50);
+
+  useEffect(() => {
+    setVisibleLimit(50);
+  }, [q, entityFilter, dateFrom, dateTo]);
+
+  const visibleEntries = useMemo(() => {
+    return filtered.slice(0, visibleLimit);
+  }, [filtered, visibleLimit]);
+
   const groups = useMemo(() => {
     const map = new Map<string, ActivityLogEntry[]>();
-    for (const entry of filtered) {
+    for (const entry of visibleEntries) {
       const key = dayKey(entry.timestamp);
       const list = map.get(key);
       if (list) list.push(entry);
@@ -129,7 +139,7 @@ function LogsPage() {
       heading: dayHeading(entries[0].timestamp),
       entries,
     }));
-  }, [filtered]);
+  }, [visibleEntries]);
 
   const hasDateFilter = Boolean(dateFrom || dateTo);
 
@@ -142,53 +152,54 @@ function LogsPage() {
     <div className="space-y-8">
       <div className="space-y-5">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
-            Activity
+          <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
+            Activity Logs
           </h1>
-          <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
-            Changes across projects, invoices, expenses, and settings.
+          <p className="mt-1.5 max-w-xl text-xs text-white/50">
+            Real-time audit log of changes across projects, invoices, expenses, security, and settings.
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 border-y border-border/80 py-3">
+        {/* Filter Bar */}
+        <div className="rounded-2xl border border-white/10 glass-panel p-4 space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative min-w-0 flex-1 sm:max-w-sm">
+            <div className="relative min-w-0 flex-1 sm:max-w-md">
               <Search
-                className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40"
                 strokeWidth={1.5}
               />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Search…"
-                className="w-full border-0 bg-transparent py-1.5 pl-7 pr-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-0"
+                placeholder="Search events, summaries, and team members…"
+                className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-xs text-white outline-none placeholder:text-white/40 focus:border-[#ff6b2b]/50 focus:ring-1 focus:ring-[#ff6b2b]/50"
               />
             </div>
-            <p className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              {loading ? "…" : `${filtered.length} of ${logs.length}`}
+            <p className="shrink-0 text-xs font-mono text-white/40">
+              {loading ? "…" : `${filtered.length} of ${logs.length} entries`}
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="shrink-0">From</span>
+          <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-white/5">
+            <label className="flex items-center gap-2 text-xs text-white/50">
+              <span className="shrink-0 font-medium">From:</span>
               <input
                 type="date"
                 value={dateFrom}
                 max={dateTo || undefined}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className={dateInputClass}
+                className="h-8 rounded-lg border border-white/10 bg-white/5 px-2.5 text-xs text-white outline-none focus:border-[#ff6b2b]/50 [color-scheme:dark]"
                 aria-label="From date"
               />
             </label>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="shrink-0">To</span>
+            <label className="flex items-center gap-2 text-xs text-white/50">
+              <span className="shrink-0 font-medium">To:</span>
               <input
                 type="date"
                 value={dateTo}
                 min={dateFrom || undefined}
                 onChange={(e) => setDateTo(e.target.value)}
-                className={dateInputClass}
+                className="h-8 rounded-lg border border-white/10 bg-white/5 px-2.5 text-xs text-white outline-none focus:border-[#ff6b2b]/50 [color-scheme:dark]"
                 aria-label="To date"
               />
             </label>
@@ -196,7 +207,7 @@ function LogsPage() {
               <button
                 type="button"
                 onClick={clearDates}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-lg border border-white/10 glass-card px-2.5 py-1.5 text-xs text-white/70 transition-colors hover:border-white/20 hover:text-white"
               >
                 <X className="h-3.5 w-3.5" />
                 Clear dates
@@ -205,7 +216,8 @@ function LogsPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-0.5" role="group" aria-label="Filter by area">
+        {/* Entity Filters Capsule Dock */}
+        <div className="flex flex-wrap gap-1.5 p-1 rounded-xl border border-white/10 glass-panel max-w-fit" role="group" aria-label="Filter by area">
           {ENTITY_FILTERS.map((value) => {
             const active = entityFilter === value;
             return (
@@ -214,10 +226,10 @@ function LogsPage() {
                 type="button"
                 onClick={() => setEntityFilter(value)}
                 className={cn(
-                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
                   active
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                    ? "bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-md shadow-[#ff6b2b]/20"
+                    : "text-white/60 hover:text-white hover:bg-white/5",
                 )}
               >
                 {value === "all" ? "All" : entityLabel(value)}
@@ -228,51 +240,64 @@ function LogsPage() {
       </div>
 
       {loading ? (
-        <p className="border-y border-dashed border-border/80 py-12 text-center text-sm text-muted-foreground">
-          Loading…
-        </p>
+        <div className="rounded-2xl border border-white/10 glass-panel py-16 text-center text-sm text-white/40">
+          Loading activity logs…
+        </div>
       ) : filtered.length === 0 ? (
-        <p className="border-y border-dashed border-border/80 py-12 text-center text-sm text-muted-foreground">
+        <div className="rounded-2xl border border-white/10 glass-panel py-16 text-center text-sm text-white/40">
           {logs.length === 0
-            ? "No activity yet. Changes you make will appear here."
-            : "No logs match your filters."}
-        </p>
+            ? "No activity yet. Changes made in the platform will appear here."
+            : "No logs match your filter criteria."}
+        </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {groups.map((group) => (
-            <section key={group.key} className="space-y-2">
-              <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {group.heading}
-              </h2>
-              <ul className="divide-y divide-border/80 border-y border-border/80">
+            <section key={group.key} className="rounded-2xl border border-white/10 glass-panel overflow-hidden">
+              <div className="border-b border-white/10 px-5 py-3.5 bg-white/[0.02]">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-[#ff6b2b]">
+                  {group.heading}
+                </h2>
+              </div>
+              <ul className="divide-y divide-white/5">
                 {group.entries.map((entry) => (
                   <li
                     key={entry.id}
-                    className="grid gap-1 py-3 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:items-baseline sm:gap-4"
+                    className="grid gap-2 px-5 py-3.5 transition-colors hover:bg-white/[0.02] sm:grid-cols-[5.5rem_minmax(0,1fr)] sm:items-baseline sm:gap-4"
                   >
                     <time
                       dateTime={new Date(entry.timestamp).toISOString()}
-                      className="text-xs tabular-nums text-muted-foreground"
+                      className="text-xs font-mono tabular-nums text-white/40"
                       title={formatActivityTimestamp(entry.timestamp)}
                     >
                       {timeOnly(entry.timestamp)}
                     </time>
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <span className={cn("text-xs font-medium", actionTone(entry.action))}>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={cn("text-xs font-bold capitalize", actionTone(entry.action))}>
                           {actionLabel(entry.action)}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/60">
                           {entityLabel(entry.entity)}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-sm leading-snug text-foreground">{entry.summary}</p>
+                      <p className="mt-1 text-sm text-white/90 leading-snug">{entry.summary}</p>
                     </div>
                   </li>
                 ))}
               </ul>
             </section>
           ))}
+          {filtered.length > visibleEntries.length && (
+            <div className="flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => setVisibleLimit((prev) => prev + 50)}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 glass-card px-5 py-2.5 text-xs font-semibold text-white/80 transition-colors hover:border-[#ff6b2b]/40 hover:text-white"
+              >
+                Show more logs ({visibleEntries.length} of {filtered.length})
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

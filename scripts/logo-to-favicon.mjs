@@ -13,17 +13,13 @@ if (!fs.existsSync(source)) {
   process.exit(1);
 }
 
-// Trim the uniform dark background down to the logo content (mark + wordmark),
-// then keep only the top portion where the "AD" mark sits.
-const trimmed = await sharp(source).trim({ threshold: 25 }).toBuffer();
-const tmeta = await sharp(trimmed).metadata();
-
-const markHeight = Math.round(tmeta.height * 0.66);
-const icon = sharp(trimmed).extract({
+const sourceMeta = await sharp(source).metadata();
+const markW = Math.round(sourceMeta.width * (163 / 858));
+const icon = sharp(source).extract({
   left: 0,
   top: 0,
-  width: tmeta.width,
-  height: markHeight,
+  width: markW,
+  height: sourceMeta.height,
 });
 
 const outputs = [
@@ -34,20 +30,21 @@ const outputs = [
 
 for (const { file, size } of outputs) {
   const out = path.join(publicDir, file);
-  // Small padding so the mark isn't glued to the icon edge.
-  const inner = Math.round(size * 0.86);
+  const pad = Math.round(size * 0.14);
+  const innerSize = size - pad * 2;
   await icon
     .clone()
-    .resize(inner, inner, {
+    .resize(innerSize, innerSize, {
       fit: "contain",
-      background: { r: 8, g: 9, b: 18, alpha: 1 },
+      background: { r: 14, g: 14, b: 20, alpha: 1 },
     })
+    .flatten({ background: { r: 14, g: 14, b: 20 } })
     .extend({
-      top: Math.floor((size - inner) / 2),
-      bottom: Math.ceil((size - inner) / 2),
-      left: Math.floor((size - inner) / 2),
-      right: Math.ceil((size - inner) / 2),
-      background: { r: 8, g: 9, b: 18, alpha: 1 },
+      top: pad,
+      bottom: pad,
+      left: pad,
+      right: pad,
+      background: { r: 14, g: 14, b: 20, alpha: 1 },
     })
     .png()
     .toFile(out);

@@ -140,7 +140,10 @@ interface OrganizationRef {
   legacyId: string;
 }
 
+let cachedOrgRef: OrganizationRef | null = null;
+
 async function resolveOrganization(db: AdmarkDb): Promise<OrganizationRef> {
+  if (cachedOrgRef) return cachedOrgRef;
   const { data, error } = await db
     .from("organizations")
     .select("id, legacy_id")
@@ -155,7 +158,8 @@ async function resolveOrganization(db: AdmarkDb): Promise<OrganizationRef> {
         "Run `npm run db:migrate:apply` (scripts/migrate-json-to-relational.mjs) first.",
     );
   }
-  return { id: preferred.id, legacyId: preferred.legacy_id ?? preferred.id };
+  cachedOrgRef = { id: preferred.id, legacyId: preferred.legacy_id ?? preferred.id };
+  return cachedOrgRef;
 }
 
 interface ExistingRow {
@@ -1235,8 +1239,11 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
       category: text(transaction.category),
       payment_method: text(transaction.paymentMethod),
       vendor: text(transaction.vendor),
-      gst_amount: numeric(transaction.gst),
-      notes: text(transaction.notes),
+      notes: text(
+        transaction.customType?.trim()
+          ? `${transaction.notes ? transaction.notes + "\n" : ""}[custom_type:${transaction.customType.trim()}]`
+          : transaction.notes,
+      ),
       created_by: text(transaction.createdBy),
       historical: transaction.historical === true,
       created_at: isoTimestamp(transaction.createdAt),

@@ -36,28 +36,28 @@ export function ClientsTable({
   const colSpan = showDetails ? 7 : 4;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+    <div className="glass-panel overflow-hidden rounded-2xl border border-white/10 shadow-2xl">
       <div className="overflow-x-auto">
         <table className="w-full table-auto border-collapse text-left text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40 font-medium text-muted-foreground">
-              <th className="px-4 py-3">Client / Relationship</th>
-              <th className="px-4 py-3">Contact Person</th>
+            <tr className="border-b border-white/10 bg-white/[0.03] text-xs font-semibold uppercase tracking-wider text-white/50">
+              <th className="px-5 py-4">Client / Relationship</th>
+              <th className="px-5 py-4">Contact Person</th>
               {showDetails ? (
                 <>
-                  <th className="px-4 py-3">Email</th>
-                  <th className="px-4 py-3">Phone</th>
-                  <th className="px-4 py-3">Client Since</th>
+                  <th className="px-5 py-4">Email</th>
+                  <th className="px-5 py-4">Phone</th>
+                  <th className="px-5 py-4">Client Since</th>
                 </>
               ) : null}
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              <th className="px-5 py-4">Status</th>
+              <th className="px-5 py-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody className="divide-y divide-white/5">
             {clients.length === 0 ? (
               <tr>
-                <td colSpan={colSpan} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={colSpan} className="px-5 py-12 text-center text-sm text-white/40">
                   {emptyMessage}
                 </td>
               </tr>
@@ -65,63 +65,63 @@ export function ClientsTable({
               clients.map((c) => {
                 const counts = projectCountsById?.get(c.id);
                 return (
-                <tr key={c.id} className="hover:bg-muted/30">
-                  <td className="max-w-[16rem] px-4 py-3 font-semibold text-foreground break-words">
+                <tr key={c.id} className="hover:bg-white/[0.04] transition-colors">
+                  <td className="max-w-[16rem] px-5 py-4 font-semibold text-white break-words">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <Link
                         to="/clients/$id"
                         params={{ id: c.id }}
-                        className="hover:underline text-primary"
+                        className="hover:underline text-[#ff6b2b] hover:text-[#ff8a50] transition-colors font-bold"
                       >
                         {c.companyName}
                       </Link>
                       {projectBadgeById?.has(c.id) && (
                         <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${PROJECT_BADGE_STYLES[projectBadgeById.get(c.id)!].className}`}
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border border-white/10 backdrop-blur-md ${PROJECT_BADGE_STYLES[projectBadgeById.get(c.id)!].className}`}
                         >
                           {PROJECT_BADGE_STYLES[projectBadgeById.get(c.id)!].label}
                         </span>
                       )}
                     </div>
                     {counts && (counts.active > 0 || counts.completed > 0) ? (
-                      <p className="mt-0.5 text-[11px] font-normal text-muted-foreground">
+                      <p className="mt-0.5 text-[11px] font-normal text-white/45">
                         {formatProjectStatusCounts(counts)}
                       </p>
                     ) : null}
                   </td>
-                  <td className="max-w-[12rem] px-4 py-3 text-muted-foreground break-words">
+                  <td className="max-w-[12rem] px-5 py-4 text-white/70 break-words">
                     {c.contactPerson}
                   </td>
                   {showDetails ? (
                     <>
-                      <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                      <td className="whitespace-nowrap px-5 py-4 text-white/60">
                         {c.email || "—"}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                      <td className="whitespace-nowrap px-5 py-4 text-white/60">
                         {c.phone || "—"}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                      <td className="whitespace-nowrap px-5 py-4 text-white/50 text-xs">
                         {c.clientSince || "—"}
                       </td>
                     </>
                   ) : null}
-                  <td className="whitespace-nowrap px-4 py-3">
+                  <td className="whitespace-nowrap px-5 py-4">
                     <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider border ${
                         c.status === "active"
-                          ? "bg-green-500/10 text-green-500"
-                          : "bg-muted-foreground/10 text-muted-foreground"
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          : "bg-white/5 text-white/40 border-white/10"
                       }`}
                     >
                       {c.status}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right">
-                    <div className="flex justify-end gap-2">
+                  <td className="whitespace-nowrap px-5 py-4 text-right">
+                    <div className="flex justify-end gap-1.5">
                       <Link
                         to="/clients/$id"
                         params={{ id: c.id }}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-muted-foreground hover:bg-secondary"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                         title="View Client Overview"
                         aria-label="View Client Overview"
                       >
@@ -130,7 +130,7 @@ export function ClientsTable({
                       <button
                         type="button"
                         onClick={() => onEdit(c)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-muted-foreground hover:bg-secondary"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                         title="Edit Client"
                         aria-label="Edit Client"
                       >
@@ -139,7 +139,7 @@ export function ClientsTable({
                       <button
                         type="button"
                         onClick={() => onRemove(c.id)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-destructive hover:bg-destructive/10"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-rose-400/70 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                         title="Delete Client"
                         aria-label="Delete Client"
                       >

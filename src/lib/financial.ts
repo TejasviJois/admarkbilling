@@ -4,6 +4,8 @@ import {
   withDefaultFinancialBaseline,
 } from "./default-financial-baseline";
 import { sumPipelineBookedRevenue } from "./project-billing";
+import { isRevenueProject } from "./project-status";
+import { totalReceived } from "./project-payments";
 import { isFounderSalary } from "./founder-ledger";
 import type {
   ExpenseCategory,
@@ -146,10 +148,15 @@ export function computeFinancialSummary(ops: OperationsData): FinancialSummary {
     cashAdjustments + newRevenueAfterBaseline + founderInvestments - newExpenseTotal;
 
   const activePipelineBooked = sumPipelineBookedRevenue(ops.projects);
-  // Revenue booked is live: contract values plus recurring installments
-  // received to date. Future recurring months remain in MRR/FMRR and are not
-  // booked early. The frozen Ground Zero figure goes stale after project edits.
-  const totalRevenueBooked = activePipelineBooked;
+  // Total Revenue Booked reconciles all realized and committed company revenue:
+  // Active project contracts/pipeline + non-project company revenues collected.
+  // This guarantees complete reconciliation:
+  // Total Revenue Booked = Total Revenue Received + Outstanding Receivables.
+  const sumActiveProjectReceived = (ops.projects ?? [])
+    .filter((p) => isRevenueProject(p.status))
+    .reduce((sum, p) => sum + totalReceived(p), 0);
+  const nonProjectRevenue = Math.max(0, totalRevenueReceived - sumActiveProjectReceived);
+  const totalRevenueBooked = activePipelineBooked + nonProjectRevenue;
 
   return {
     baseline,

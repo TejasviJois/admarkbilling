@@ -69,6 +69,8 @@ export class UnsafeOperationsDeleteError extends Error {
 }
 
 function sameValue(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (left == null || right == null) return left === right;
   return JSON.stringify(left) === JSON.stringify(right);
 }
 

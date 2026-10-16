@@ -1,22 +1,15 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Check, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { ProjectStatusBadge } from "@/components/operations/ProjectsTable";
 import { useCompany } from "@/hooks/use-company";
 import { useOperations } from "@/hooks/use-operations";
-import { loadCompany } from "@/lib/storage";
 import { projectAssignedMemberIds } from "@/lib/project-status";
 import type { Project } from "@/lib/types";
 
 export const Route = createFileRoute("/team_/assignments")({
-  beforeLoad: async () => {
-    const company = await loadCompany();
-    if (company.projectAssignmentsEnabled !== true) {
-      throw redirect({ to: "/team" });
-    }
-  },
   component: TeamAssignmentsPage,
 });
 
@@ -90,9 +83,9 @@ function TeamAssignmentsPage() {
       <div>
         <Link
           to="/team"
-          className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold text-white/60 hover:text-white transition-colors"
         >
-          <ArrowLeft className="h-4 w-4" /> Back to Team
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Team
         </Link>
         <OperationsPageHeader
           title="Project Assignments"
@@ -100,40 +93,42 @@ function TeamAssignmentsPage() {
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search projects…"
-            className="pl-8"
+            className="pl-9 rounded-xl border-white/10 bg-white/5 text-xs text-white placeholder:text-white/40 focus:border-[#ff6b2b]/50"
           />
         </div>
-        <FilterChip
-          label="All"
-          active={memberFilter === "all"}
-          onClick={() => setMemberFilter("all")}
-        />
-        <FilterChip
-          label="Unassigned"
-          active={memberFilter === "unassigned"}
-          onClick={() => setMemberFilter("unassigned")}
-        />
-        {members.map((member) => (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-white/10 glass-panel p-1">
           <FilterChip
-            key={member.id}
-            label={firstName(member.name)}
-            active={memberFilter === member.id}
-            onClick={() => setMemberFilter(member.id)}
+            label="All"
+            active={memberFilter === "all"}
+            onClick={() => setMemberFilter("all")}
           />
-        ))}
+          <FilterChip
+            label="Unassigned"
+            active={memberFilter === "unassigned"}
+            onClick={() => setMemberFilter("unassigned")}
+          />
+          {members.map((member) => (
+            <FilterChip
+              key={member.id}
+              label={firstName(member.name)}
+              active={memberFilter === member.id}
+              onClick={() => setMemberFilter(member.id)}
+            />
+          ))}
+        </div>
       </div>
 
-      <section className="rounded-xl border border-border bg-card shadow-sm">
-        <div className="divide-y divide-border">
+      <section className="rounded-2xl border border-white/10 glass-panel overflow-hidden shadow-xl">
+        <div className="divide-y divide-white/5">
           {projects.length === 0 ? (
-            <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+            <p className="px-5 py-12 text-center text-sm text-white/40">
               No projects match this filter.
             </p>
           ) : (
@@ -142,20 +137,20 @@ function TeamAssignmentsPage() {
               return (
                 <div
                   key={project.id}
-                  className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5"
+                  className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-white/[0.02]"
                 >
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2.5">
                       <Link
                         to="/projects/$id"
                         params={{ id: project.id }}
-                        className="font-semibold text-primary hover:underline"
+                        className="font-bold text-white hover:text-[#ff6b2b] transition-colors"
                       >
                         {project.name?.trim() || project.client}
                       </Link>
                       <ProjectStatusBadge status={project.status} />
                     </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
+                    <p className="mt-1 text-xs text-white/50">
                       {project.client}
                       {assigned.length === 0 ? " · Unassigned" : ""}
                     </p>
@@ -169,10 +164,10 @@ function TeamAssignmentsPage() {
                           type="button"
                           onClick={() => toggleAssignment(project, member.id)}
                           aria-pressed={isOn}
-                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
                             isOn
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                              ? "border-[#ff6b2b]/40 bg-[#ff6b2b]/15 text-[#ff6b2b] shadow-[0_0_10px_rgba(255,107,43,0.2)]"
+                              : "border-white/10 bg-white/[0.02] text-white/60 hover:border-white/20 hover:text-white"
                           }`}
                         >
                           {isOn && <Check className="h-3 w-3" />}
@@ -205,10 +200,10 @@ function FilterChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
         active
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+          ? "bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-md shadow-[#ff6b2b]/20"
+          : "text-white/60 hover:text-white hover:bg-white/5"
       }`}
     >
       {label}

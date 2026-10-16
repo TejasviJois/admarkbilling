@@ -335,12 +335,16 @@ function haystackForTrack(entry: LeadListEntry): string {
     .join("\n")
     .toLowerCase();
 }
+const trackCache = new WeakMap<LeadListEntry, LeadListTrack>();
 
 /**
  * Classify Inner Circle leads into tech delivery vs marketing/creative.
  * Title wins first; website/SEO/Shopify/CMS count as tech; ads/branding/video stay non-tech.
  */
 export function classifyLeadListTrack(entry: LeadListEntry): LeadListTrack {
+  const cached = trackCache.get(entry);
+  if (cached) return cached;
+
   const title = entry.title ?? "";
 
   const strongTechTitle =
@@ -352,32 +356,41 @@ export function classifyLeadListTrack(entry: LeadListEntry): LeadListTrack {
       title,
     );
 
+  let result: LeadListTrack;
+
   // Title is authoritative when both sides fire — prefer delivery platforms over brand wording.
   if (strongTechTitle && strongNonTechTitle) {
     if (/\b(shopify|wordpress|cms|developer|website|seo|software|saas)\b/i.test(title)) {
-      return "tech";
+      result = "tech";
+    } else {
+      result = "non_tech";
     }
-    return "non_tech";
-  }
-  if (strongTechTitle) return "tech";
-  if (strongNonTechTitle) return "non_tech";
+  } else if (strongTechTitle) {
+    result = "tech";
+  } else if (strongNonTechTitle) {
+    result = "non_tech";
+  } else {
+    const text = haystackForTrack(entry);
+    let techHits = 0;
+    let nonTechHits = 0;
+    for (const keyword of TECH_KEYWORDS) {
+      if (text.includes(keyword)) techHits += 1;
+    }
+    for (const keyword of NON_TECH_KEYWORDS) {
+      if (text.includes(keyword)) nonTechHits += 1;
+    }
 
-  const text = haystackForTrack(entry);
-  let techHits = 0;
-  let nonTechHits = 0;
-  for (const keyword of TECH_KEYWORDS) {
-    if (text.includes(keyword)) techHits += 1;
-  }
-  for (const keyword of NON_TECH_KEYWORDS) {
-    if (text.includes(keyword)) nonTechHits += 1;
+    if (entry.technicalStack?.trim()) techHits += 1;
+
+    if (techHits === 0 && nonTechHits === 0) {
+      result = /\b(web|app|software|code|stack|seo|wordpress|website|shopify|cms)\b/i.test(text)
+        ? "tech"
+        : "non_tech";
+    } else {
+      result = techHits >= nonTechHits ? "tech" : "non_tech";
+    }
   }
 
-  if (entry.technicalStack?.trim()) techHits += 1;
-
-  if (techHits === 0 && nonTechHits === 0) {
-    return /\b(web|app|software|code|stack|seo|wordpress|website|shopify|cms)\b/i.test(text)
-      ? "tech"
-      : "non_tech";
-  }
-  return techHits >= nonTechHits ? "tech" : "non_tech";
+  trackCache.set(entry, result);
+  return result;
 }

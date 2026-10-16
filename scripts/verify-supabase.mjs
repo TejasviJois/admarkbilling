@@ -114,10 +114,10 @@ await check("admark-files bucket", async () => {
   if (!bucket && Array.isArray(buckets)) {
     const found = buckets.find((b) => b.id === "admark-files");
     if (!found)
-      throw new Error('Bucket "admark-files" not found — run supabase/admark_billing.sql');
+      throw new Error('Bucket "admark-files" not found — run supabase/complete_admark_database.sql');
     return `public=${found.public}`;
   }
-  if (!bucket) throw new Error('Bucket "admark-files" not found — run supabase/admark_billing.sql');
+  if (!bucket) throw new Error('Bucket "admark-files" not found — run supabase/complete_admark_database.sql');
   return `public=${bucket.public}`;
 });
 

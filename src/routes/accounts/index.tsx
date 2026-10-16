@@ -54,6 +54,9 @@ function movementAmount(transaction: Transaction): number {
 }
 
 function transactionLabel(transaction: Transaction): string {
+  if (transaction.customType?.trim()) {
+    return transaction.customType.trim();
+  }
   const labels: Record<TransactionType, string> = {
     client_payment: "Client payment",
     founder_investment: "Founder investment",
@@ -63,7 +66,7 @@ function transactionLabel(transaction: Transaction): string {
     internal_transfer: "Transfer",
     adjustment: "Adjustment",
   };
-  return labels[transaction.type];
+  return labels[transaction.type] ?? transaction.type;
 }
 
 function formatDisplayDate(ymd: string): string {
@@ -147,7 +150,13 @@ function AccountsPage() {
         if (dateFrom && transaction.date < dateFrom) return false;
         if (dateTo && transaction.date > dateTo) return false;
         if (!query) return true;
-        return [transaction.description, transaction.category, transaction.notes, transaction.date]
+        return [
+          transaction.description,
+          transaction.category,
+          transaction.customType,
+          transaction.notes,
+          transaction.date,
+        ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase()
@@ -198,43 +207,47 @@ function AccountsPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
-            Accounts
+          <h1 className="text-2xl font-black tracking-tight text-white md:text-3xl">
+            Accounts & Ledger
           </h1>
-          <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
-            Money in, money out, and the full ledger.
+          <p className="mt-1.5 max-w-xl text-xs text-white/60">
+            Real-time liquid capital inflows, operational outflows, client deposits, and verified transactions.
           </p>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          <Button size="sm" onClick={() => openCreate("client_payment")} className="gap-1.5">
-            <ArrowDownRight className="h-3.5 w-3.5" />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            onClick={() => openCreate("client_payment")}
+            className="gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg shadow-emerald-500/20 hover:brightness-110 active:scale-95 transition-all"
+          >
+            <ArrowDownRight className="h-4 w-4" />
             Income
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => openCreate("expense")}
-            className="gap-1.5 border-border/80"
+            className="gap-1.5 rounded-xl border border-white/10 bg-white/5 text-white/80 font-bold hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 active:scale-95 transition-all"
           >
-            <ArrowUpRight className="h-3.5 w-3.5" />
+            <ArrowUpRight className="h-4 w-4" />
             Expense
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => openCreate("internal_transfer")}
-            className="gap-1.5 border-border/80"
+            className="gap-1.5 rounded-xl border border-white/10 bg-white/5 text-white/80 font-bold hover:bg-white/10 hover:text-white active:scale-95 transition-all"
           >
-            <ArrowLeftRight className="h-3.5 w-3.5" />
+            <ArrowLeftRight className="h-4 w-4" />
             Transfer
           </Button>
         </div>
       </div>
 
-      <section className="space-y-4">
-        <div className="flex flex-col gap-3 border-y border-border/80 py-3">
+      <section className="space-y-5">
+        <div className="glass-panel flex flex-col gap-4 rounded-3xl border border-white/10 p-5 shadow-2xl">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap gap-0.5" role="group" aria-label="Movement type">
+            <div className="glass-pill flex flex-wrap gap-1 p-1 rounded-2xl border border-white/10" role="group" aria-label="Movement type">
               {MOVEMENT_OPTIONS.map((option) => {
                 const active = movementFilter === option.value;
                 return (
@@ -243,10 +256,10 @@ function AccountsPage() {
                     type="button"
                     onClick={() => setMovementFilter(option.value)}
                     className={cn(
-                      "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                      "rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all",
                       active
-                        ? "bg-muted text-foreground"
-                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                        ? "bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-md shadow-orange-500/25"
+                        : "text-white/50 hover:bg-white/10 hover:text-white",
                     )}
                   >
                     {option.label}
@@ -259,7 +272,7 @@ function AccountsPage() {
                 <SelectTrigger
                   id="accounts-month"
                   aria-label="Month"
-                  className="h-8 w-auto min-w-[9rem] gap-1.5 rounded-md border-border/80 bg-transparent px-2.5 text-xs font-medium shadow-none"
+                  className="h-9 w-auto min-w-[9.5rem] gap-2 rounded-xl border-white/10 bg-white/5 px-3 text-xs font-bold text-white shadow-none hover:bg-white/10 transition-colors"
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -440,111 +453,113 @@ function TransactionsLedger({
 }) {
   if (transactions.length === 0) {
     return (
-      <p className="border-y border-dashed border-border/80 py-12 text-center text-sm text-muted-foreground">
+      <div className="glass-panel rounded-3xl border border-white/10 py-16 text-center text-xs text-white/40 shadow-2xl">
         No movements match these filters.
-      </p>
+      </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto border-y border-border/80">
-      <table className="w-full min-w-[720px] text-sm">
-        <thead>
-          <tr className="border-b border-border/80 text-left text-xs text-muted-foreground">
-            <th className="py-3 pr-3 font-medium">Date</th>
-            <th className="px-3 py-3 font-medium">Type</th>
-            <th className="px-3 py-3 font-medium">Details</th>
-            <th className="px-3 py-3 font-medium">Linked</th>
-            <th className="px-3 py-3 font-medium">Method</th>
-            <th className="px-3 py-3 text-right font-medium">Amount</th>
-            <th className="py-3 pl-3 text-right font-medium">
-              <span className="sr-only">Actions</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border/60">
-          {transactions.map((transaction) => {
-            const movement = movementAmount(transaction);
-            const client = clients.find((item) => item.id === transaction.relatedClientId);
-            const project = projects.find((item) => item.id === transaction.relatedProjectId);
-            const linked = [client?.companyName, project?.name].filter(Boolean).join(" · ") || "—";
-            const locked = Boolean(transaction.historical || transaction.payrollMonth);
+    <div className="glass-panel overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
+          <thead>
+            <tr className="border-b border-white/10 bg-white/[0.03] text-left text-xs font-semibold uppercase tracking-wider text-white/50">
+              <th className="py-4 pl-6 pr-3 font-semibold">Date</th>
+              <th className="px-3 py-4 font-semibold">Type</th>
+              <th className="px-3 py-4 font-semibold">Details</th>
+              <th className="px-3 py-4 font-semibold">Linked</th>
+              <th className="px-3 py-4 font-semibold">Method</th>
+              <th className="px-3 py-4 text-right font-semibold">Amount</th>
+              <th className="py-4 pr-6 pl-3 text-right font-semibold">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {transactions.map((transaction) => {
+              const movement = movementAmount(transaction);
+              const client = clients.find((item) => item.id === transaction.relatedClientId);
+              const project = projects.find((item) => item.id === transaction.relatedProjectId);
+              const linked = [client?.companyName, project?.name].filter(Boolean).join(" · ") || "—";
+              const locked = Boolean(transaction.historical || transaction.payrollMonth);
 
-            return (
-              <tr key={transaction.id} className="group transition-colors hover:bg-muted/20">
-                <td className="whitespace-nowrap py-3 pr-3 tabular-nums text-muted-foreground">
-                  {formatDisplayDate(transaction.date)}
-                </td>
-                <td className="px-3 py-3">
-                  <p className="text-xs font-medium text-foreground">
-                    {transactionLabel(transaction)}
-                  </p>
-                  {transaction.historical ? (
-                    <p className="mt-0.5 text-[10px] text-amber-500">Historical</p>
-                  ) : null}
-                </td>
-                <td className="max-w-[16rem] px-3 py-3">
-                  <p className="truncate text-foreground">{transaction.description}</p>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {transaction.historical && project
-                      ? `Historical · outstanding ${
-                          paymentSummary(project).pending != null
-                            ? formatINR(paymentSummary(project).pending!)
-                            : "n/a"
-                        }`
-                      : (transaction.category ?? "—")}
-                  </p>
-                </td>
-                <td className="max-w-[10rem] truncate px-3 py-3 text-xs text-muted-foreground">
-                  {linked}
-                </td>
-                <td className="whitespace-nowrap px-3 py-3 text-xs capitalize text-muted-foreground">
-                  {transaction.paymentMethod.replace("_", " ")}
-                </td>
-                <td
-                  className={cn(
-                    "whitespace-nowrap px-3 py-3 text-right font-medium tabular-nums",
-                    movement > 0
-                      ? "text-emerald-400"
-                      : movement < 0
-                        ? "text-rose-400"
-                        : "text-foreground",
-                  )}
-                >
-                  {movement > 0 ? "+" : movement < 0 ? "−" : ""}
-                  {formatINR(Math.abs(transaction.amount))}
-                </td>
-                <td className="py-3 pl-3">
-                  {locked ? (
-                    <p className="text-right text-[10px] text-muted-foreground">
-                      {transaction.payrollMonth ? "Payroll" : "Locked"}
+              return (
+                <tr key={transaction.id} className="group transition-colors hover:bg-white/[0.04]">
+                  <td className="whitespace-nowrap py-3.5 pl-6 pr-3 tabular-nums text-xs text-white/50">
+                    {formatDisplayDate(transaction.date)}
+                  </td>
+                  <td className="px-3 py-3.5">
+                    <p className="text-xs font-bold text-white">
+                      {transactionLabel(transaction)}
                     </p>
-                  ) : (
-                    <div className="flex justify-end gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
-                      <button
-                        type="button"
-                        onClick={() => onEdit(transaction)}
-                        className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        aria-label="Edit"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(transaction.id)}
-                        className="rounded-md p-1.5 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-400"
-                        aria-label="Delete"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                    {transaction.historical ? (
+                      <p className="mt-0.5 text-[10px] font-semibold text-amber-400">Historical</p>
+                    ) : null}
+                  </td>
+                  <td className="max-w-[16rem] px-3 py-3.5">
+                    <p className="truncate text-sm font-semibold text-white/90">{transaction.description}</p>
+                    <p className="mt-0.5 truncate text-xs text-white/45">
+                      {transaction.historical && project
+                        ? `Historical · outstanding ${
+                            paymentSummary(project).pending != null
+                              ? formatINR(paymentSummary(project).pending!)
+                              : "n/a"
+                          }`
+                        : (transaction.category ?? "—")}
+                    </p>
+                  </td>
+                  <td className="max-w-[10rem] truncate px-3 py-3.5 text-xs text-white/60">
+                    {linked}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3.5 text-xs capitalize text-white/50">
+                    {transaction.paymentMethod.replace("_", " ")}
+                  </td>
+                  <td
+                    className={cn(
+                      "whitespace-nowrap px-3 py-3.5 text-right font-black tabular-nums text-sm",
+                      movement > 0
+                        ? "text-emerald-400"
+                        : movement < 0
+                          ? "text-rose-400"
+                          : "text-white",
+                    )}
+                  >
+                    {movement > 0 ? "+" : movement < 0 ? "−" : ""}
+                    {formatINR(Math.abs(transaction.amount))}
+                  </td>
+                  <td className="py-3.5 pr-6 pl-3">
+                    {locked ? (
+                      <p className="text-right text-[10px] font-semibold uppercase tracking-wider text-white/40">
+                        {transaction.payrollMonth ? "Payroll" : "Locked"}
+                      </p>
+                    ) : (
+                      <div className="flex justify-end gap-1 opacity-60 transition-opacity group-hover:opacity-100">
+                        <button
+                          type="button"
+                          onClick={() => onEdit(transaction)}
+                          className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-white/60 hover:bg-white/10 hover:text-white transition-all"
+                          aria-label="Edit"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDelete(transaction.id)}
+                          className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-rose-400/60 hover:bg-rose-500/10 hover:text-rose-400 transition-all"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

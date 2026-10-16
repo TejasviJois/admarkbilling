@@ -33,52 +33,57 @@ async function tableOk(client, table, columns = "*") {
   return !error ? true : error.message;
 }
 
-// 1. admark_billing.sql — base public tables + seed rows
+// 1. Base public tables + seed rows + storage bucket
 {
   const ops = await tableOk(pub, "operations_data", "id, payload, updated_at");
   const inv = await tableOk(pub, "invoices", "id");
   const co = await tableOk(pub, "company_settings", "id");
   results.push({
-    file: "supabase/admark_billing.sql",
+    component: "Public Tables (operations_data, invoices, company_settings)",
     deployed: ops === true && inv === true && co === true,
     detail: { operations_data: ops, invoices: inv, company_settings: co },
   });
 }
 
-// 2. multi_tenant_setup.sql — organizations table + organization_id columns
+// 2. Organizations table + organization_id columns
 {
   const orgs = await tableOk(pub, "organizations", "id, name");
   const opsOrg = await tableOk(pub, "operations_data", "organization_id");
+  const invOrg = await tableOk(pub, "invoices", "organization_id");
+  const coOrg = await tableOk(pub, "company_settings", "organization_id");
   results.push({
-    file: "supabase/multi_tenant_setup.sql",
-    deployed: orgs === true && opsOrg === true,
-    detail: { organizations: orgs, "operations_data.organization_id": opsOrg },
+    component: "Multi-Tenant Architecture (organizations table + organization_id)",
+    deployed: orgs === true && opsOrg === true && invOrg === true && coOrg === true,
+    detail: { organizations: orgs, "operations_data.organization_id": opsOrg, "invoices.organization_id": invOrg, "company_settings.organization_id": coOrg },
   });
 }
 
-// 3. 20260718120000_create_admark_relational_schema.sql — admark.* relational schema
+// 3. Admark relational schema
 {
   const projects = await tableOk(adm, "projects", "id");
   const leads = await tableOk(adm, "leads", "id");
   const clients = await tableOk(adm, "clients", "id");
+  const portalUsers = await tableOk(adm, "portal_users", "id");
   results.push({
-    file: "migrations/20260718120000_create_admark_relational_schema.sql",
-    deployed: projects === true && leads === true && clients === true,
-    detail: { "admark.projects": projects, "admark.leads": leads, "admark.clients": clients },
+    component: "Admark Relational Schema (projects, leads, clients, portal_users)",
+    deployed: projects === true && leads === true && clients === true && portalUsers === true,
+    detail: { "admark.projects": projects, "admark.leads": leads, "admark.clients": clients, "admark.portal_users": portalUsers },
   });
 }
 
-// 4. 20260718220000_link_projects_to_leads.sql — projects.lead_id column
+// 4. Extended columns (employee_code, lead_id, recurring expenses metadata)
 {
   const leadId = await tableOk(adm, "projects", "id, lead_id");
+  const empCode = await tableOk(adm, "team_members", "id, employee_code, member_type");
+  const recExp = await tableOk(adm, "recurring_expenses", "id, next_due_date, billing_cycle");
   results.push({
-    file: "migrations/20260718220000_link_projects_to_leads.sql",
-    deployed: leadId === true,
-    detail: { "admark.projects.lead_id": leadId },
+    component: "Extended Relational Columns (team employee_code, projects lead_id, recurring metadata)",
+    deployed: leadId === true && empCode === true && recExp === true,
+    detail: { "admark.projects.lead_id": leadId, "admark.team_members.employee_code": empCode, "admark.recurring_expenses.next_due_date": recExp },
   });
 }
 
-// 5. 20260719100000_safe_operations_mutations.sql — CAS RPCs
+// 5. Stored Procedures / RPCs
 {
   async function rpcExists(name, args) {
     const { error } = await pub.rpc(name, args);
@@ -98,14 +103,15 @@ async function tableOk(client, table, columns = "*") {
     p_upserts: [],
     p_deletes: [],
   });
+  const c = await rpcExists("cloud_usage_bytes", {});
   results.push({
-    file: "migrations/20260719100000_safe_operations_mutations.sql",
-    deployed: a === true && b === true,
-    detail: { mutate_operations_data: a, mutate_operations_aux_data: b },
+    component: "Stored Procedures (mutate_operations_data, mutate_operations_aux_data, cloud_usage_bytes)",
+    deployed: a === true && b === true && c === true,
+    detail: { mutate_operations_data: a, mutate_operations_aux_data: b, cloud_usage_bytes: c },
   });
 }
 
 console.log(JSON.stringify(results, null, 2));
 const deployedCount = results.filter((r) => r.deployed).length;
-console.log(`\n${deployedCount}/5 SQL files deployed.`);
+console.log(`\n${deployedCount}/5 components verified for supabase/complete_admark_database.sql.`);
 process.exitCode = deployedCount === 5 ? 0 : 1;

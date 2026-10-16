@@ -58,47 +58,49 @@ function DocumentsHubPage() {
   const vaultCount = vault.length;
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-2.5">
-            <FolderOpen className="h-6 w-6 shrink-0 text-primary" strokeWidth={1.75} />
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
-              Documents
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ff6b2b]/15 text-[#ff6b2b] border border-[#ff6b2b]/30 shadow-[0_0_12px_rgba(255,107,43,0.2)]">
+              <FolderOpen className="h-5 w-5" strokeWidth={2} />
+            </span>
+            <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
+              Documents Vault
             </h1>
           </div>
-          <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
-            Manage proposals, client documents, invoices and internal knowledge.
+          <p className="mt-1.5 max-w-xl text-xs text-white/50">
+            Manage proposals, client contracts, compliance files, generated invoices and internal knowledge assets.
           </p>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
+        <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center lg:w-auto">
           <div className="relative min-w-0 flex-1 sm:w-64 lg:w-72">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search documents…"
-              className="h-10 w-full rounded-lg border border-border/80 bg-card/40 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-border"
+              className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] pl-10 pr-3.5 text-xs text-white outline-none placeholder:text-white/40 focus:border-[#ff6b2b]/50 focus:ring-1 focus:ring-[#ff6b2b] transition-all"
               aria-label="Search documents"
             />
           </div>
           <Link
             to="/documents/proposals"
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] px-4 text-xs font-semibold text-white shadow-lg shadow-[#ff6b2b]/25 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
           >
             <Plus className="h-4 w-4" />
-            New document
+            New Document
           </Link>
         </div>
       </div>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium text-foreground">Libraries</h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <section className="space-y-3.5">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Active Libraries</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <LibraryHubCard
             to="/documents/proposals"
-            title="Proposals & quotations"
-            description="Company folders before they become clients. Upload proposals and quotations here."
+            title="Proposals & Quotations"
+            description="Company folders before they become clients. Upload proposals, briefs, and quotations here."
             accent="rose"
             icon={HUB_ICONS.proposals}
             stat={
@@ -109,7 +111,7 @@ function DocumentsHubPage() {
           />
           <LibraryHubCard
             to="/documents/clients"
-            title="Clients"
+            title="Client Documents"
             description="Live client folders created when you press Proceed on a won company."
             accent="violet"
             icon={HUB_ICONS.clients}
@@ -121,8 +123,8 @@ function DocumentsHubPage() {
           />
           <LibraryHubCard
             to="/documents/vault"
-            title="Admark vault"
-            description="Internal SOPs, company docs, and partnership drafts."
+            title="Admark Vault"
+            description="Internal SOPs, company docs, master agreements, and partnership drafts."
             accent="amber"
             icon={HUB_ICONS.vault}
             stat={
@@ -134,22 +136,22 @@ function DocumentsHubPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-3.5">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-sm font-medium text-foreground">Recent documents</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Recent Activity & Documents</h2>
           <Link
             to="/documents/proposals"
-            className="text-xs font-medium text-primary hover:text-primary/80"
+            className="text-xs font-semibold text-[#ff6b2b] hover:underline"
           >
-            View all →
+            View all proposals →
           </Link>
         </div>
         {recent.length === 0 ? (
-          <p className="border-y border-border/80 py-10 text-center text-sm text-muted-foreground">
-            {search ? "No documents match your search." : "No documents yet. Upload your first file."}
-          </p>
+          <div className="glass-panel rounded-2xl border border-dashed border-white/10 py-12 text-center text-sm text-white/40">
+            {search ? "No documents match your search query." : "No documents recorded yet. Upload your first file."}
+          </div>
         ) : (
-          <div className="divide-y divide-border/80 border-y border-border/80">
+          <div className="glass-panel rounded-2xl border border-white/10 overflow-hidden divide-y divide-white/10 shadow-xl">
             {recent.map((document) => (
               <RecentDocumentRow
                 key={document.id}
@@ -161,20 +163,20 @@ function DocumentsHubPage() {
         )}
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium text-foreground">Archive</h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <section className="space-y-3.5">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">System Archive</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <ArchiveHubCard
             to="/documents/invoices"
-            title="Invoices"
-            description="Generated invoice downloads and payment archives."
+            title="Invoices Archive"
+            description="Generated tax invoice downloads, PDF records, and settlement receipts."
             accent="sky"
             icon={HUB_ICONS.invoices}
             watermark={HUB_ICONS.invoiceWatermark}
           />
           <ArchiveHubCard
             to="/documents/agreements"
-            title="Legacy agreements"
+            title="Legacy Agreements"
             description="Older contracts not yet filed in a client folder."
             accent="violet"
             icon={HUB_ICONS.agreements}

@@ -141,7 +141,10 @@ interface OrganizationRef {
   legacyId: string;
 }
 
+let cachedOrgRef: OrganizationRef | null = null;
+
 async function resolveOrganization(db: AdmarkDb): Promise<OrganizationRef> {
+  if (cachedOrgRef) return cachedOrgRef;
   const { data, error } = await db
     .from("organizations")
     .select("id, legacy_id")
@@ -156,7 +159,8 @@ async function resolveOrganization(db: AdmarkDb): Promise<OrganizationRef> {
         "Run `npm run db:migrate:apply` (scripts/migrate-json-to-relational.mjs) first.",
     );
   }
-  return { id: preferred.id, legacyId: preferred.legacy_id ?? preferred.id };
+  cachedOrgRef = { id: preferred.id, legacyId: preferred.legacy_id ?? preferred.id };
+  return cachedOrgRef;
 }
 
 // ---------------------------------------------------------------------------
@@ -1430,10 +1434,21 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
     const fixedMonthlyExpenseId =
       (row.recurring_expense_id ? recurringLegacyById.get(row.recurring_expense_id) : undefined) ??
       (salary && teamLegacyId ? salaryScheduleIdByTeamLegacyId.get(teamLegacyId) : undefined);
+    let customType: string | undefined = undefined;
+    let cleanNotes = row.notes ?? undefined;
+    if (cleanNotes && cleanNotes.includes("[custom_type:")) {
+      const match = cleanNotes.match(/\[custom_type:(.+?)\]/);
+      if (match) {
+        customType = match[1].trim();
+        cleanNotes = cleanNotes.replace(/\[custom_type:(.+?)\]\n?/, "").trim() || undefined;
+      }
+    }
+
     return {
       id: legacyIdOf(row),
       organizationId: org.legacyId,
       type,
+      customType,
       date: row.transaction_date,
       amount: asNumber(row.amount) ?? 0,
       description: row.description,
@@ -1454,7 +1469,7 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
       salaryBonusAmount:
         asNumber(row.salary_bonus_amount) ?? (salary ? asNumber(salary.bonus_amount) : undefined),
       fixedMonthlyExpenseId,
-      notes: orUndefined(row.notes),
+      notes: cleanNotes,
       attachmentDataUrl: orUndefined(proof?.file_url),
       createdBy: orUndefined(row.created_by),
       createdAt: toMillis(row.created_at, Date.now()),

@@ -658,6 +658,8 @@ export interface Transaction {
   id: string;
   organizationId?: string;
   type: TransactionType;
+  /** Optional custom display name for transaction type (e.g. Sponsorship, Royalty, Consulting). */
+  customType?: string;
   date: string;
   amount: number;
   description: string;

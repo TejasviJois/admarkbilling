@@ -99,18 +99,18 @@ function TeamMemberDetailPage() {
       <div>
         <Link
           to="/team"
-          className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold text-white/60 hover:text-white transition-colors"
         >
-          <ArrowLeft className="h-4 w-4" /> Back to Team
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Team
         </Link>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <MemberAvatar name={member.name} className="h-12 w-12 text-sm" />
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 glass-panel p-6 shadow-xl">
+          <div className="flex min-w-0 items-center gap-4">
+            <MemberAvatar name={member.name} className="h-14 w-14 text-base font-bold border border-white/10 bg-white/5 text-[#ff6b2b]" />
             <div className="min-w-0">
-              <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">
+              <h1 className="truncate text-2xl font-black tracking-tight text-white md:text-3xl">
                 {member.name || "Unnamed member"}
               </h1>
-              <p className="mt-1 truncate text-sm text-muted-foreground">
+              <p className="mt-1 truncate text-xs text-white/50">
                 {`${member.employeeId ? `${member.employeeId} · ` : ""}${
                   member.role || "Team member"
                 } · ${memberTypeLabel(member.memberType)}${
@@ -121,18 +121,26 @@ function TeamMemberDetailPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             {!started && (
-              <Button variant="destructive" onClick={() => setStartOpen(true)}>
+              <Button
+                variant="destructive"
+                className="rounded-xl font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30"
+                onClick={() => setStartOpen(true)}
+              >
                 Start Payroll
               </Button>
             )}
-            <Button variant="outline" className="gap-2" onClick={() => setDialogOpen(true)}>
+            <Button
+              variant="outline"
+              className="gap-2 rounded-xl border border-white/10 glass-card text-white hover:border-white/25 hover:bg-white/5"
+              onClick={() => setDialogOpen(true)}
+            >
               <Pencil className="h-4 w-4" /> Edit profile
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <DetailStat label="Salary / month" value={formatSalary(member.baseMonthlySalary)} />
         <DetailStat
           label="Salary paid until today"
@@ -140,9 +148,11 @@ function TeamMemberDetailPage() {
         />
       </div>
 
-      <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-        <h2 className="text-sm font-semibold text-foreground">Profile</h2>
-        <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+      <section className="rounded-2xl border border-white/10 glass-panel p-6 shadow-xl">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-[#ff6b2b] border-b border-white/10 pb-3">
+          Member Profile
+        </h2>
+        <dl className="mt-5 grid gap-4 sm:grid-cols-2">
           <ProfileRow label="Employee ID" value={member.employeeId || "—"} />
           <ProfileRow label="Member type" value={memberTypeLabel(member.memberType)} />
           <ProfileRow label="Team" value={teamGroupLabel(member.teamGroup) || "—"} />
@@ -184,22 +194,22 @@ function TeamMemberDetailPage() {
 
 function DetailStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="rounded-2xl border border-white/10 glass-panel p-5 shadow-lg">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-white/50">
         {label}
       </p>
-      <p className="mt-2 text-xl font-bold tabular-nums text-foreground">{value}</p>
+      <p className="mt-2.5 text-2xl font-black tabular-nums text-white">{value}</p>
     </div>
   );
 }
 
 function ProfileRow({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="rounded-xl border border-white/5 glass-card p-3.5">
+      <dt className="text-[10px] font-bold uppercase tracking-wider text-white/40">
         {label}
       </dt>
-      <dd className="mt-1 text-sm font-medium text-foreground">{value}</dd>
+      <dd className="mt-1 text-sm font-semibold text-white">{value}</dd>
     </div>
   );
 }

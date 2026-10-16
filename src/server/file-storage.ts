@@ -78,6 +78,8 @@ export async function createAdmarkSignedUrl(
   return data.signedUrl;
 }
 
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
 /** Refresh access for a stored admark-files URL; leave other URLs unchanged. */
 export async function resolveStoredFileUrl(
   sb: SupabaseClient,
@@ -87,8 +89,21 @@ export async function resolveStoredFileUrl(
   if (!value?.trim()) return value ?? undefined;
   const path = extractAdmarkFilesPath(value);
   if (!path) return value;
+
+  const now = Date.now();
+  const cached = signedUrlCache.get(path);
+  // Re-use cached URL if it still has at least 1 hour of validity remaining
+  if (cached && cached.expiresAt > now + 3600_000) {
+    return cached.url;
+  }
+
   try {
-    return await createAdmarkSignedUrl(sb, path, expiresIn);
+    const signed = await createAdmarkSignedUrl(sb, path, expiresIn);
+    signedUrlCache.set(path, {
+      url: signed,
+      expiresAt: now + expiresIn * 1000,
+    });
+    return signed;
   } catch {
     return value;
   }

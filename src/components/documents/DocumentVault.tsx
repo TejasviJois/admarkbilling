@@ -55,7 +55,7 @@ import type {
 const FILE_ACCEPT =
   ".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*";
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
-const LIST_ROWS = "divide-y divide-border/80 border-y border-border/80";
+const LIST_ROWS = "divide-y divide-white/5 border-y border-white/10";
 
 type UploadInput = {
   title: string;
@@ -329,7 +329,7 @@ function DocumentPreviewDialog({
           </div>
         ) : null}
         {src && image ? (
-          <div className="overflow-auto rounded-lg border border-border bg-muted/20 p-2">
+          <div className="overflow-auto rounded-2xl border border-white/10 bg-black/40 p-3">
             <img
               src={src}
               alt={document?.title ?? "Document preview"}
@@ -337,36 +337,36 @@ function DocumentPreviewDialog({
             />
           </div>
         ) : rawSrc && pdf && isMobile ? (
-          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-6 text-center">
-            <FileText className="mx-auto h-10 w-10 text-muted-foreground" aria-hidden />
-            <p className="text-sm text-muted-foreground">
+          <div className="space-y-3 rounded-2xl border border-white/10 glass-panel p-8 text-center">
+            <FileText className="mx-auto h-10 w-10 text-white/40" aria-hidden />
+            <p className="text-sm text-white/60">
               Phone browsers can’t scroll PDFs inside this popup. Open it in a new tab to view every
               page and download.
             </p>
           </div>
         ) : rawSrc && pdf && pdfPreview.loading ? (
-          <div className="flex h-[min(70vh,640px)] shrink-0 items-center justify-center rounded-lg border border-border bg-muted/20">
-            <p className="text-sm text-muted-foreground">Loading PDF…</p>
+          <div className="flex h-[min(70vh,640px)] shrink-0 items-center justify-center rounded-2xl border border-white/10 glass-panel">
+            <p className="text-sm text-white/50">Loading PDF…</p>
           </div>
         ) : rawSrc && pdf && pdfPreview.error ? (
-          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-6 text-center">
-            <p className="text-sm text-destructive">
+          <div className="space-y-3 rounded-2xl border border-white/10 glass-panel p-8 text-center">
+            <p className="text-sm text-rose-400">
               {pdfPreview.error.length > 180 || /<!doctype|<html/i.test(pdfPreview.error)
                 ? "Could not load PDF preview."
                 : pdfPreview.error}
             </p>
-            <p className="text-xs text-muted-foreground">Use Open in new tab or Download instead.</p>
+            <p className="text-xs text-white/50">Use Open in new tab or Download instead.</p>
           </div>
         ) : showEmbeddedPdf ? (
           <PdfPagesPreview src={iframeSrc!} title={document?.title} />
         ) : linkSrc ? (
-          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-6 text-center">
-            <p className="text-sm text-muted-foreground">
+          <div className="space-y-3 rounded-2xl border border-white/10 glass-panel p-8 text-center">
+            <p className="text-sm text-white/60">
               This file type can’t be previewed here. Download it to open.
             </p>
           </div>
         ) : (
-          <p className="py-8 text-center text-sm text-muted-foreground">No file attached.</p>
+          <p className="py-8 text-center text-sm text-white/40">No file attached.</p>
         )}
         {linkSrc ? (
           <DialogFooter className="shrink-0 gap-2 sm:gap-2">
@@ -522,16 +522,16 @@ function UploadForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-md">
-        <DialogHeader className="border-b border-border/80 px-5 py-4 text-left">
-          <DialogTitle className="text-base font-semibold tracking-tight">Upload document</DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
+      <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto border-white/10 bg-[#121217]/95 p-0 sm:max-w-md backdrop-blur-2xl">
+        <DialogHeader className="border-b border-white/10 px-6 py-4 text-left">
+          <DialogTitle className="text-base font-bold tracking-tight text-white">Upload document</DialogTitle>
+          <DialogDescription className="text-xs text-white/50">
             PDF, Word, image, or paste a link.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={(event) => void submit(event)} className="space-y-4 px-5 py-4">
+        <form onSubmit={(event) => void submit(event)} className="space-y-4 px-6 py-5">
           <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Title</span>
+            <span className="mb-1.5 block text-xs font-semibold text-white/60">Title</span>
             <Input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
@@ -542,31 +542,31 @@ function UploadForm({
                     ? "e.g. Agreement, handover"
                     : "e.g. Proposal, quotation"
               }
-              className="h-9 border-border/80"
+              className="h-10 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-white/40 focus:border-[#ff6b2b]/50"
               autoFocus
             />
           </label>
           {!companyNameLocked && (
             <label className="block">
-              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              <span className="mb-1.5 block text-xs font-semibold text-white/60">
                 Company name
               </span>
               <Input
                 value={companyName}
                 onChange={(event) => setCompanyName(event.target.value)}
                 placeholder="e.g. Motorola"
-                className="h-9 border-border/80"
+                className="h-10 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-white/40 focus:border-[#ff6b2b]/50"
               />
             </label>
           )}
           <div>
-            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">File</span>
+            <span className="mb-1.5 block text-xs font-semibold text-white/60">File</span>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-9 w-full items-center gap-2 rounded-md border border-dashed border-border/80 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+              className="flex h-10 w-full items-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-3.5 text-sm text-white/60 transition-colors hover:border-[#ff6b2b]/40 hover:text-white"
             >
-              <Upload className="h-3.5 w-3.5 shrink-0" />
+              <Upload className="h-4 w-4 shrink-0 text-[#ff6b2b]" />
               <span className="truncate">{pickedFile?.name ?? "Choose file (max 15MB)"}</span>
             </button>
             <input
@@ -578,19 +578,19 @@ function UploadForm({
             />
           </div>
           <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            <span className="mb-1.5 block text-xs font-semibold text-white/60">
               Or paste a link
             </span>
             <Input
               value={externalUrl}
               onChange={(event) => setExternalUrl(event.target.value)}
               placeholder="https://…"
-              className="h-9 border-border/80"
+              className="h-10 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-white/40 focus:border-[#ff6b2b]/50"
             />
           </label>
           {members && members.length > 0 ? (
             <div>
-              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              <span className="mb-1.5 block text-xs font-semibold text-white/60">
                 Assign to
               </span>
               <MemberChips
@@ -605,18 +605,23 @@ function UploadForm({
             </div>
           ) : null}
           {error && <p className="text-sm text-rose-400">{error}</p>}
-          <DialogFooter className="gap-2 border-t border-border/80 pt-4 sm:justify-end">
+          <DialogFooter className="gap-2 border-t border-white/10 pt-4 sm:justify-end">
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="border-border/80"
+              className="rounded-xl border-white/10 glass-card text-white hover:bg-white/5"
               onClick={() => onOpenChange(false)}
               disabled={uploading}
             >
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={uploading}>
+            <Button
+              type="submit"
+              size="sm"
+              className="rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white font-bold"
+              disabled={uploading}
+            >
               {uploading ? "Uploading…" : "Save"}
             </Button>
           </DialogFooter>
@@ -708,7 +713,7 @@ export function PreClientLibraryView({
               value={searchLocal}
               onChange={(event) => setSearchLocal(event.target.value)}
               placeholder="Search companies…"
-              className="h-10 w-full rounded-lg border border-border/80 bg-card/40 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-border"
+              className="h-10 w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/40 focus:border-[#ff6b2b]/50"
               aria-label="Search companies"
             />
           </div>
@@ -1349,7 +1354,7 @@ export function AdmarkVaultView({
               value={searchLocal}
               onChange={(event) => setSearchLocal(event.target.value)}
               placeholder="Search vault…"
-              className="h-10 w-full rounded-lg border border-border/80 bg-card/40 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-border"
+              className="h-10 w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/40 focus:border-[#ff6b2b]/50"
               aria-label="Search vault"
             />
           </div>

@@ -5,7 +5,7 @@ Full-stack invoice app: **TanStack Start** (React 19) + **Vite** + **Nitro (Verc
 ## 1. Database & storage (one SQL file)
 
 1. Supabase → **SQL** → New query.
-2. Paste the entire contents of **`supabase/admark_billing.sql`** and run it.
+2. Paste the entire contents of **`supabase/complete_admark_database.sql`** and run it.
 3. You can re-run the same script; it is written to avoid duplicate-object errors.
 
 This creates:
@@ -55,7 +55,7 @@ Features covered end-to-end: **list invoices**, **get invoice**, **create/update
 1. Push the repo to GitHub and **Import** the project in [Vercel](https://vercel.com/).
 2. **Build command:** `npm run build` (see `vercel.json`). The Nitro **Vercel** preset writes **`.vercel/output`**; Vercel runs that output as serverless + static assets.
 3. In the Vercel project, add variables from **`.env.example`**. **Required for production:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_SESSION_SECRET`, and `ADMARK_APP_PASSWORD`. Optionally set `ADMARK_APP_USERNAME` and `VITE_PUBLIC_HOME_URL`. Enable **Production** and **Preview** for each secret so builds and branches never run without them.
-4. Run **`supabase/admark_billing.sql`** in your Supabase SQL editor (creates tables **and** the `admark-files` storage bucket).
+4. Run **`supabase/complete_admark_database.sql`** in your Supabase SQL editor (creates tables, relations, indexes, RPCs, **and** the `admark-files` storage bucket).
 5. Deploy. In **Settings → Workspace**, confirm **Backend ready**. Use **Push local data to Supabase** if you have data only in the browser.
 6. Use Vercel **Functions** logs or the browser **Network** tab if server calls fail.
 

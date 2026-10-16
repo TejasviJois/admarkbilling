@@ -191,29 +191,29 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-3 border-b border-border/80 pb-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <Link
             to="/invoices"
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/60 transition-colors hover:text-white"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Invoices
           </Link>
-          <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+          <h1 className="mt-2 text-2xl font-black tracking-tight text-white md:text-3xl">
             {isEdit ? `Edit ${existing?.number}` : "New invoice"}
           </h1>
-          <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
+          <p className="mt-1 max-w-xl text-xs text-white/50">
             {isEdit
               ? "Changes save to this invoice number."
               : "Number is assigned automatically for the financial year."}
           </p>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleGenerate}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] px-4 text-xs font-bold text-white shadow-lg shadow-[#ff6b2b]/20 hover:shadow-[0_0_20px_rgba(255,107,43,0.4)] transition-all"
           >
             <Save className="h-3.5 w-3.5" />
             Download
@@ -221,14 +221,14 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
           <button
             type="button"
             onClick={() => void persistInvoice()}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/40"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/10 glass-card px-3.5 text-xs font-semibold text-white/80 transition-colors hover:border-white/25 hover:text-white"
           >
             {isEdit ? "Save" : "Save only"}
           </button>
           <button
             type="button"
             onClick={() => setShowPreview(true)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/40"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/10 glass-card px-3.5 text-xs font-semibold text-white/80 transition-colors hover:border-white/25 hover:text-white"
           >
             <Eye className="h-3.5 w-3.5" />
             Preview
@@ -486,9 +486,9 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
           </Section>
         </div>
 
-        <aside className="space-y-3 lg:sticky lg:top-20 lg:self-start">
-          <h3 className="text-sm font-medium text-foreground">Totals</h3>
-          <dl className="divide-y divide-border/80 border-y border-border/80 text-sm">
+        <aside className="rounded-2xl border border-white/10 glass-panel p-6 shadow-xl space-y-4 lg:sticky lg:top-20 lg:self-start">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-white/50 border-b border-white/10 pb-3">Invoice Totals</h3>
+          <dl className="divide-y divide-white/5 border-b border-white/10 text-sm">
             <Row label="Subtotal" value={formatINR(totals.subtotal)} />
             {taxPercent > 0 && (
               <Row label={`Tax (${taxPercent}%)`} value={formatINR(totals.tax)} />
@@ -496,17 +496,17 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
             {advance > 0 && <Row label="Advance" value={`− ${formatINR(totals.advance)}`} />}
             <Row label="Payable" value={formatINR(totals.payable)} highlight />
           </dl>
-          <p className="text-xs text-muted-foreground">{rupeesInWords(totals.payable)}</p>
+          <p className="text-xs text-white/50 leading-relaxed italic">{rupeesInWords(totals.payable)}</p>
         </aside>
       </div>
 
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] gap-3 overflow-y-auto p-3 sm:w-[min(95vw,920px)] sm:max-w-none sm:gap-4 sm:p-6">
-          <DialogHeader className="text-left">
-            <DialogTitle>Preview</DialogTitle>
-            <DialogDescription>Same layout as the PDF — updates as you edit.</DialogDescription>
+        <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] gap-3 overflow-y-auto border-white/10 bg-[#121217]/95 p-3 sm:w-[min(95vw,920px)] sm:max-w-none sm:gap-4 sm:p-6 backdrop-blur-2xl">
+          <DialogHeader className="text-left border-b border-white/10 pb-3">
+            <DialogTitle className="text-white font-bold">Document Preview</DialogTitle>
+            <DialogDescription className="text-white/50 text-xs">Same layout as the PDF — updates live as you edit.</DialogDescription>
           </DialogHeader>
-          <div className="invoice-preview-shell rounded-lg bg-zinc-100/90 p-1.5 dark:bg-zinc-950/40 sm:p-4">
+          <div className="invoice-preview-shell rounded-2xl border border-white/10 bg-[#0d0d12]/90 p-2 sm:p-4 shadow-2xl">
             <Suspense fallback={<LoadingDog message="Loading preview…" />}>
               <InvoicePreview invoice={draft} company={company} />
             </Suspense>
@@ -518,12 +518,12 @@ export default function InvoiceForm({ existing, onSaved }: Props) {
 }
 
 const inputCls =
-  "w-full rounded-md border border-border/80 bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary";
+  "w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-[#ff6b2b]/50 focus:ring-1 focus:ring-[#ff6b2b]/50";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-4">
-      <h2 className="text-sm font-medium tracking-tight text-foreground">{title}</h2>
+    <section className="rounded-2xl border border-white/10 glass-panel p-6 shadow-xl space-y-4">
+      <h2 className="text-xs font-bold uppercase tracking-wider text-[#ff6b2b] border-b border-white/10 pb-3">{title}</h2>
       {children}
     </section>
   );
@@ -540,7 +540,7 @@ function Field({
 }) {
   return (
     <label className={`block ${className}`}>
-      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="mb-1.5 block text-xs font-semibold text-white/60">{label}</span>
       {children}
     </label>
   );
@@ -548,13 +548,13 @@ function Field({
 
 function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-2.5">
-      <dt className={highlight ? "font-medium text-foreground" : "text-muted-foreground"}>
+    <div className="flex items-baseline justify-between gap-3 py-3">
+      <dt className={highlight ? "font-bold text-white text-xs uppercase tracking-wider" : "text-white/60 text-xs font-medium"}>
         {label}
       </dt>
       <dd
         className={
-          "tabular-nums " + (highlight ? "text-base font-semibold text-foreground" : "font-medium")
+          "tabular-nums " + (highlight ? "text-lg font-black text-white" : "font-semibold text-white/90 text-sm")
         }
       >
         {value}

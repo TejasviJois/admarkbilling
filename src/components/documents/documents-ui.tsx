@@ -59,19 +59,23 @@ export function DocumentHubCard({
   return (
     <Link
       to={to}
-      className="group flex items-center gap-3 py-3.5 transition-colors hover:bg-muted/30"
+      className="group flex flex-col justify-between rounded-2xl border border-white/10 glass-panel p-5 transition-all duration-300 hover:border-white/25 hover:scale-[1.01] hover:shadow-xl"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors group-hover:text-foreground">
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-foreground">{title}</span>
-        <span className="mt-0.5 block truncate text-xs text-muted-foreground">{description}</span>
-      </span>
-      {stat ? (
-        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{stat}</span>
-      ) : null}
-      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+      <div>
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white/70 transition-all duration-300 group-hover:border-[#ff6b2b]/40 group-hover:bg-[#ff6b2b]/10 group-hover:text-[#ff6b2b]">
+          {icon}
+        </span>
+        <h3 className="mt-4 truncate text-base font-bold text-white group-hover:text-white">{title}</h3>
+        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-white/50">{description}</p>
+      </div>
+      <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
+        {stat ? (
+          <span className="truncate text-xs font-mono text-white/40">{stat}</span>
+        ) : <span />}
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-white/60 transition-colors group-hover:border-[#ff6b2b]/40 group-hover:text-[#ff6b2b]">
+          <ChevronRight className="h-4 w-4" />
+        </span>
+      </div>
     </Link>
   );
 }
@@ -92,18 +96,18 @@ export function FolderTile({
     <Link
       to={to}
       params={params}
-      className="group flex items-center gap-3 py-3 transition-colors hover:bg-muted/30"
+      className="group flex items-center gap-3.5 rounded-xl border border-white/10 glass-card px-4 py-3.5 transition-all duration-200 hover:border-white/25 hover:bg-white/[0.04]"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors group-hover:text-foreground">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-white/60 transition-colors group-hover:border-[#ff6b2b]/40 group-hover:text-[#ff6b2b]">
         <FolderOpen className="h-4 w-4" strokeWidth={1.75} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-foreground">{title}</span>
+        <span className="block truncate text-sm font-semibold text-white group-hover:text-white">{title}</span>
         {subtitle ? (
-          <span className="mt-0.5 block truncate text-xs text-muted-foreground">{subtitle}</span>
+          <span className="mt-0.5 block truncate text-xs text-white/50">{subtitle}</span>
         ) : null}
       </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-white/40 transition-transform group-hover:translate-x-0.5 group-hover:text-white" />
     </Link>
   );
 }
@@ -130,22 +134,22 @@ export function EntityListCard({
       to={to}
       params={params}
       className={cn(
-        "group flex items-center justify-between gap-4 py-3.5 transition-colors hover:bg-muted/30",
+        "group flex items-center justify-between gap-4 rounded-xl border border-white/10 glass-card px-4 py-3.5 transition-all duration-200 hover:border-white/25 hover:bg-white/[0.04]",
       )}
     >
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-foreground">{title}</p>
+        <p className="truncate text-sm font-semibold text-white group-hover:text-white">{title}</p>
         {subtitle ? (
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</p>
+          <p className="mt-0.5 truncate text-xs text-white/50">{subtitle}</p>
         ) : null}
-        {meta ? <p className="mt-0.5 text-xs text-muted-foreground">{meta}</p> : null}
-        {proofHint ? <p className="mt-0.5 text-xs text-emerald-400/90">{proofHint}</p> : null}
+        {meta ? <p className="mt-0.5 text-xs text-white/40 font-mono">{meta}</p> : null}
+        {proofHint ? <p className="mt-0.5 text-xs text-emerald-400 font-medium">{proofHint}</p> : null}
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-3">
         {amount ? (
-          <span className="text-sm font-medium tabular-nums text-foreground">{amount}</span>
+          <span className="text-sm font-bold tabular-nums text-white">{amount}</span>
         ) : null}
-        <ChevronRight className="h-4 w-4 text-muted-foreground/70" />
+        <ChevronRight className="h-4 w-4 text-white/40 transition-transform group-hover:translate-x-0.5 group-hover:text-white" />
       </div>
     </Link>
   );
@@ -282,22 +286,22 @@ export function LibraryHubCard({
   return (
     <Link
       to={to}
-      className="group relative flex min-h-[168px] flex-col rounded-xl border border-border/80 bg-card/40 p-5 transition-colors hover:border-border hover:bg-card/70"
+      className="group relative flex min-h-[175px] flex-col rounded-2xl border border-white/10 glass-panel p-5 transition-all duration-300 hover:border-white/25 hover:scale-[1.01] hover:shadow-2xl"
     >
       <span
         className={cn(
-          "mb-4 flex h-10 w-10 items-center justify-center rounded-lg",
+          "mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 shadow-sm",
           a.iconWrap,
           a.icon,
         )}
       >
         {icon}
       </span>
-      <h3 className="text-base font-semibold tracking-tight text-foreground">{title}</h3>
-      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{description}</p>
-      <div className="mt-auto flex items-end justify-between gap-3 pt-5">
-        <p className="text-xs text-muted-foreground">{stat}</p>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/80 text-muted-foreground transition-colors group-hover:border-border group-hover:text-foreground">
+      <h3 className="text-base font-bold tracking-tight text-white group-hover:text-white transition-colors">{title}</h3>
+      <p className="mt-1.5 text-xs leading-relaxed text-white/60">{description}</p>
+      <div className="mt-auto flex items-end justify-between gap-3 pt-5 border-t border-white/5">
+        <p className="text-xs font-mono text-white/40">{stat}</p>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white/60 transition-all group-hover:border-[#ff6b2b]/40 group-hover:bg-[#ff6b2b]/10 group-hover:text-[#ff6b2b]">
           <ArrowRight className="h-3.5 w-3.5" />
         </span>
       </div>
@@ -324,27 +328,27 @@ export function ArchiveHubCard({
   return (
     <Link
       to={to}
-      className="group relative flex min-h-[140px] overflow-hidden rounded-xl border border-border/80 bg-card/40 p-5 transition-colors hover:border-border hover:bg-card/70"
+      className="group relative flex min-h-[150px] overflow-hidden rounded-2xl border border-white/10 glass-panel p-5 transition-all duration-300 hover:border-white/25 hover:scale-[1.01] hover:shadow-xl"
     >
       <div className="relative z-10 flex max-w-[70%] flex-col">
         <span
           className={cn(
-            "mb-3 flex h-9 w-9 items-center justify-center rounded-lg",
+            "mb-3 flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 shadow-sm",
             a.iconWrap,
             a.icon,
           )}
         >
           {icon}
         </span>
-        <h3 className="text-base font-semibold tracking-tight text-foreground">{title}</h3>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{description}</p>
-        <span className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-md border border-border/80 bg-background/50 px-3 py-1.5 text-xs font-medium text-foreground transition-colors group-hover:border-border">
+        <h3 className="text-base font-bold tracking-tight text-white">{title}</h3>
+        <p className="mt-1 text-xs leading-relaxed text-white/60">{description}</p>
+        <span className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-xs font-semibold text-white transition-all group-hover:border-white/20 group-hover:bg-white/[0.08]">
           Open archive
           <ArrowRight className="h-3 w-3" />
         </span>
       </div>
       <div
-        className="pointer-events-none absolute -bottom-4 -right-2 opacity-[0.12] transition-opacity group-hover:opacity-[0.18]"
+        className="pointer-events-none absolute -bottom-4 -right-2 opacity-[0.08] transition-opacity group-hover:opacity-[0.15]"
         aria-hidden
       >
         {watermark}
@@ -371,11 +375,11 @@ export function RecentDocumentRow({
     <Link
       to={href.to}
       params={href.params}
-      className="group flex items-center gap-3 py-3.5 transition-colors hover:bg-muted/20"
+      className="group flex items-center gap-3.5 px-4 py-3.5 transition-colors hover:bg-white/[0.02]"
     >
       <span
         className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 shadow-sm",
           a.iconWrap,
           a.icon,
         )}
@@ -383,23 +387,23 @@ export function RecentDocumentRow({
         <FileText className="h-4 w-4" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-foreground">{document.title}</span>
-        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+        <span className="block truncate text-sm font-semibold text-white">{document.title}</span>
+        <span className="mt-0.5 block truncate text-xs text-white/50">
           {company} · {rel.long}
         </span>
       </span>
       <span
         className={cn(
-          "hidden shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium sm:inline-flex",
+          "hidden shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider border border-white/10 sm:inline-flex",
           a.badge,
         )}
       >
         {label}
       </span>
-      <span className="hidden w-14 shrink-0 text-right text-xs text-muted-foreground md:block">
+      <span className="hidden w-16 shrink-0 text-right text-xs font-mono text-white/40 md:block">
         {rel.short}
       </span>
-      <span className="rounded-md p-1.5 text-muted-foreground opacity-50 group-hover:opacity-100">
+      <span className="rounded-xl p-1.5 text-white/40 opacity-50 group-hover:opacity-100 group-hover:text-white transition-opacity">
         <MoreHorizontal className="h-4 w-4" />
       </span>
     </Link>

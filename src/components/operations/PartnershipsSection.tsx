@@ -41,20 +41,20 @@ export function PartnershipsPipelineSummary({ partnerships }: { partnerships: Pa
   };
 
   const items = [
-    { label: "Confirmed", count: counts.active, className: "text-emerald-300" },
-    { label: "Warm", count: counts.prospect, className: "text-amber-300" },
-    { label: "Not interested", count: counts.inactive, className: "text-rose-300" },
+    { label: "Confirmed", count: counts.active, className: "text-emerald-400" },
+    { label: "Warm", count: counts.prospect, className: "text-amber-400" },
+    { label: "Not interested", count: counts.inactive, className: "text-rose-400" },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
       {items.map((item) => (
         <div
           key={item.label}
-          className="rounded-lg border border-border bg-card px-4 py-3 text-center shadow-sm"
+          className="rounded-2xl border border-white/10 glass-panel p-5 text-center shadow-lg transition-all hover:border-white/20"
         >
-          <p className={`text-2xl font-semibold tabular-nums ${item.className}`}>{item.count}</p>
-          <p className="mt-1 text-xs font-medium text-muted-foreground">{item.label}</p>
+          <p className={`text-3xl font-black tabular-nums ${item.className}`}>{item.count}</p>
+          <p className="mt-1 text-xs font-bold uppercase tracking-wider text-white/50">{item.label}</p>
         </div>
       ))}
     </div>

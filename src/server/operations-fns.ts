@@ -30,7 +30,7 @@ import { assertRelationalMode } from "./env";
 import { loadRelationalOperations } from "./relational-read-repository";
 import { saveRelationalOperations } from "./relational-write-repository";
 import { requireAdmin } from "./app-session.server";
-import { CACHE_KEYS, cacheSet, cacheThrough } from "./data-cache";
+import { CACHE_KEYS, cacheGet, cacheSet, cacheThrough } from "./data-cache";
 import { applyProductionBillingRepairs } from "@/lib/ground-zero";
 import { parseOpsExpenseNotes } from "@/lib/ops-costs";
 import {
@@ -499,7 +499,7 @@ function parseFounder(raw: unknown): Founder | null {
   };
 }
 
-function parseTransaction(raw: unknown): Transaction | null {
+export function parseTransaction(raw: unknown): Transaction | null {
   if (!raw || typeof raw !== "object") return null;
   const t = raw as Partial<Transaction>;
   if (
@@ -515,6 +515,7 @@ function parseTransaction(raw: unknown): Transaction | null {
     id: t.id,
     organizationId: t.organizationId ?? DEFAULT_ORG_ID,
     type: t.type as TransactionType,
+    customType: typeof t.customType === "string" ? t.customType : undefined,
     date: t.date,
     amount: t.amount,
     description: t.description,
@@ -890,7 +891,8 @@ export const saveOperationsFn = createServerFn({ method: "POST" })
       return { ok: true, data: await withSignedOperationsFileUrls(cached), version };
     }
 
-    const current = await loadRelationalOperations();
+    const current =
+      cacheGet<OperationsData>(CACHE_KEYS.operations) ?? (await loadRelationalOperations());
     const finalized = applyProductionBillingRepairs(
       applyOperationsMutation(current, data.mutation),
     );

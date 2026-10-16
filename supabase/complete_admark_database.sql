@@ -1,14 +1,25 @@
--- Admark OS relational schema.
--- Legacy public.operations_data, public.company_settings and public.invoices
--- intentionally remain untouched as migration backups.
+-- =============================================================================
+-- ADMARK OS — COMPLETE MASTER DATABASE SCHEMA
+-- Single-file, idempotent database initialization for Supabase.
+-- Safe to execute in Supabase SQL Editor on a fresh project or an existing database.
+-- =============================================================================
 
 begin;
 
+-- =============================================================================
+-- 1. EXTENSIONS & SCHEMAS
+-- =============================================================================
 create extension if not exists pgcrypto;
+
+create schema if not exists public;
 create schema if not exists admark;
 
+grant usage on schema public to service_role;
 grant usage on schema admark to service_role;
 
+-- =============================================================================
+-- 2. HELPER FUNCTIONS & TRIGGERS
+-- =============================================================================
 create or replace function admark.set_updated_at()
 returns trigger
 language plpgsql
@@ -20,6 +31,97 @@ begin
 end;
 $$;
 
+grant execute on function admark.set_updated_at() to service_role;
+
+-- =============================================================================
+-- 3. STORAGE BUCKET CONFIGURATION
+-- =============================================================================
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'admark-files',
+  'admark-files',
+  false, -- Private bucket (signed URL uploads)
+  10485760, -- 10MB limit
+  array[
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/avif',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ]::text[]
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+-- =============================================================================
+-- 4. PUBLIC SCHEMA (Legacy & Backup Compatibility Tables)
+-- =============================================================================
+create table if not exists public.organizations (
+  id text primary key,
+  name text not null,
+  created_at timestamptz not null default now()
+);
+
+insert into public.organizations (id, name)
+values ('org-admark-digitals', 'Admark Digitals')
+on conflict (id) do nothing;
+
+create table if not exists public.invoices (
+  id text primary key,
+  organization_id text references public.organizations(id) default 'org-admark-digitals',
+  payload jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.company_settings (
+  id text primary key,
+  organization_id text references public.organizations(id) default 'org-admark-digitals',
+  payload jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.operations_data (
+  id text primary key,
+  organization_id text references public.organizations(id) default 'org-admark-digitals',
+  payload jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+-- Ensure organization_id exists on legacy tables if they were created prior to multi-tenant setup
+alter table public.invoices
+  add column if not exists organization_id text references public.organizations(id) default 'org-admark-digitals';
+
+alter table public.company_settings
+  add column if not exists organization_id text references public.organizations(id) default 'org-admark-digitals';
+
+alter table public.operations_data
+  add column if not exists organization_id text references public.organizations(id) default 'org-admark-digitals';
+
+-- Backfill default organization for any legacy rows that have null
+update public.invoices set organization_id = 'org-admark-digitals' where organization_id is null;
+update public.company_settings set organization_id = 'org-admark-digitals' where organization_id is null;
+update public.operations_data set organization_id = 'org-admark-digitals' where organization_id is null;
+
+create index if not exists invoices_created_at_idx on public.invoices (created_at desc);
+create index if not exists operations_data_updated_at_idx on public.operations_data (updated_at desc);
+create index if not exists invoices_organization_id_idx on public.invoices (organization_id);
+create index if not exists company_settings_organization_id_idx on public.company_settings (organization_id);
+create index if not exists operations_data_organization_id_idx on public.operations_data (organization_id);
+
+create unique index if not exists invoices_payload_number_uidx
+  on public.invoices ((payload->>'number'))
+  where nullif(btrim(payload->>'number'), '') is not null;
+
+-- =============================================================================
+-- 5. ADMARK RELATIONAL TABLES
+-- =============================================================================
+
+-- Organizations
 create table if not exists admark.organizations (
   id uuid primary key default gen_random_uuid(),
   legacy_id text,
@@ -32,6 +134,17 @@ create table if not exists admark.organizations (
   constraint organizations_legacy_id_key unique (legacy_id)
 );
 
+-- Seed default organization
+insert into admark.organizations (id, legacy_id, slug, name)
+values (
+  'a0000000-0000-0000-0000-000000000001'::uuid,
+  'org-admark-digitals',
+  'admark-digitals',
+  'Admark Digitals'
+)
+on conflict (slug) do nothing;
+
+-- Companies (Entity profiles)
 create table if not exists admark.companies (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -62,6 +175,7 @@ create table if not exists admark.companies (
   constraint companies_org_id_key unique (organization_id, id)
 );
 
+-- Settings
 create table if not exists admark.settings (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -82,6 +196,7 @@ create table if not exists admark.settings (
   constraint settings_org_id_key unique (organization_id, id)
 );
 
+-- Clients
 create table if not exists admark.clients (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -109,10 +224,14 @@ create table if not exists admark.clients (
     references admark.clients(organization_id, id) on delete restrict
 );
 
+-- Team Members
 create table if not exists admark.team_members (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
   legacy_id text,
+  employee_code text,
+  member_type text,
+  team_group text,
   name text not null,
   email text,
   phone text,
@@ -134,6 +253,17 @@ create table if not exists admark.team_members (
   constraint team_members_org_legacy_key unique (organization_id, legacy_id)
 );
 
+-- Upgrade existing team_members table if created before employee_code & member_type migrations
+alter table if exists admark.team_members
+  add column if not exists employee_code text,
+  add column if not exists member_type text,
+  add column if not exists team_group text;
+
+create unique index if not exists team_members_org_employee_code_key
+  on admark.team_members (organization_id, employee_code)
+  where employee_code is not null and deleted_at is null;
+
+-- Partnerships
 create table if not exists admark.partnerships (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -153,6 +283,7 @@ create table if not exists admark.partnerships (
   constraint partnerships_org_legacy_key unique (organization_id, legacy_id)
 );
 
+-- Leads (CRM Pipeline)
 create table if not exists admark.leads (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -184,6 +315,7 @@ create table if not exists admark.leads (
     references admark.team_members(organization_id, id) on delete restrict
 );
 
+-- Agreements & Proposals
 create table if not exists admark.agreements (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -214,11 +346,13 @@ create table if not exists admark.agreements (
     check (recurring_end_date is null or recurring_start_date is null or recurring_end_date >= recurring_start_date)
 );
 
+-- Projects & Contracts
 create table if not exists admark.projects (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
   legacy_id text,
-  client_id uuid not null,
+  client_id uuid, -- Nullable to allow pre-client discussion projects from leads
+  lead_id uuid,   -- Linked CRM lead
   agreement_id uuid,
   display_name text not null,
   project_type text,
@@ -253,6 +387,37 @@ create table if not exists admark.projects (
     references admark.agreements(organization_id, id) on delete set null
 );
 
+-- Allow pre-client discussion projects and lead linkage on existing tables
+alter table if exists admark.projects
+  alter column client_id drop not null;
+
+alter table if exists admark.projects
+  add column if not exists lead_id uuid;
+
+-- Link projects to leads FK
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'projects_lead_fk' and conrelid = 'admark.projects'::regclass
+  ) then
+    alter table admark.projects
+      add constraint projects_lead_fk
+      foreign key (organization_id, lead_id)
+      references admark.leads(organization_id, id)
+      on delete restrict;
+  end if;
+end $$;
+
+create unique index if not exists projects_one_active_lead_idx
+  on admark.projects (organization_id, lead_id)
+  where lead_id is not null and deleted_at is null;
+
+create index if not exists projects_lead_idx
+  on admark.projects (organization_id, lead_id)
+  where lead_id is not null and deleted_at is null;
+
+-- Project Assignments
 create table if not exists admark.project_assignments (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -275,6 +440,7 @@ create unique index if not exists project_assignments_active_key
   on admark.project_assignments (organization_id, project_id, team_member_id)
   where deleted_at is null and ended_at is null;
 
+-- Project Milestones
 create table if not exists admark.project_milestones (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -300,6 +466,7 @@ create table if not exists admark.project_milestones (
     references admark.team_members(organization_id, id) on delete restrict
 );
 
+-- Invoices
 create table if not exists admark.invoices (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -339,6 +506,7 @@ create table if not exists admark.invoices (
     references admark.agreements(organization_id, id) on delete restrict
 );
 
+-- Invoice Lines
 create table if not exists admark.invoice_lines (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -360,6 +528,7 @@ create table if not exists admark.invoice_lines (
     references admark.projects(organization_id, id) on delete restrict
 );
 
+-- Recurring Expenses
 create table if not exists admark.recurring_expenses (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -375,6 +544,9 @@ create table if not exists admark.recurring_expenses (
   paid_months text[] not null default '{}',
   status text not null default 'active' check (status in ('active', 'paused', 'completed')),
   notes text,
+  next_due_date date,
+  billing_cycle text check (billing_cycle is null or billing_cycle in ('monthly', 'yearly')),
+  vendor text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
@@ -382,6 +554,14 @@ create table if not exists admark.recurring_expenses (
   constraint recurring_expenses_org_legacy_key unique (organization_id, legacy_id)
 );
 
+-- Upgrade recurring_expenses if created before office ops & renewal metadata migration
+alter table if exists admark.recurring_expenses
+  add column if not exists next_due_date date,
+  add column if not exists billing_cycle text
+    check (billing_cycle is null or billing_cycle in ('monthly', 'yearly')),
+  add column if not exists vendor text;
+
+-- Salaries
 create table if not exists admark.salaries (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -402,6 +582,7 @@ create table if not exists admark.salaries (
     references admark.team_members(organization_id, id) on delete restrict
 );
 
+-- Expenses
 create table if not exists admark.expenses (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -437,6 +618,7 @@ create table if not exists admark.expenses (
     references admark.recurring_expenses(organization_id, id) on delete restrict
 );
 
+-- Transactions Ledger
 create table if not exists admark.transactions (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -484,6 +666,7 @@ create table if not exists admark.transactions (
     references admark.recurring_expenses(organization_id, id) on delete restrict
 );
 
+-- Payments
 create table if not exists admark.payments (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -516,6 +699,7 @@ create table if not exists admark.payments (
     references admark.projects(organization_id, id) on delete restrict
 );
 
+-- Documents Repository
 create table if not exists admark.documents (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -559,6 +743,7 @@ create table if not exists admark.documents (
     references admark.partnerships(organization_id, id) on delete restrict
 );
 
+-- Calendar & Reminders
 create table if not exists admark.calendar (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -593,6 +778,13 @@ create table if not exists admark.calendar (
     references admark.team_members(organization_id, id) on delete restrict
 );
 
+-- Allow follow-up reminders on existing calendar table
+alter table if exists admark.calendar drop constraint if exists calendar_calendar_type_check;
+alter table if exists admark.calendar
+  add constraint calendar_calendar_type_check
+  check (calendar_type in ('meeting', 'call', 'reminder'));
+
+-- Notifications
 create table if not exists admark.notifications (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -614,6 +806,7 @@ create table if not exists admark.notifications (
   constraint notifications_org_legacy_key unique (organization_id, legacy_id)
 );
 
+-- Activity Audit Logs
 create table if not exists admark.activity_logs (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -633,6 +826,7 @@ create table if not exists admark.activity_logs (
   constraint activity_logs_org_legacy_key unique (organization_id, legacy_id)
 );
 
+-- Valuation Snapshots
 create table if not exists admark.valuation_snapshots (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references admark.organizations(id) on delete restrict,
@@ -654,7 +848,65 @@ create table if not exists admark.valuation_snapshots (
   constraint valuation_snapshots_org_legacy_key unique (organization_id, legacy_id)
 );
 
--- Technical migration support, not product-domain entities.
+-- Portal Users (Authentication & Access)
+create table if not exists admark.portal_users (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references admark.organizations(id) on delete restrict,
+  username text not null,
+  username_normalized text not null,
+  password_hash text not null,
+  role text not null check (role in ('admin', 'sales')),
+  team_member_legacy_id text,
+  display_name text,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint portal_users_org_username_key unique (organization_id, username_normalized)
+);
+
+create index if not exists portal_users_org_active_idx
+  on admark.portal_users (organization_id, active);
+
+-- Project Commissions & Splits
+create table if not exists admark.project_commissions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references admark.organizations(id) on delete cascade,
+  legacy_id text not null,
+  project_id uuid references admark.projects(id) on delete set null,
+  label text,
+  status text not null default 'planned' check (status in ('planned', 'partial', 'paid')),
+  paid_at date,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  constraint project_commissions_org_legacy_key unique (organization_id, legacy_id)
+);
+
+create table if not exists admark.project_commission_splits (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references admark.organizations(id) on delete cascade,
+  commission_id uuid not null,
+  legacy_id text not null,
+  person_name text not null,
+  team_member_id uuid,
+  amount numeric not null default 0,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  constraint project_commission_splits_org_legacy_key unique (organization_id, legacy_id)
+);
+
+create index if not exists project_commissions_org_idx
+  on admark.project_commissions (organization_id)
+  where deleted_at is null;
+
+create index if not exists project_commission_splits_commission_idx
+  on admark.project_commission_splits (organization_id, commission_id)
+  where deleted_at is null;
+
+-- Migration Runs & Technical Mapping
 create table if not exists admark.migration_runs (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid references admark.organizations(id) on delete restrict,
@@ -695,7 +947,9 @@ create table if not exists admark.legacy_record_map (
     unique (organization_id, source_table, source_collection, legacy_id, target_table)
 );
 
--- Query-path indexes. Partial indexes omit soft-deleted rows.
+-- =============================================================================
+-- 6. QUERY PATH INDEXES
+-- =============================================================================
 create index if not exists clients_active_idx on admark.clients (organization_id, status, company_name) where deleted_at is null;
 create index if not exists leads_status_idx on admark.leads (organization_id, status, expected_closing_date) where deleted_at is null;
 create index if not exists projects_status_idx on admark.projects (organization_id, status, client_id) where deleted_at is null;
@@ -721,7 +975,9 @@ create index if not exists activity_logs_entity_idx on admark.activity_logs (org
 create index if not exists valuation_snapshots_date_idx on admark.valuation_snapshots (organization_id, valuation_date desc) where deleted_at is null;
 create index if not exists migration_issues_run_idx on admark.migration_issues (migration_run_id, severity);
 
--- Keep updated_at reliable across every mutable table.
+-- =============================================================================
+-- 7. ATTACH AUTOMATIC UPDATED_AT TRIGGERS
+-- =============================================================================
 do $$
 declare
   table_name text;
@@ -731,7 +987,8 @@ begin
     'partnerships', 'leads', 'agreements', 'projects', 'project_assignments',
     'project_milestones', 'invoices', 'invoice_lines', 'recurring_expenses',
     'salaries', 'expenses', 'transactions', 'payments', 'documents', 'calendar',
-    'notifications', 'activity_logs', 'valuation_snapshots', 'migration_runs'
+    'notifications', 'activity_logs', 'valuation_snapshots', 'migration_runs',
+    'portal_users', 'project_commissions', 'project_commission_splits'
   ]
   loop
     execute format('drop trigger if exists set_updated_at on admark.%I', table_name);
@@ -743,7 +1000,23 @@ begin
 end;
 $$;
 
--- Server-side access only. The service role bypasses RLS; browser roles receive no policy.
+-- =============================================================================
+-- 8. SECURITY & ACCESS CONTROL (RLS & Grants)
+-- =============================================================================
+-- Revoke broad client roles on public tables
+revoke all on table public.invoices from anon, authenticated;
+revoke all on table public.company_settings from anon, authenticated;
+revoke all on table public.operations_data from anon, authenticated;
+
+grant select, insert, update, delete on table public.invoices to service_role;
+grant select, insert, update, delete on table public.company_settings to service_role;
+grant select, insert, update, delete on table public.operations_data to service_role;
+
+alter table public.invoices enable row level security;
+alter table public.company_settings enable row level security;
+alter table public.operations_data enable row level security;
+
+-- Lock down all admark relational tables
 do $$
 declare
   table_name text;
@@ -754,7 +1027,8 @@ begin
     'project_milestones', 'invoices', 'invoice_lines', 'recurring_expenses',
     'salaries', 'expenses', 'transactions', 'payments', 'documents', 'calendar',
     'notifications', 'activity_logs', 'valuation_snapshots', 'migration_runs',
-    'migration_issues', 'legacy_record_map'
+    'migration_issues', 'legacy_record_map', 'portal_users',
+    'project_commissions', 'project_commission_splits'
   ]
   loop
     execute format('alter table admark.%I enable row level security', table_name);
@@ -764,6 +1038,241 @@ begin
 end;
 $$;
 
-grant execute on function admark.set_updated_at() to service_role;
+-- =============================================================================
+-- 9. STORED PROCEDURES (RPCs)
+-- =============================================================================
+
+-- Atomic mutation engine for optimistic concurrency
+create or replace function public.mutate_operations_data(
+  p_expected_updated_at timestamptz,
+  p_upserts jsonb default '{}'::jsonb,
+  p_deletes jsonb default '{}'::jsonb,
+  p_sets jsonb default '{}'::jsonb
+)
+returns table (
+  success boolean,
+  is_conflict boolean,
+  result_payload jsonb,
+  result_updated_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_payload jsonb;
+  v_updated_at timestamptz;
+  v_next_updated_at timestamptz;
+  v_key text;
+  v_items jsonb;
+  v_item jsonb;
+  v_ids jsonb;
+  v_id text;
+  v_array jsonb;
+  v_allowed_entity_keys constant text[] := array[
+    'projects', 'partnerships', 'expenses', 'leads', 'assets',
+    'fixedMonthlyExpenses', 'clients', 'contacts', 'payments', 'transactions',
+    'founders', 'notifications', 'scheduleEvents', 'valuationSnapshots',
+    'valuationAudit'
+  ];
+  v_allowed_scalar_keys constant text[] := array[
+    'financialBaseline', 'valuationSettings', 'migrationApplied', 'migrationDate',
+    'groundZeroApplied', 'blxRepairApplied', 'neRepairApplied'
+  ];
+begin
+  select payload, updated_at
+    into v_payload, v_updated_at
+    from public.operations_data
+   where id = 'default'
+   for update;
+
+  if not found then
+    raise exception 'operations_data/default does not exist';
+  end if;
+
+  if p_expected_updated_at is null or v_updated_at <> p_expected_updated_at then
+    return query select false, true, v_payload, v_updated_at;
+    return;
+  end if;
+
+  for v_key, v_items in select key, value from jsonb_each(coalesce(p_upserts, '{}'::jsonb))
+  loop
+    if not (v_key = any(v_allowed_entity_keys)) then
+      raise exception 'Unsupported operations entity key: %', v_key;
+    end if;
+    v_array := coalesce(v_payload->v_key, '[]'::jsonb);
+    for v_item in select value from jsonb_array_elements(v_items)
+    loop
+      v_id := v_item->>'id';
+      if v_id is null or v_id = '' then
+        raise exception 'Each upsert item must provide an id';
+      end if;
+      v_array := jsonb_strip_nulls(
+        (select coalesce(jsonb_agg(case when elem->>'id' = v_id then v_item else elem end), '[]'::jsonb)
+           from jsonb_array_elements(v_array) as elem)
+      );
+      if not exists (select 1 from jsonb_array_elements(v_array) as elem where elem->>'id' = v_id) then
+        v_array := v_array || jsonb_build_array(v_item);
+      end if;
+    end loop;
+    v_payload := jsonb_set(v_payload, array[v_key], v_array, true);
+  end loop;
+
+  for v_key, v_ids in select key, value from jsonb_each(coalesce(p_deletes, '{}'::jsonb))
+  loop
+    if not (v_key = any(v_allowed_entity_keys)) then
+      raise exception 'Unsupported operations entity key: %', v_key;
+    end if;
+    v_array := coalesce(v_payload->v_key, '[]'::jsonb);
+    for v_id in select value::text from jsonb_array_elements_text(v_ids)
+    loop
+      v_array := (select coalesce(jsonb_agg(elem), '[]'::jsonb)
+                    from jsonb_array_elements(v_array) as elem
+                   where elem->>'id' <> v_id);
+    end loop;
+    v_payload := jsonb_set(v_payload, array[v_key], v_array, true);
+  end loop;
+
+  for v_key, v_item in select key, value from jsonb_each(coalesce(p_sets, '{}'::jsonb))
+  loop
+    if not (v_key = any(v_allowed_scalar_keys)) then
+      raise exception 'Unsupported operations scalar key: %', v_key;
+    end if;
+    v_payload := jsonb_set(v_payload, array[v_key], v_item, true);
+  end loop;
+
+  v_next_updated_at := clock_timestamp();
+  update public.operations_data
+     set payload = v_payload,
+         updated_at = v_next_updated_at
+   where id = 'default';
+
+  return query select true, false, v_payload, v_next_updated_at;
+end;
+$$;
+
+revoke all on function public.mutate_operations_data(timestamptz, jsonb, jsonb, jsonb) from public;
+revoke all on function public.mutate_operations_data(timestamptz, jsonb, jsonb, jsonb) from anon, authenticated;
+grant execute on function public.mutate_operations_data(timestamptz, jsonb, jsonb, jsonb) to service_role;
+
+create or replace function public.mutate_operations_aux_data(
+  p_row_id text,
+  p_expected_updated_at timestamptz,
+  p_entity_key text,
+  p_upserts jsonb default '[]'::jsonb,
+  p_deletes jsonb default '[]'::jsonb
+)
+returns table (
+  success boolean,
+  is_conflict boolean,
+  result_payload jsonb,
+  result_updated_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_payload jsonb;
+  v_updated_at timestamptz;
+  v_next_updated_at timestamptz;
+  v_item jsonb;
+  v_id text;
+  v_array jsonb;
+begin
+  if not (
+    (p_row_id = 'documents' and p_entity_key in ('agreements', 'archiveDocuments'))
+    or (p_row_id = 'activity_logs' and p_entity_key = 'entries')
+  ) then
+    raise exception 'Unsupported auxiliary operations entity: %.%', p_row_id, p_entity_key;
+  end if;
+  if jsonb_typeof(p_upserts) <> 'array' or jsonb_typeof(p_deletes) <> 'array' then
+    raise exception 'Auxiliary upserts/deletes must be arrays';
+  end if;
+
+  select payload, updated_at
+    into v_payload, v_updated_at
+    from public.operations_data
+   where id = p_row_id
+   for update;
+  if not found then
+    raise exception 'operations_data/% does not exist', p_row_id;
+  end if;
+
+  if p_expected_updated_at is null or v_updated_at <> p_expected_updated_at then
+    return query select false, true, v_payload, v_updated_at;
+    return;
+  end if;
+
+  v_array := case
+    when jsonb_typeof(v_payload -> p_entity_key) = 'array' then v_payload -> p_entity_key
+    else '[]'::jsonb
+  end;
+  for v_item in select value from jsonb_array_elements(p_upserts)
+  loop
+    v_id := v_item ->> 'id';
+    if v_id is null or v_id = '' then
+      raise exception 'Every %.% upsert requires an id', p_row_id, p_entity_key;
+    end if;
+    select coalesce(jsonb_agg(existing_item), '[]'::jsonb)
+      into v_array
+      from jsonb_array_elements(v_array) existing_item
+     where existing_item ->> 'id' <> v_id;
+    v_array := v_array || jsonb_build_array(v_item);
+  end loop;
+
+  select coalesce(jsonb_agg(existing_item), '[]'::jsonb)
+    into v_array
+    from jsonb_array_elements(v_array) existing_item
+   where not (existing_item ->> 'id' in (
+     select jsonb_array_elements_text(p_deletes)
+   ));
+  v_payload := jsonb_set(v_payload, array[p_entity_key], v_array, true);
+  v_next_updated_at := clock_timestamp();
+
+  update public.operations_data
+     set payload = v_payload,
+         updated_at = v_next_updated_at
+   where id = p_row_id;
+
+  return query select true, false, v_payload, v_next_updated_at;
+end;
+$$;
+
+revoke all on function public.mutate_operations_aux_data(text, timestamptz, text, jsonb, jsonb)
+  from public, anon, authenticated;
+grant execute on function public.mutate_operations_aux_data(text, timestamptz, text, jsonb, jsonb)
+  to service_role;
+
+-- Cloud usage calculation meter
+create or replace function public.cloud_usage_bytes()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, storage, auth, pg_catalog
+as $$
+declare
+  db_bytes bigint;
+  file_bytes bigint;
+  user_count integer;
+begin
+  db_bytes := pg_database_size(current_database());
+  select coalesce(sum((metadata->>'size')::bigint), 0)
+    into file_bytes
+    from storage.objects;
+  select count(*)::integer into user_count from auth.users;
+  return jsonb_build_object(
+    'database_bytes', db_bytes,
+    'storage_bytes', file_bytes,
+    'auth_users', user_count
+  );
+end;
+$$;
+
+revoke all on function public.cloud_usage_bytes() from public;
+revoke all on function public.cloud_usage_bytes() from anon, authenticated;
+grant execute on function public.cloud_usage_bytes() to service_role;
+
+notify pgrst, 'reload schema';
 
 commit;

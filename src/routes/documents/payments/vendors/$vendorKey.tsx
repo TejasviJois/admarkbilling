@@ -35,16 +35,16 @@ function DocumentsVendorDetailPage() {
         description={`Vendor payout history — ${formatINRWhole(total)} paid across ${rows.length} entr${rows.length === 1 ? "y" : "ies"}.`}
       />
 
-      <p className="mb-6 text-xs text-muted-foreground">
+      <p className="mb-6 text-xs text-white/50">
         Log new vendor payouts in{" "}
-        <Link to="/accounts" hash="expenses" className="text-primary hover:underline">
+        <Link to="/accounts" hash="expenses" className="text-[#ff6b2b] font-medium hover:underline">
           Accounts
         </Link>{" "}
         under External payouts (leave partner unlinked to appear here).
       </p>
 
-      <section className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
-        <h2 className="mb-4 text-sm font-semibold text-foreground">Payout history</h2>
+      <section className="rounded-3xl border border-white/10 bg-[#141419]/80 p-5 shadow-xl backdrop-blur-2xl sm:p-6">
+        <h2 className="mb-4 text-base font-bold text-white">Payout history</h2>
         <OutgoingPaymentHistoryTable rows={rows} ops={ops} persist={persist} />
       </section>
     </div>

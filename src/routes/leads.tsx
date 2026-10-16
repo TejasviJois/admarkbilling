@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { History, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,10 +24,37 @@ function LeadsPage() {
   const { ops, persist, loading } = useOperations();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
+  const [optimisticStatus, setOptimisticStatus] = useState<Record<string, LeadStatus>>({});
 
   const leads = ops.leads ?? [];
-  const boardLeads = useMemo(() => visibleLeadsForBoard(leads), [leads]);
-  const stats = useMemo(() => computeLeadCrmStats(leads), [leads]);
+
+  // Reconcile optimistic overrides once the server update lands
+  useEffect(() => {
+    setOptimisticStatus((prev) => {
+      if (Object.keys(prev).length === 0) return prev;
+      let changed = false;
+      const next = { ...prev };
+      for (const [id, st] of Object.entries(prev)) {
+        const serverLead = leads.find((l) => l.id === id);
+        if (serverLead && serverLead.status === st) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [leads]);
+
+  // Combined leads reflecting immediate user actions without waiting for network
+  const effectiveLeads = useMemo(() => {
+    if (Object.keys(optimisticStatus).length === 0) return leads;
+    return leads.map((l) =>
+      optimisticStatus[l.id] ? { ...l, status: optimisticStatus[l.id] } : l,
+    );
+  }, [leads, optimisticStatus]);
+
+  const boardLeads = useMemo(() => visibleLeadsForBoard(effectiveLeads), [effectiveLeads]);
+  const stats = useMemo(() => computeLeadCrmStats(effectiveLeads), [effectiveLeads]);
 
   const openAdd = () => {
     setEditing(null);
@@ -67,24 +94,45 @@ function LeadsPage() {
   };
 
   const handleMoveStatus = (id: string, nextStatus: LeadStatus) => {
-    const moved = leads.find((l) => l.id === id);
+    const moved = effectiveLeads.find((l) => l.id === id);
     if (!moved || isLeadArchived(moved)) return;
     if (moved.status === "lost" && nextStatus === "won") return;
+
+    // 1. Instant optimistic position update (<16ms)
+    setOptimisticStatus((prev) => ({ ...prev, [id]: nextStatus }));
+
+    // 2. Perform background persist and revert on failure
     const nextLead = { ...moved, status: nextStatus };
     const nextLeads = leads.map((l) => (l.id === id ? nextLead : l));
-    persist(syncLeadLifecycle({ ...ops, leads: nextLeads }, nextLead));
+    persist(syncLeadLifecycle({ ...ops, leads: nextLeads }, nextLead)).catch(() => {
+      setOptimisticStatus((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    });
   };
 
   const handleReopen = (id: string) => {
-    const lead = leads.find((l) => l.id === id);
+    const lead = effectiveLeads.find((l) => l.id === id);
     if (!lead || lead.status !== "lost") return;
+
+    // 1. Instant optimistic update
+    setOptimisticStatus((prev) => ({ ...prev, [id]: "new_lead" }));
+
     const nextLead = reopenLostLead(lead, toLocalISODate());
     persist(
       syncLeadLifecycle(
         { ...ops, leads: leads.map((item) => (item.id === id ? nextLead : item)) },
         nextLead,
       ),
-    );
+    ).catch(() => {
+      setOptimisticStatus((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    });
   };
 
   if (loading) return <OperationsLoading />;
@@ -96,12 +144,16 @@ function LeadsPage() {
         description="Kanban pipeline board tracking prospects, deal probabilities, and sales closing forecasts."
         action={
           <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" variant="outline" asChild className="inline-flex items-center gap-2">
+            <Button type="button" variant="outline" asChild className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10 transition-colors">
               <Link to="/pipeline-history">
-                <History className="h-4 w-4" /> History
+                <History className="h-4 w-4 text-[#ff6b2b]" /> History
               </Link>
             </Button>
-            <Button type="button" onClick={openAdd} className="inline-flex items-center gap-2">
+            <Button
+              type="button"
+              onClick={openAdd}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-lg shadow-orange-500/25 hover:brightness-110 active:scale-95 font-bold transition-all"
+            >
               <Plus className="h-4 w-4" /> Add Deal
             </Button>
           </div>
@@ -109,7 +161,7 @@ function LeadsPage() {
       />
 
       {/* CRM Stats Summary Cards */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <LeadStat
           label="Pipeline Value"
           value={formatINRWhole(stats.pipelineValue)}
@@ -118,32 +170,32 @@ function LeadsPage() {
         <LeadStat
           label="Expected Value"
           value={formatINRWhole(stats.expectedRevenue)}
-          valueClassName="text-primary"
+          valueClassName="text-[#ff6b2b]"
           caption="Weighted by deal probability"
         />
         <LeadStat
           label="Win Rate"
           value={`${stats.conversionRate.toFixed(1)}%`}
-          valueClassName="text-emerald-600 dark:text-emerald-400"
+          valueClassName="text-emerald-400"
           caption={`${stats.wonCount} won · ${stats.lostDeals} lost`}
         />
         <LeadStat
           label="Lost Deals"
           value={String(stats.lostDeals)}
-          valueClassName="text-rose-600 dark:text-rose-400"
+          valueClassName="text-rose-400"
           caption="Inactive / closed lost"
         />
         <LeadStat
           label="Avg Deal Size"
           value={formatINRWhole(stats.averageDealSize)}
-          valueClassName="text-blue-600 dark:text-blue-400"
+          valueClassName="text-sky-400"
           caption="Average forecast budget"
           className="col-span-2 lg:col-span-1"
         />
       </div>
 
       {/* Visual Kanban Board */}
-      <div className="rounded-xl border border-border bg-card/40 p-4 shadow-sm">
+      <div className="glass-panel rounded-3xl border border-white/10 p-5 shadow-2xl">
         <CRMKanbanBoard
           leads={boardLeads}
           onEdit={openEdit}
@@ -179,17 +231,17 @@ function LeadStat({
 }) {
   return (
     <div
-      className={`rounded-lg border border-border bg-card p-3 shadow-sm sm:p-4 ${className ?? ""}`}
+      className={`glass-card rounded-2xl border border-white/10 p-4 sm:p-5 transition-all duration-200 hover:border-white/20 ${className ?? ""}`}
     >
-      <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:text-xs">
+      <p className="truncate text-[10px] font-bold uppercase tracking-wider text-white/50 sm:text-xs">
         {label}
       </p>
       <p
-        className={`mt-1.5 text-lg font-bold tabular-nums sm:mt-2 sm:text-2xl ${valueClassName ?? "text-foreground"}`}
+        className={`mt-2 text-xl font-black tabular-nums tracking-tight sm:text-2xl ${valueClassName ?? "text-white"}`}
       >
         {value}
       </p>
-      <p className="mt-1 truncate text-[10px] text-muted-foreground">{caption}</p>
+      <p className="mt-1 truncate text-xs text-white/45">{caption}</p>
     </div>
   );
 }

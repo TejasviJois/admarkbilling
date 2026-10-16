@@ -164,9 +164,9 @@ function ClientsPage() {
   if (loading) return <OperationsLoading />;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <OperationsPageHeader
-        title="Clients"
+        title="Clients & Accounts"
         description="Companies with ongoing or completed work. Empty prospect shells are removed automatically."
         action={
           <div className="flex items-center gap-2">
@@ -178,11 +178,18 @@ function ClientsPage() {
               aria-label={showDetails ? "Hide client details" : "Show client details"}
               aria-pressed={showDetails}
               title={showDetails ? "Hide details" : "Show details"}
+              className="rounded-xl border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
             >
-              {showDetails ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              {showDetails ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </Button>
-            <Button type="button" size="icon" onClick={openAdd} aria-label="Add client">
-              <Plus className="h-5 w-5" />
+            <Button
+              type="button"
+              onClick={openAdd}
+              aria-label="Add client"
+              className="rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-lg shadow-orange-500/25 hover:brightness-110 active:scale-95 font-bold transition-all px-4"
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add Client
             </Button>
           </div>
         }
@@ -190,14 +197,14 @@ function ClientsPage() {
 
       <div className="relative max-w-md">
         <Search
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40"
           aria-hidden
         />
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search clients…"
-          className="pl-9"
+          placeholder="Search clients by name, contact, email…"
+          className="rounded-xl border border-white/10 bg-white/5 pl-10 text-white placeholder-white/30 focus:border-orange-500/50 focus:bg-white/[0.08] transition-all"
           aria-label="Search clients"
         />
       </div>

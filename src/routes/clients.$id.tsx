@@ -196,62 +196,80 @@ function ClientOverviewPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         <Link
           to="/clients"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-card text-muted-foreground hover:bg-secondary"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 glass-card text-white/70 hover:border-white/25 hover:text-white transition-colors"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{client.companyName}</h1>
-          <p className="text-sm text-muted-foreground">
-            Client Since {client.clientSince} &bull;{" "}
-            <span className="capitalize">{client.status}</span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-black tracking-tight text-white md:text-3xl">{client.companyName}</h1>
+            <span
+              className={
+                client.status === "active"
+                  ? "inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold capitalize text-emerald-400"
+                  : "inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs font-semibold capitalize text-white/60"
+              }
+            >
+              {client.status}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-white/50">
+            Client Since {client.clientSince}
           </p>
         </div>
       </div>
 
       {/* Metrics Cards */}
       <div className="grid gap-4 sm:grid-cols-4">
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">
+        <div className="rounded-2xl border border-white/10 glass-panel p-5 transition-all duration-300 hover:border-rose-500/30">
+          <div className="flex items-center justify-between text-white/60">
+            <span className="text-xs font-bold uppercase tracking-wider text-white/50">
               Outstanding Amount
             </span>
-            <DollarSign className="h-4 w-4 text-destructive" />
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400">
+              <DollarSign className="h-4 w-4" />
+            </span>
           </div>
-          <p className="mt-2 text-2xl font-bold text-destructive">
+          <p className="mt-3 text-2xl font-black tabular-nums text-rose-400">
             {formatINRWhole(metrics.outstandingAmount)}
           </p>
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Total Received</span>
-            <DollarSign className="h-4 w-4 text-green-500" />
+        <div className="rounded-2xl border border-white/10 glass-panel p-5 transition-all duration-300 hover:border-emerald-500/30">
+          <div className="flex items-center justify-between text-white/60">
+            <span className="text-xs font-bold uppercase tracking-wider text-white/50">Total Received</span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+              <DollarSign className="h-4 w-4" />
+            </span>
           </div>
-          <p className="mt-2 text-2xl font-bold text-green-500">
+          <p className="mt-3 text-2xl font-black tabular-nums text-emerald-400">
             {formatINRWhole(metrics.totalRevenue)}
           </p>
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">Active Projects</span>
-            <Briefcase className="h-4 w-4 text-primary" />
+        <div className="rounded-2xl border border-white/10 glass-panel p-5 transition-all duration-300 hover:border-[#ff6b2b]/30">
+          <div className="flex items-center justify-between text-white/60">
+            <span className="text-xs font-bold uppercase tracking-wider text-white/50">Active Projects</span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#ff6b2b]/20 bg-[#ff6b2b]/10 text-[#ff6b2b]">
+              <Briefcase className="h-4 w-4" />
+            </span>
           </div>
-          <p className="mt-2 text-2xl font-bold text-foreground">{activeProjects.length}</p>
+          <p className="mt-3 text-2xl font-black tabular-nums text-white">{activeProjects.length}</p>
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold uppercase tracking-wider">
+        <div className="rounded-2xl border border-white/10 glass-panel p-5 transition-all duration-300 hover:border-white/20">
+          <div className="flex items-center justify-between text-white/60">
+            <span className="text-xs font-bold uppercase tracking-wider text-white/50">
               Completed Projects
             </span>
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/50">
+              <Briefcase className="h-4 w-4" />
+            </span>
           </div>
-          <p className="mt-2 text-2xl font-bold text-muted-foreground">
+          <p className="mt-3 text-2xl font-black tabular-nums text-white/70">
             {completedProjects.length}
           </p>
         </div>
@@ -261,28 +279,28 @@ function ClientOverviewPage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
           {/* Active Projects */}
-          <div className="rounded-lg border border-border bg-card shadow-sm">
-            <div className="border-b border-border px-4 py-3">
-              <h3 className="font-semibold text-foreground">Projects</h3>
-              <p className="mt-0.5 text-xs text-muted-foreground">
+          <div className="rounded-2xl border border-white/10 glass-panel overflow-hidden">
+            <div className="border-b border-white/10 px-5 py-4">
+              <h3 className="font-bold text-white">Projects</h3>
+              <p className="mt-0.5 text-xs text-white/50">
                 Only ongoing and completed work is shown.
               </p>
             </div>
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-white/5">
               {projectGroups.length === 0 ? (
-                <div className="px-4 py-6 text-center text-muted-foreground text-sm">
+                <div className="px-5 py-8 text-center text-white/50 text-sm">
                   No ongoing or completed projects associated with this client.
                 </div>
               ) : (
                 projectGroups.map(({ company, projects }) => (
-                  <div key={company.id} className="p-4">
+                  <div key={company.id} className="p-5">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div>
-                        <h4 className="text-sm font-semibold text-foreground">
+                        <h4 className="text-sm font-bold text-white">
                           {company.companyName}
                         </h4>
                         {company.contactPerson && company.contactPerson !== company.companyName && (
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-white/50">
                             Contact: {company.contactPerson}
                           </p>
                         )}
@@ -291,7 +309,7 @@ function ClientOverviewPage() {
                         <Link
                           to="/clients/$id"
                           params={{ id: company.id }}
-                          className="text-xs font-semibold text-primary hover:underline"
+                          className="text-xs font-semibold text-[#ff6b2b] hover:underline"
                         >
                           Project profile
                         </Link>
@@ -303,12 +321,18 @@ function ClientOverviewPage() {
                           key={project.id}
                           to="/projects/$id"
                           params={{ id: project.id }}
-                          className="flex items-center justify-between rounded-md border border-border/70 bg-muted/10 px-3 py-2.5 hover:bg-muted/30"
+                          className="group flex items-center justify-between rounded-xl border border-white/5 glass-card px-4 py-3 transition-all duration-200 hover:border-white/20 hover:bg-white/[0.04]"
                         >
-                          <span className="text-sm font-medium text-foreground">
+                          <span className="text-sm font-medium text-white group-hover:text-white">
                             {project.projectType || "General Work"}
                           </span>
-                          <span className="text-xs capitalize text-muted-foreground">
+                          <span
+                            className={
+                              project.status === "active"
+                                ? "inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-400 capitalize"
+                                : "inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-white/60 capitalize"
+                            }
+                          >
                             {project.status === "active" ? "Ongoing" : "Done"}
                           </span>
                         </Link>
@@ -321,32 +345,32 @@ function ClientOverviewPage() {
           </div>
 
           {/* Recent Invoices */}
-          <div className="rounded-lg border border-border bg-card shadow-sm">
-            <div className="border-b border-border px-4 py-3">
-              <h3 className="font-semibold text-foreground">Invoices</h3>
+          <div className="rounded-2xl border border-white/10 glass-panel overflow-hidden">
+            <div className="border-b border-white/10 px-5 py-4">
+              <h3 className="font-bold text-white">Invoices</h3>
             </div>
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-white/5">
               {clientInvoices.length === 0 ? (
-                <div className="px-4 py-6 text-center text-muted-foreground text-sm">
+                <div className="px-5 py-8 text-center text-white/50 text-sm">
                   No invoices issued.
                 </div>
               ) : (
                 clientInvoices.slice(0, 5).map((inv) => (
                   <div
                     key={inv.id}
-                    className="flex items-center justify-between px-4 py-3 hover:bg-muted/10"
+                    className="flex items-center justify-between px-5 py-3.5 transition-colors hover:bg-white/[0.02]"
                   >
                     <div>
-                      <h4 className="font-medium text-foreground text-sm">{inv.number}</h4>
-                      <p className="text-xs text-muted-foreground">
-                        Date: {inv.date} &bull; Total: {formatINR(computeTotals(inv).total)} &bull;
-                        Status: <span className="capitalize">{inv.status}</span>
+                      <h4 className="font-semibold text-white text-sm">{inv.number}</h4>
+                      <p className="mt-0.5 text-xs text-white/50">
+                        Date: {inv.date} &bull; Total: {formatINR(computeTotals(inv).total)} &bull;{" "}
+                        <span className="capitalize">{inv.status}</span>
                       </p>
                     </div>
                     <Link
                       to="/invoice/$id"
                       params={{ id: inv.id }}
-                      className="text-xs text-primary hover:underline font-semibold"
+                      className="text-xs text-[#ff6b2b] hover:underline font-semibold"
                     >
                       View Invoice
                     </Link>
@@ -357,27 +381,27 @@ function ClientOverviewPage() {
           </div>
 
           {/* Recent Payments */}
-          <div className="rounded-lg border border-border bg-card shadow-sm">
-            <div className="border-b border-border px-4 py-3">
-              <h3 className="font-semibold text-foreground">Recent Payments</h3>
+          <div className="rounded-2xl border border-white/10 glass-panel overflow-hidden">
+            <div className="border-b border-white/10 px-5 py-4">
+              <h3 className="font-bold text-white">Recent Payments</h3>
             </div>
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-white/5">
               {recentPayments.length === 0 ? (
-                <div className="px-4 py-6 text-center text-muted-foreground text-sm">
+                <div className="px-5 py-8 text-center text-white/50 text-sm">
                   No payments logged yet.
                 </div>
               ) : (
                 recentPayments.map((pay) => (
-                  <div key={pay.id} className="flex items-center justify-between px-4 py-3">
+                  <div key={pay.id} className="flex items-center justify-between px-5 py-3.5">
                     <div>
-                      <h4 className="font-medium text-green-500 text-sm">
+                      <h4 className="font-bold text-emerald-400 text-sm tabular-nums">
                         +{formatINR(pay.amount)}
                       </h4>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="mt-0.5 text-xs text-white/50">
                         {pay.date} &bull; Project: {pay.projectTitle}
                       </p>
                     </div>
-                    {pay.note && <span className="text-xs text-muted-foreground">{pay.note}</span>}
+                    {pay.note && <span className="text-xs text-white/40">{pay.note}</span>}
                   </div>
                 ))
               )}
@@ -388,29 +412,29 @@ function ClientOverviewPage() {
         {/* Sidebar Info */}
         <div className="space-y-6">
           {/* Client Details */}
-          <div className="rounded-lg border border-border bg-card p-4 shadow-sm space-y-4 text-sm">
-            <h3 className="font-semibold border-b border-border pb-2 text-foreground">
+          <div className="rounded-2xl border border-white/10 glass-panel p-5 space-y-4 text-sm">
+            <h3 className="font-bold border-b border-white/10 pb-3 text-white">
               Client Profile
             </h3>
-            <div className="space-y-3">
-              <div className="flex items-start gap-2">
-                <Building className="mt-0.5 h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <div className="space-y-3.5">
+              <div className="flex items-start gap-2.5">
+                <Building className="mt-0.5 h-4 w-4 text-white/50 flex-shrink-0" />
                 <div>
-                  <div className="font-medium text-foreground">Contact Person</div>
-                  <div className="text-muted-foreground">{client.contactPerson}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-white/40">Contact Person</div>
+                  <div className="font-medium text-white">{client.contactPerson}</div>
                 </div>
               </div>
-              <div className="flex items-start gap-2">
-                <Calendar className="mt-0.5 h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <div className="flex items-start gap-2.5">
+                <Calendar className="mt-0.5 h-4 w-4 text-white/50 flex-shrink-0" />
                 <div>
-                  <div className="font-medium text-foreground">Industry / Website</div>
-                  <div className="text-muted-foreground">{client.industry || "N/A"}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-white/40">Industry / Website</div>
+                  <div className="text-white/80">{client.industry || "N/A"}</div>
                   {safeHref(client.website) && (
                     <a
                       href={safeHref(client.website)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-primary hover:underline text-xs"
+                      className="text-[#ff6b2b] hover:underline text-xs"
                     >
                       {client.website}
                     </a>
@@ -418,28 +442,28 @@ function ClientOverviewPage() {
                 </div>
               </div>
               <div>
-                <div className="font-medium text-foreground">Email</div>
-                <div className="text-muted-foreground break-all">{client.email}</div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-white/40">Email</div>
+                <div className="text-white/80 break-all">{client.email}</div>
               </div>
               <div>
-                <div className="font-medium text-foreground">Phone</div>
-                <div className="text-muted-foreground">{client.phone}</div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-white/40">Phone</div>
+                <div className="text-white/80 font-mono text-xs">{client.phone}</div>
               </div>
               {client.gstNumber && (
                 <div>
-                  <div className="font-medium text-foreground">GSTIN</div>
-                  <div className="text-muted-foreground">{client.gstNumber}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-white/40">GSTIN</div>
+                  <div className="text-white/80 font-mono text-xs">{client.gstNumber}</div>
                 </div>
               )}
               {client.pan && (
                 <div>
-                  <div className="font-medium text-foreground">PAN</div>
-                  <div className="text-muted-foreground">{client.pan}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-white/40">PAN</div>
+                  <div className="text-white/80 font-mono text-xs">{client.pan}</div>
                 </div>
               )}
               <div>
-                <div className="font-medium text-foreground">Billing Address</div>
-                <div className="text-muted-foreground whitespace-pre-line leading-normal">
+                <div className="text-xs font-semibold uppercase tracking-wider text-white/40">Billing Address</div>
+                <div className="text-white/70 whitespace-pre-line text-xs leading-relaxed mt-1">
                   {client.billingAddress}
                 </div>
               </div>
@@ -447,18 +471,18 @@ function ClientOverviewPage() {
           </div>
 
           {/* Client Documents */}
-          <div className="rounded-lg border border-border bg-card p-4 shadow-sm space-y-3">
-            <h3 className="font-semibold border-b border-border pb-2 text-foreground">Documents</h3>
+          <div className="rounded-2xl border border-white/10 glass-panel p-5 space-y-3">
+            <h3 className="font-bold border-b border-white/10 pb-3 text-white">Documents</h3>
             <div className="space-y-2">
               {clientDocuments.length === 0 ? (
-                <div className="text-xs text-muted-foreground">No documents uploaded.</div>
+                <div className="text-xs text-white/40 py-2">No documents uploaded.</div>
               ) : (
                 clientDocuments.map((doc) => (
-                  <div key={doc.id} className="flex items-center gap-2 text-xs">
-                    <FileDigit className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span className="truncate text-foreground font-medium flex-1">{doc.title}</span>
-                    <Link to="/documents" className="text-primary hover:underline text-[10px]">
-                      Open Vault
+                  <div key={doc.id} className="flex items-center gap-2 rounded-lg border border-white/5 glass-card px-3 py-2 text-xs">
+                    <FileDigit className="h-4 w-4 text-white/50 flex-shrink-0" />
+                    <span className="truncate text-white font-medium flex-1">{doc.title}</span>
+                    <Link to="/documents" className="text-[#ff6b2b] hover:underline text-[11px] font-semibold">
+                      Open
                     </Link>
                   </div>
                 ))
@@ -467,18 +491,18 @@ function ClientOverviewPage() {
           </div>
 
           {/* Timeline / Activity */}
-          <div className="rounded-lg border border-border bg-card p-4 shadow-sm space-y-3">
-            <h3 className="font-semibold border-b border-border pb-2 text-foreground">Timeline</h3>
+          <div className="rounded-2xl border border-white/10 glass-panel p-5 space-y-3">
+            <h3 className="font-bold border-b border-white/10 pb-3 text-white">Timeline</h3>
             <div className="space-y-3">
               {timelineLogs.length === 0 ? (
-                <div className="text-xs text-muted-foreground">No activities recorded.</div>
+                <div className="text-xs text-white/40 py-2">No activities recorded.</div>
               ) : (
                 timelineLogs.map((log) => (
-                  <div key={log.id} className="flex gap-2 text-xs">
-                    <Activity className="mt-0.5 h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  <div key={log.id} className="flex gap-2.5 text-xs">
+                    <Activity className="mt-0.5 h-3.5 w-3.5 text-[#ff6b2b] flex-shrink-0" />
                     <div>
-                      <div className="text-foreground">{log.summary}</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                      <div className="text-white/90 leading-snug">{log.summary}</div>
+                      <div className="text-[10px] text-white/40 mt-0.5 font-mono">
                         {formatActivityTimestamp(log.timestamp)}
                       </div>
                     </div>

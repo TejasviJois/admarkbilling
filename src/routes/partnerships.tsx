@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PartnershipFormDialog } from "@/components/operations/PartnershipFormDialog";
@@ -9,16 +9,9 @@ import {
 } from "@/components/operations/PartnershipsSection";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useOperations } from "@/hooks/use-operations";
-import { loadCompany } from "@/lib/storage";
 import type { Partnership } from "@/lib/types";
 
 export const Route = createFileRoute("/partnerships")({
-  beforeLoad: async () => {
-    const company = await loadCompany();
-    if (company.partnershipsEnabled !== true) {
-      throw redirect({ to: "/projects" });
-    }
-  },
   component: PartnershipsPage,
 });
 

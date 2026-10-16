@@ -285,37 +285,37 @@ function InvoicePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 border-b border-border/80 pb-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <Link
             to="/invoices"
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/60 transition-colors hover:text-white"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Invoices
           </Link>
-          <h1 className="mt-1.5 truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+          <h1 className="mt-2 truncate text-2xl font-black tracking-tight text-white sm:text-3xl">
             {invoice.number}
           </h1>
-          <p className="mt-0.5 truncate text-sm text-muted-foreground">{invoice.clientName}</p>
+          <p className="mt-1 truncate text-xs text-white/50">{invoice.clientName}</p>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             to="/invoice/$id/edit"
             params={{ id: invoice.id }}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/40"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/10 glass-card px-3.5 text-xs font-semibold text-white/80 transition-colors hover:border-white/25 hover:text-white"
           >
             <Pencil className="h-3.5 w-3.5" />
             Edit
           </Link>
-          <NewInvoiceLink className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/40">
+          <NewInvoiceLink className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/10 glass-card px-3.5 text-xs font-semibold text-white/80 transition-colors hover:border-white/25 hover:text-white">
             <Plus className="h-3.5 w-3.5" />
             New
           </NewInvoiceLink>
           <button
             type="button"
             onClick={handleDelete}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-xs font-medium text-rose-400 transition-colors hover:bg-rose-500/10"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3.5 text-xs font-semibold text-rose-400 transition-colors hover:bg-rose-500/20"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Delete
@@ -323,7 +323,7 @@ function InvoicePage() {
           <button
             type="button"
             onClick={() => void downloadInvoicePdf(derivedInvoice!, company)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] px-4 text-xs font-bold text-white shadow-lg shadow-[#ff6b2b]/20 hover:shadow-[0_0_20px_rgba(255,107,43,0.4)] transition-all"
           >
             <Download className="h-3.5 w-3.5" />
             PDF
@@ -331,67 +331,67 @@ function InvoicePage() {
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_17rem]">
-        <div className="invoice-preview-shell rounded-lg border border-border/80 bg-zinc-100/90 p-2 dark:bg-zinc-950/40 sm:p-3">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_19rem]">
+        <div className="invoice-preview-shell rounded-2xl border border-white/10 bg-[#0d0d12]/80 p-2 sm:p-4 shadow-2xl backdrop-blur-md">
           <InvoicePreview invoice={derivedInvoice!} company={company} />
         </div>
 
         <aside className="space-y-6">
-          <div className="space-y-2">
-            <h2 className="text-sm font-medium text-foreground">Status</h2>
-            <dl className="divide-y divide-border/80 border-y border-border/80 text-sm">
-              <div className="flex items-center justify-between gap-3 py-2.5">
-                <dt className="text-muted-foreground">Paid</dt>
-                <dd className="font-medium tabular-nums text-emerald-400">{formatINR(paidAmount)}</dd>
+          <div className="rounded-2xl border border-white/10 glass-panel p-5 space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-white/50">Status Overview</h2>
+            <dl className="divide-y divide-white/5 border-y border-white/10 text-sm">
+              <div className="flex items-center justify-between gap-3 py-3">
+                <dt className="text-white/60 text-xs">Paid</dt>
+                <dd className="font-bold tabular-nums text-emerald-400">{formatINR(paidAmount)}</dd>
               </div>
-              <div className="flex items-center justify-between gap-3 py-2.5">
-                <dt className="text-muted-foreground">Outstanding</dt>
-                <dd className="font-medium tabular-nums text-rose-400">
+              <div className="flex items-center justify-between gap-3 py-3">
+                <dt className="text-white/60 text-xs">Outstanding</dt>
+                <dd className="font-bold tabular-nums text-rose-400">
                   {formatINR(outstandingBalance)}
                 </dd>
               </div>
-              <div className="flex items-center justify-between gap-3 py-2.5">
-                <dt className="text-muted-foreground">Status</dt>
-                <dd className="capitalize text-foreground">
+              <div className="flex items-center justify-between gap-3 py-3">
+                <dt className="text-white/60 text-xs">Status</dt>
+                <dd className="capitalize text-white font-semibold text-xs">
                   {derivedInvoice?.status?.replace(/_/g, " ")}
                 </dd>
               </div>
             </dl>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-medium text-foreground">Payments</h2>
+          <div className="rounded-2xl border border-white/10 glass-panel p-5 space-y-4">
+            <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-3">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-white/50">Payments Log</h2>
               <button
                 type="button"
                 onClick={() => setPaymentDialogOpen(true)}
-                className="inline-flex h-7 items-center rounded-md bg-primary px-2.5 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90"
+                className="inline-flex h-7 items-center rounded-lg bg-gradient-to-r from-[#ff6b2b] to-[#f04400] px-2.5 text-[11px] font-bold text-white shadow-sm hover:opacity-95"
               >
                 Log payment
               </button>
             </div>
 
-            <div className="divide-y divide-border/80 border-y border-border/80 text-xs">
+            <div className="divide-y divide-white/5 text-xs">
               {!advancePayment && invoicePayments.length === 0 ? (
-                <p className="py-6 text-center text-muted-foreground">No payments logged.</p>
+                <p className="py-6 text-center text-white/40">No payments logged yet.</p>
               ) : (
                 <>
                   {advancePayment && (
-                    <div className="space-y-2 py-3">
+                    <div className="space-y-2 py-3.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="font-medium tabular-nums text-foreground">
+                          <p className="font-bold tabular-nums text-white text-sm">
                             +{formatINR(advancePayment.amount)}
                           </p>
-                          <p className="mt-0.5 text-[10px] text-muted-foreground">
+                          <p className="mt-0.5 text-[11px] text-white/50">
                             Advance · {advancePayment.date}
                           </p>
                         </div>
-                        <span className="shrink-0 capitalize text-muted-foreground">
+                        <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase text-white/60">
                           {advancePayment.method.replace(/_/g, " ")}
                         </span>
                       </div>
-                      <div className="flex flex-wrap justify-end gap-1">
+                      <div className="flex flex-wrap justify-end gap-1.5 pt-1">
                         <button
                           type="button"
                           onClick={() => {
@@ -402,7 +402,7 @@ function InvoicePage() {
                               );
                             }
                           }}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                          className="inline-flex items-center gap-1 rounded-lg border border-white/10 glass-card px-2.5 py-1 text-[11px] font-medium text-white/70 transition-colors hover:border-white/20 hover:text-white"
                         >
                           <Download className="h-3 w-3" /> Receipt
                         </button>
@@ -416,7 +416,7 @@ function InvoicePage() {
                               );
                             }
                           }}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                          className="inline-flex items-center gap-1 rounded-lg border border-white/10 glass-card px-2.5 py-1 text-[11px] font-medium text-white/70 transition-colors hover:border-white/20 hover:text-white"
                         >
                           <Share2 className="h-3 w-3" /> Share
                         </button>
@@ -424,32 +424,32 @@ function InvoicePage() {
                     </div>
                   )}
                   {invoicePayments.map((pay) => (
-                    <div key={pay.id} className="space-y-2 py-3">
+                    <div key={pay.id} className="space-y-2 py-3.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="font-medium tabular-nums text-foreground">
+                          <p className="font-bold tabular-nums text-emerald-400 text-sm">
                             {pay.amount > 0 ? "+" : ""}
                             {formatINR(pay.amount)}
                           </p>
-                          <p className="mt-0.5 text-[10px] text-muted-foreground">
+                          <p className="mt-0.5 text-[11px] text-white/50">
                             {pay.date}
                             {pay.transactionId ? ` · ${pay.transactionId}` : ""}
                           </p>
                           {pay.notes ? (
-                            <p className="mt-0.5 text-[10px] text-muted-foreground">{pay.notes}</p>
+                            <p className="mt-0.5 text-[11px] text-white/40">{pay.notes}</p>
                           ) : null}
                           {pay.screenshotDataUrl ? (
-                            <p className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-emerald-400">
                               <ImageIcon className="h-3 w-3" />
                               Proof attached
                             </p>
                           ) : null}
                         </div>
-                        <span className="shrink-0 capitalize text-muted-foreground">
+                        <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase text-white/60">
                           {pay.method.replace(/_/g, " ")}
                         </span>
                       </div>
-                      <div className="flex flex-wrap justify-end gap-1">
+                      <div className="flex flex-wrap justify-end gap-1.5 pt-1">
                         <button
                           type="button"
                           onClick={() => {
@@ -460,7 +460,7 @@ function InvoicePage() {
                               );
                             }
                           }}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                          className="inline-flex items-center gap-1 rounded-lg border border-white/10 glass-card px-2.5 py-1 text-[11px] font-medium text-white/70 transition-colors hover:border-white/20 hover:text-white"
                         >
                           <Download className="h-3 w-3" /> Receipt
                         </button>
@@ -474,14 +474,14 @@ function InvoicePage() {
                               );
                             }
                           }}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                          className="inline-flex items-center gap-1 rounded-lg border border-white/10 glass-card px-2.5 py-1 text-[11px] font-medium text-white/70 transition-colors hover:border-white/20 hover:text-white"
                         >
                           <Share2 className="h-3 w-3" /> Share
                         </button>
                         <button
                           type="button"
                           onClick={() => handleRemovePayment(pay.id)}
-                          className="rounded-md px-2 py-1 text-rose-400 transition-colors hover:bg-rose-500/10"
+                          className="rounded-lg px-2.5 py-1 text-[11px] font-medium text-rose-400 transition-colors hover:bg-rose-500/10"
                         >
                           Remove
                         </button>

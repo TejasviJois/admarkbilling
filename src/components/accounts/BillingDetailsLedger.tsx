@@ -92,7 +92,7 @@ export function BillingDetailsLedger({
             <Link
               key={`client-${r.project.id}`}
               to="/projects"
-              className="font-medium text-primary hover:underline"
+              className="font-semibold text-[#ff6b2b] hover:underline"
             >
               {r.client}
             </Link>,

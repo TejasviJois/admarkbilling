@@ -32,7 +32,14 @@ function faviconIcoRedirect(): Plugin {
 // Custom `src/server.ts` wraps TanStack's server entry for SSR error handling.
 export default defineConfig({
   root,
-  server: { port: 3000 },
+  server: {
+    host: "0.0.0.0",
+    port: Number(process.env.PORT) || 3000,
+  },
+  preview: {
+    host: "0.0.0.0",
+    port: Number(process.env.PORT) || 3000,
+  },
   // Pre-bundle every client dependency at startup. Without this, dev-mode route
   // preloading (hover "intent" links) discovers packages lazily, and each discovery
   // makes Vite re-optimize and force-reload the page.

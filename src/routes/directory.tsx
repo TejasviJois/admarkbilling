@@ -226,7 +226,7 @@ function SalesDirectoryPage() {
   if (loading) return <OperationsLoading />;
   if (error) {
     return (
-      <div className="rounded-lg border border-border bg-muted/20 p-8 text-center text-sm text-destructive">
+      <div className="glass-panel rounded-2xl border border-rose-500/20 bg-rose-500/5 p-8 text-center text-sm text-rose-400">
         {error}
       </div>
     );
@@ -248,7 +248,7 @@ function SalesDirectoryPage() {
         total={openContacts.length}
       >
         {openContacts.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
+          <div className="glass-panel rounded-2xl border border-dashed border-white/10 py-16 text-center text-sm text-white/40">
             {contacts.length === 0
               ? "No contacts yet. Ask an admin to upload the directory list."
               : "All directory contacts are on Contacted. Win from there when a deal closes."}
@@ -383,12 +383,17 @@ function AdminDirectoryPage() {
               type="button"
               variant="outline"
               disabled={uploading}
+              className="rounded-xl border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"
               onClick={() => fileRef.current?.click()}
             >
               <Upload className="mr-2 h-4 w-4" />
               {uploading ? "Uploading…" : "Upload list"}
             </Button>
-            <Button type="button" onClick={openAdd}>
+            <Button
+              type="button"
+              className="rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white font-semibold hover:brightness-110 shadow-lg shadow-[#ff6b2b]/25 active:scale-95 transition-all"
+              onClick={openAdd}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Add contact
             </Button>
@@ -406,7 +411,7 @@ function AdminDirectoryPage() {
         total={contacts.length}
       >
         {contacts.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
+          <div className="glass-panel rounded-2xl border border-dashed border-white/10 py-16 text-center text-sm text-white/40">
             Directory is empty. Upload a spreadsheet (Name, Company, Phone, Sector) or add a contact.
           </div>
         ) : (
@@ -476,19 +481,19 @@ function DirectoryWorkbench({
   const activeSectorLabel = sectorFilter === "all" ? null : sectorFilter;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, company, phone, email…"
-            className="pl-9"
+            className="pl-10 rounded-xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/40 focus:border-[#ff6b2b]/50 focus:ring-1 focus:ring-[#ff6b2b]"
           />
         </div>
-        <p className="text-xs tabular-nums text-muted-foreground sm:text-right">
-          {filteredCount} of {total}
+        <p className="text-xs tabular-nums font-mono text-white/50 sm:text-right">
+          {filteredCount} of {total} contacts
         </p>
       </div>
 
@@ -501,24 +506,21 @@ function DirectoryWorkbench({
           id="directory-sector-mobile"
           value={sectorFilter}
           onChange={(e) => setSectorFilter(e.target.value)}
-          className={cn(
-            "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
-            "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          )}
+          className="flex h-10 w-full rounded-xl border border-white/10 bg-[#14141c] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#ff6b2b]"
         >
-          <option value="all">All sectors ({total})</option>
+          <option value="all" className="bg-[#14141c] text-white">All sectors ({total})</option>
           {sectorOptions.map((option) => (
-            <option key={option.sector} value={option.sector}>
+            <option key={option.sector} value={option.sector} className="bg-[#14141c] text-white">
               {shortSectorLabel(option.sector)} ({option.count})
             </option>
           ))}
         </select>
       </div>
 
-      {/* sm+: horizontal sector tabs */}
-      <div className="hidden border-b border-border sm:block">
+      {/* sm+: horizontal sector pill dock */}
+      <div className="hidden sm:block">
         <div
-          className="flex gap-0.5 overflow-x-auto pb-px [scrollbar-width:thin]"
+          className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]"
           role="tablist"
           aria-label="Filter by sector"
         >
@@ -528,14 +530,14 @@ function DirectoryWorkbench({
             aria-selected={sectorFilter === "all"}
             onClick={() => setSectorFilter("all")}
             className={cn(
-              "-mb-px shrink-0 border-b-2 px-3 py-2 text-sm transition-colors",
+              "shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer",
               sectorFilter === "all"
-                ? "border-primary font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
+                ? "bg-gradient-to-r from-[#ff6b2b]/15 to-[#ff6b2b]/5 text-[#ff6b2b] border border-[#ff6b2b]/30 shadow-[0_0_12px_rgba(255,107,43,0.15)]"
+                : "border border-white/10 bg-white/[0.02] text-white/60 hover:text-white hover:bg-white/[0.06]",
             )}
           >
             All
-            <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{total}</span>
+            <span className="ml-1.5 font-mono text-[11px] opacity-70">({total})</span>
           </button>
           {sectorOptions.map((option) => (
             <button
@@ -546,15 +548,15 @@ function DirectoryWorkbench({
               title={option.sector}
               onClick={() => setSectorFilter(option.sector)}
               className={cn(
-                "-mb-px shrink-0 border-b-2 px-3 py-2 text-sm transition-colors",
+                "shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer",
                 sectorFilter === option.sector
-                  ? "border-primary font-medium text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
+                  ? "bg-gradient-to-r from-[#ff6b2b]/15 to-[#ff6b2b]/5 text-[#ff6b2b] border border-[#ff6b2b]/30 shadow-[0_0_12px_rgba(255,107,43,0.15)]"
+                  : "border border-white/10 bg-white/[0.02] text-white/60 hover:text-white hover:bg-white/[0.06]",
               )}
             >
               {shortSectorLabel(option.sector)}
-              <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
-                {option.count}
+              <span className="ml-1.5 font-mono text-[11px] opacity-70">
+                ({option.count})
               </span>
             </button>
           ))}
@@ -562,8 +564,8 @@ function DirectoryWorkbench({
       </div>
 
       {activeSectorLabel ? (
-        <p className="text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">{activeSectorLabel}</span>
+        <p className="text-xs text-white/50">
+          Filtered by <span className="font-semibold text-white">{activeSectorLabel}</span>
           {" · "}
           {filteredCount} {filteredCount === 1 ? "contact" : "contacts"}
         </p>
@@ -609,16 +611,16 @@ function DirectoryTable({
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+      <div className="glass-panel rounded-2xl border border-white/10 px-4 py-16 text-center text-sm text-white/40">
         {emptyMessage}
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Mobile cards */}
-      <div className="space-y-2 md:hidden">
+      <div className="space-y-3 md:hidden">
         {rows.map((contact) => {
           const company = companyLabel(contact);
           const role = meaningfulCell(contact.designation);
@@ -627,37 +629,37 @@ function DirectoryTable({
             <div
               key={contact.id}
               className={cn(
-                "rounded-lg border border-border bg-card p-3 shadow-sm",
-                contact.contacted && "opacity-70",
+                "glass-panel rounded-2xl border border-white/10 p-4 transition-all hover:border-white/20",
+                contact.contacted && "opacity-60",
               )}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-foreground">{contact.personName}</p>
+                  <p className="truncate font-semibold text-white">{contact.personName}</p>
                   {role !== "—" ? (
-                    <p className="truncate text-xs text-muted-foreground">{role}</p>
+                    <p className="truncate text-xs text-white/50">{role}</p>
                   ) : null}
-                  <p className="mt-0.5 truncate text-sm text-muted-foreground">{company}</p>
+                  <p className="mt-0.5 truncate text-xs text-white/70">{company}</p>
                 </div>
                 {onContacted ? (
                   markContactedOnly ? (
                     <button
                       type="button"
                       onClick={() => onContacted(contact.id, true)}
-                      className="shrink-0 rounded-md border border-border bg-background px-2.5 py-1 text-[11px] font-medium hover:bg-emerald-500/15 hover:text-emerald-600"
+                      className="shrink-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white/80 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-400 transition-all cursor-pointer"
                     >
-                      Yes
+                      Contacted?
                     </button>
                   ) : (
-                    <div className="inline-flex shrink-0 rounded-md border border-border p-0.5">
+                    <div className="inline-flex shrink-0 rounded-xl border border-white/10 bg-white/[0.02] p-0.5">
                       <button
                         type="button"
                         onClick={() => onContacted(contact.id, true)}
                         className={cn(
-                          "rounded px-2 py-1 text-[11px] font-medium",
+                          "rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
                           contact.contacted
-                            ? "bg-emerald-500/15 text-emerald-600"
-                            : "text-muted-foreground",
+                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
+                            : "text-white/50 hover:text-white",
                         )}
                       >
                         Yes
@@ -666,8 +668,8 @@ function DirectoryTable({
                         type="button"
                         onClick={() => onContacted(contact.id, false)}
                         className={cn(
-                          "rounded px-2 py-1 text-[11px] font-medium",
-                          !contact.contacted ? "bg-muted text-foreground" : "text-muted-foreground",
+                          "rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
+                          !contact.contacted ? "bg-white/[0.06] text-white" : "text-white/50 hover:text-white",
                         )}
                       >
                         No
@@ -676,26 +678,26 @@ function DirectoryTable({
                   )
                 ) : null}
               </div>
-              <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
-                {contact.phone ? <p className="tabular-nums text-foreground">{contact.phone}</p> : null}
+              <div className="mt-2.5 space-y-0.5 text-xs text-white/60 font-mono">
+                {contact.phone ? <p className="tabular-nums text-white/90">{contact.phone}</p> : null}
                 {emails.map((address) => (
                   <a
                     key={address}
                     href={`mailto:${address}`}
-                    className="block truncate font-medium text-foreground underline-offset-2 hover:underline"
+                    className="block truncate font-medium text-white/70 hover:text-white underline-offset-2 hover:underline"
                   >
                     {address}
                   </a>
                 ))}
-                {!contact.phone && emails.length === 0 ? <p>—</p> : null}
+                {!contact.phone && emails.length === 0 ? <p className="text-white/30">—</p> : null}
               </div>
               {showActions ? (
-                <div className="mt-3 flex flex-wrap gap-1.5">
+                <div className="mt-3.5 flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
                   {onPushWin ? (
                     <Button
                       type="button"
                       size="sm"
-                      className="h-8 gap-1 px-2.5 text-xs"
+                      className="h-8 gap-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-3 text-xs font-semibold text-white shadow-md shadow-emerald-500/20 hover:brightness-110"
                       onClick={() => onPushWin(contact)}
                     >
                       <Plus className="h-3.5 w-3.5" />
@@ -706,7 +708,7 @@ function DirectoryTable({
                     <button
                       type="button"
                       onClick={() => onMoveToLeads(contact)}
-                      className="inline-flex h-8 items-center gap-1 rounded-md border border-input px-2 text-[11px] font-medium"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs font-semibold text-white/70 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
                     >
                       Lead
                       <ArrowRight className="h-3 w-3" />
@@ -716,7 +718,7 @@ function DirectoryTable({
                     <button
                       type="button"
                       onClick={() => onEdit(contact)}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input text-muted-foreground"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/60 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
                       aria-label="Edit"
                     >
                       <Edit2 className="h-3.5 w-3.5" />
@@ -726,7 +728,7 @@ function DirectoryTable({
                     <button
                       type="button"
                       onClick={() => onRemove(contact)}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input text-destructive"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-400 hover:bg-rose-500/15 transition-all cursor-pointer"
                       aria-label="Remove"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -740,19 +742,19 @@ function DirectoryTable({
       </div>
 
       {/* Desktop table */}
-      <div className="hidden overflow-hidden rounded-lg border border-border bg-card shadow-sm md:block">
+      <div className="hidden overflow-hidden rounded-2xl border border-white/10 glass-panel md:block shadow-xl">
         <div className="max-h-[min(70vh,52rem)] overflow-auto [scrollbar-width:thin]">
           <table className="w-full border-collapse text-left text-sm">
             <thead className="sticky top-0 z-10">
-              <tr className="border-b border-border bg-muted/90 text-xs font-medium uppercase tracking-wider text-muted-foreground backdrop-blur-sm">
-                <th className="px-3 py-2.5">Contact</th>
-                <th className="px-3 py-2.5">Company</th>
-                <th className="w-[13rem] px-3 py-2.5">Reach</th>
-                <th className="w-[7.5rem] px-3 py-2.5">Contacted</th>
-                {showActions ? <th className="px-3 py-2.5 text-right">Action</th> : null}
+              <tr className="border-b border-white/10 bg-[#0f0f14]/95 text-xs font-semibold uppercase tracking-wider text-white/40 backdrop-blur-md">
+                <th className="px-4 py-3.5">Contact</th>
+                <th className="px-4 py-3.5">Company</th>
+                <th className="w-[14rem] px-4 py-3.5">Reach</th>
+                <th className="w-[8.5rem] px-4 py-3.5">Contacted</th>
+                {showActions ? <th className="px-4 py-3.5 text-right">Action</th> : null}
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-white/10">
               {rows.map((contact) => {
                 const company = companyLabel(contact);
                 const role = meaningfulCell(contact.designation);
@@ -760,40 +762,40 @@ function DirectoryTable({
                 return (
                   <tr
                     key={contact.id}
-                    className={cn("hover:bg-muted/25", contact.contacted && "opacity-70")}
+                    className={cn("hover:bg-white/[0.02] transition-colors", contact.contacted && "opacity-60")}
                   >
-                    <td className="max-w-[14rem] px-3 py-2.5 align-top">
-                      <p className="truncate font-medium text-foreground" title={contact.personName}>
+                    <td className="max-w-[14rem] px-4 py-3 align-top">
+                      <p className="truncate font-semibold text-white" title={contact.personName}>
                         {contact.personName}
                       </p>
                       {role !== "—" ? (
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground" title={role}>
+                        <p className="mt-0.5 truncate text-xs text-white/50" title={role}>
                           {role}
                         </p>
                       ) : null}
                     </td>
                     <td
-                      className="max-w-[14rem] truncate px-3 py-2.5 align-top text-muted-foreground"
+                      className="max-w-[14rem] truncate px-4 py-3 align-top text-white/70"
                       title={company}
                     >
                       {company}
                     </td>
-                    <td className="w-[13rem] max-w-[13rem] px-3 py-2.5 align-top">
+                    <td className="w-[14rem] max-w-[14rem] px-4 py-3 align-top font-mono text-xs">
                       <p
-                        className="truncate tabular-nums text-foreground"
+                        className="truncate tabular-nums text-white/90"
                         title={contact.phone || undefined}
                       >
                         {contact.phone || "—"}
                       </p>
                       {emails.length === 0 ? (
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">—</p>
+                        <p className="mt-0.5 truncate text-xs text-white/30">—</p>
                       ) : (
                         <div className="mt-0.5 space-y-0.5">
                           {emails.map((address) => (
                             <a
                               key={address}
                               href={`mailto:${address}`}
-                              className="block truncate text-xs font-medium text-foreground underline-offset-2 hover:underline"
+                              className="block truncate text-xs font-medium text-white/70 underline-offset-2 hover:underline hover:text-white"
                               title={address}
                               onClick={(e) => e.stopPropagation()}
                             >
@@ -803,26 +805,26 @@ function DirectoryTable({
                         </div>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 align-top">
+                    <td className="px-4 py-3 align-top">
                       {onContacted ? (
                         markContactedOnly ? (
                           <button
                             type="button"
                             onClick={() => onContacted(contact.id, true)}
-                            className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-emerald-500/15 hover:text-emerald-600 dark:hover:text-emerald-400"
+                            className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-semibold text-white/70 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-400 transition-all cursor-pointer"
                           >
-                            Yes
+                            Mark Yes
                           </button>
                         ) : (
-                          <div className="inline-flex rounded-md border border-border p-0.5">
+                          <div className="inline-flex rounded-xl border border-white/10 bg-white/[0.02] p-0.5">
                             <button
                               type="button"
                               onClick={() => onContacted(contact.id, true)}
                               className={cn(
-                                "rounded px-2 py-1 text-[11px] font-medium transition-colors",
+                                "rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
                                 contact.contacted
-                                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                                  : "text-muted-foreground hover:text-foreground",
+                                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
+                                  : "text-white/50 hover:text-white",
                               )}
                             >
                               Yes
@@ -831,10 +833,10 @@ function DirectoryTable({
                               type="button"
                               onClick={() => onContacted(contact.id, false)}
                               className={cn(
-                                "rounded px-2 py-1 text-[11px] font-medium transition-colors",
+                                "rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer",
                                 !contact.contacted
-                                  ? "bg-muted text-foreground"
-                                  : "text-muted-foreground hover:text-foreground",
+                                  ? "bg-white/[0.06] text-white"
+                                  : "text-white/50 hover:text-white",
                               )}
                             >
                               No
@@ -842,19 +844,19 @@ function DirectoryTable({
                           </div>
                         )
                       ) : (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs font-medium text-white/50">
                           {contact.contacted ? "Yes" : "No"}
                         </span>
                       )}
                     </td>
                     {showActions ? (
-                      <td className="px-3 py-2.5 text-right align-top">
-                        <div className="flex flex-nowrap items-center justify-end gap-1">
+                      <td className="px-4 py-3 text-right align-top">
+                        <div className="flex flex-nowrap items-center justify-end gap-1.5">
                           {onPushWin ? (
                             <Button
                               type="button"
                               size="sm"
-                              className="h-8 shrink-0 gap-1 px-2.5 text-xs"
+                              className="h-8 shrink-0 gap-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-3 text-xs font-semibold text-white shadow-md shadow-emerald-500/20 hover:brightness-110"
                               onClick={() => onPushWin(contact)}
                             >
                               <Plus className="h-3.5 w-3.5" />
@@ -865,7 +867,7 @@ function DirectoryTable({
                             <button
                               type="button"
                               onClick={() => onMoveToLeads(contact)}
-                              className="inline-flex h-8 items-center gap-1 rounded-md border border-input bg-card px-2 text-[11px] font-medium text-foreground hover:bg-secondary"
+                              className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 text-xs font-semibold text-white/70 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
                               title="Add to Pipeline Leads"
                             >
                               Lead
@@ -876,7 +878,7 @@ function DirectoryTable({
                             <button
                               type="button"
                               onClick={() => onEdit(contact)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-muted-foreground hover:bg-secondary"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-white/60 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
                               title="Edit"
                               aria-label="Edit contact"
                             >
@@ -887,7 +889,7 @@ function DirectoryTable({
                             <button
                               type="button"
                               onClick={() => onRemove(contact)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-destructive hover:bg-destructive/10"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-400 hover:bg-rose-500/15 transition-all cursor-pointer"
                               title="Remove"
                               aria-label="Remove from directory"
                             >
@@ -905,29 +907,29 @@ function DirectoryTable({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2.5 md:rounded-none md:border-0 md:border-t md:bg-transparent md:px-0">
-        <p className="text-xs text-muted-foreground">
-          {from}–{to} of {totalFiltered}
+      <div className="flex flex-wrap items-center justify-between gap-2 glass-panel rounded-2xl border border-white/10 px-4 py-3">
+        <p className="text-xs font-mono text-white/50">
+          Showing {from}–{to} of {totalFiltered} contacts
         </p>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <Button
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 px-2"
+            className="h-8 px-2.5 rounded-xl border-white/10 bg-white/[0.03] text-white hover:bg-white/[0.08]"
             disabled={page <= 0}
             onClick={() => onPageChange(page - 1)}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="min-w-[4.5rem] text-center text-xs text-muted-foreground">
+          <span className="min-w-[4.5rem] text-center text-xs font-mono text-white/60">
             {page + 1} / {pageCount}
           </span>
           <Button
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 px-2"
+            className="h-8 px-2.5 rounded-xl border-white/10 bg-white/[0.03] text-white hover:bg-white/[0.08]"
             disabled={page >= pageCount - 1}
             onClick={() => onPageChange(page + 1)}
           >
@@ -997,20 +999,21 @@ function ContactFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md rounded-3xl border border-white/10 bg-[#0e0e14]/95 backdrop-blur-2xl text-white shadow-2xl">
         <DialogHeader>
-          <DialogTitle>{contact ? "Edit contact" : "Add contact"}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-xl font-bold text-white">{contact ? "Edit contact" : "Add contact"}</DialogTitle>
+          <DialogDescription className="text-white/60">
             Same company stays together in the list; sector filters related businesses.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <Field label="Person's name *" id="contact-person-name">
             <Input
               id="contact-person-name"
               value={form.personName}
               onChange={(e) => setForm((f) => ({ ...f, personName: e.target.value }))}
               placeholder="e.g. Madhu"
+              className="rounded-xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/40 focus:border-[#ff6b2b]/50 focus:ring-1 focus:ring-[#ff6b2b]"
               autoFocus
             />
           </Field>
@@ -1020,6 +1023,7 @@ function ContactFormDialog({
               value={form.companyName}
               onChange={(e) => setForm((f) => ({ ...f, companyName: e.target.value }))}
               placeholder="e.g. Balaji Travels"
+              className="rounded-xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/40 focus:border-[#ff6b2b]/50 focus:ring-1 focus:ring-[#ff6b2b]"
             />
           </Field>
           <Field label="Role / designation" id="contact-designation">
@@ -1028,6 +1032,7 @@ function ContactFormDialog({
               value={form.designation}
               onChange={(e) => setForm((f) => ({ ...f, designation: e.target.value }))}
               placeholder="e.g. CEO, Sales Manager"
+              className="rounded-xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/40 focus:border-[#ff6b2b]/50 focus:ring-1 focus:ring-[#ff6b2b]"
             />
           </Field>
           <Field label="Email" id="contact-email">
@@ -1037,6 +1042,7 @@ function ContactFormDialog({
               value={form.email}
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               placeholder="name@company.com"
+              className="rounded-xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/40 focus:border-[#ff6b2b]/50 focus:ring-1 focus:ring-[#ff6b2b]"
             />
           </Field>
           <Field label="Sector" id="contact-sector">
@@ -1044,14 +1050,11 @@ function ContactFormDialog({
               id="contact-sector"
               value={form.sector}
               onChange={(e) => setForm((f) => ({ ...f, sector: e.target.value }))}
-              className={cn(
-                "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
-                "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              )}
+              className="flex h-10 w-full rounded-xl border border-white/10 bg-[#14141c] px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#ff6b2b]"
             >
-              <option value="">Auto-detect from company</option>
+              <option value="" className="bg-[#14141c] text-white">Auto-detect from company</option>
               {SALES_SECTORS.map((sector) => (
-                <option key={sector} value={sector}>
+                <option key={sector} value={sector} className="bg-[#14141c] text-white">
                   {sector}
                 </option>
               ))}
@@ -1063,6 +1066,7 @@ function ContactFormDialog({
               value={form.phone}
               onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
               placeholder="Direct number, if you have it"
+              className="rounded-xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/40 focus:border-[#ff6b2b]/50 focus:ring-1 focus:ring-[#ff6b2b]"
             />
           </Field>
           <Field label="No phone? Who to contact through" id="contact-via">
@@ -1071,13 +1075,16 @@ function ContactFormDialog({
               value={form.contactVia}
               onChange={(e) => setForm((f) => ({ ...f, contactVia: e.target.value }))}
               placeholder="e.g. Prajwal, or their office reception"
+              className="rounded-xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/40 focus:border-[#ff6b2b]/50 focus:ring-1 focus:ring-[#ff6b2b]"
             />
           </Field>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-white/10">
+            <Button type="button" variant="outline" className="rounded-xl border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">{contact ? "Save changes" : "Add to directory"}</Button>
+            <Button type="submit" className="rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white font-semibold hover:brightness-110 shadow-lg shadow-[#ff6b2b]/20">
+              {contact ? "Save changes" : "Add to directory"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

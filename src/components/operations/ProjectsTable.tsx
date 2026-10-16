@@ -63,9 +63,14 @@ export function ProjectsTable({
         const { target, pending } = paymentSummary(p);
         const billing = resolveProjectBilling(p);
         const projectCell = (
-          <span key={`project-${p.id}`} className="font-bold text-primary">
+          <Link
+            key={`project-${p.id}`}
+            to="/projects/$id"
+            params={{ id: p.id }}
+            className="font-bold text-white hover:text-[#ff6b2b] transition-colors"
+          >
             {p.name?.trim() || projectClientLabel(p)}
-          </span>
+          </Link>
         );
 
         const cells: React.ReactNode[] = [
@@ -101,7 +106,7 @@ export function ProjectsTable({
 export function ProjectStatusBadge({ status }: { status: Project["status"] }) {
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${projectStatusBadgeClass(status)}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider border border-white/10 backdrop-blur-md ${projectStatusBadgeClass(status)}`}
     >
       {projectStatusLabel(status)}
     </span>
@@ -127,7 +132,7 @@ export function ProjectsPipelineSummary({
 
   const items: { label: string; count: number; className: string; status: Project["status"] }[] = [
     { label: "Done", count: counts.completed, className: "text-emerald-400", status: "completed" },
-    { label: "Ongoing", count: counts.active, className: "text-emerald-300", status: "active" },
+    { label: "Ongoing", count: counts.active, className: "text-[#ff6b2b]", status: "active" },
     {
       label: "In discussions",
       count: counts.planning,
@@ -140,17 +145,17 @@ export function ProjectsPipelineSummary({
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {items.map((item) => {
         const isActive = selected === item.status;
-        const baseClass = "rounded-lg border px-4 py-3 text-center shadow-sm transition-colors";
+        const baseClass = "rounded-2xl border px-4 py-3.5 text-center transition-all duration-200";
         const toneClass = isActive
-          ? "border-primary bg-primary/10 ring-1 ring-primary/40"
-          : "border-border bg-card";
+          ? "border-orange-500/60 bg-gradient-to-b from-[#ff6b2b]/20 to-[#f04400]/10 shadow-lg shadow-orange-500/20 ring-1 ring-orange-500/40"
+          : "glass-card border-white/10 hover:border-white/20";
         if (!onSelect) {
           return (
             <div key={item.label} className={`${baseClass} ${toneClass}`}>
-              <p className={`text-2xl font-semibold tabular-nums ${item.className}`}>
+              <p className={`text-2xl font-black tabular-nums tracking-tight ${item.className}`}>
                 {item.count}
               </p>
-              <p className="mt-1 text-xs font-medium text-muted-foreground">{item.label}</p>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-white/50">{item.label}</p>
             </div>
           );
         }
@@ -160,11 +165,11 @@ export function ProjectsPipelineSummary({
             type="button"
             onClick={() => onSelect(item.status)}
             aria-pressed={isActive}
-            className={`${baseClass} ${toneClass} cursor-pointer hover:border-primary/50 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`}
+            className={`${baseClass} ${toneClass} cursor-pointer hover:translate-y-[-2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50`}
           >
-            <p className={`text-2xl font-semibold tabular-nums ${item.className}`}>{item.count}</p>
+            <p className={`text-2xl font-black tabular-nums tracking-tight ${item.className}`}>{item.count}</p>
             <p
-              className={`mt-1 text-xs font-medium ${isActive ? "text-foreground" : "text-muted-foreground"}`}
+              className={`mt-1 text-xs font-semibold uppercase tracking-wider ${isActive ? "text-white" : "text-white/50"}`}
             >
               {item.label}
             </p>
@@ -179,25 +184,25 @@ export function ProjectsDashboardSection({ projects }: { projects: Project[] }) 
   const ongoing = projects.filter((p) => p.status === "active");
 
   return (
-    <section className="space-y-5 rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <section className="glass-panel space-y-6 rounded-3xl border border-white/10 p-6 shadow-2xl">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-white/10 pb-4">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">Projects pipeline</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h2 className="text-lg font-bold tracking-tight text-white">Projects pipeline</h2>
+          <p className="mt-1 text-xs text-white/50">
             {projects.length} clients tracked across all stages.
           </p>
         </div>
         <Link
           to="/projects"
-          className="text-sm font-medium text-primary hover:underline underline-offset-4"
+          className="text-xs font-semibold uppercase tracking-wider text-[#ff6b2b] hover:text-[#ff8a50] transition-colors"
         >
-          View all
+          View all →
         </Link>
       </div>
       <ProjectsPipelineSummary projects={projects} />
       {ongoing.length > 0 && (
-        <div>
-          <h3 className="mb-3 text-sm font-semibold text-foreground">Ongoing ({ongoing.length})</h3>
+        <div className="pt-2">
+          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-white/60">Ongoing ({ongoing.length})</h3>
           <ProjectsTable projects={ongoing} showActions={false} />
         </div>
       )}

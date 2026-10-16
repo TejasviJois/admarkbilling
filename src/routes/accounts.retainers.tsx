@@ -124,13 +124,13 @@ function RetainersPage() {
     <div className="space-y-6">
       <Link
         to="/analytics"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary"
+        className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-white/50 hover:text-white transition-colors"
       >
         <ChevronLeft className="h-4 w-4" />
         Back to Insights
       </Link>
       <OperationsPageHeader
-        title="Monthly retainers"
+        title="Monthly Retainers"
         description="Turn retainers on when billing starts, or turn them off — back to future monthly or closed for good."
       />
 
@@ -150,7 +150,7 @@ function RetainersPage() {
       />
 
       <RetainerSection
-        title="Future monthly"
+        title="Future Monthly"
         subtitle={`${formatINRWhole(futureTotal)}/month waiting to start`}
         emptyMessage="No unstarted retainers — everything is either running or closed."
         rows={future}
@@ -166,7 +166,7 @@ function RetainersPage() {
 
       {closed.length > 0 && (
         <RetainerSection
-          title="Closed permanently"
+          title="Closed Permanently"
           subtitle="These retainers no longer count anywhere."
           emptyMessage=""
           rows={closed}
@@ -176,24 +176,24 @@ function RetainersPage() {
       )}
 
       <Dialog open={turningOff != null} onOpenChange={(open) => !open && setTurningOff(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md glass-panel border border-white/10 rounded-3xl shadow-2xl p-6">
           <DialogHeader>
-            <DialogTitle>Turn off retainer — {turningOff?.client}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-white text-lg font-bold">Turn off retainer — {turningOff?.client}</DialogTitle>
+            <DialogDescription className="text-white/60 text-xs">
               {turningOff ? `${formatINRWhole(turningOff.perMonth)}/month. ` : ""}
               Choose what happens to this retainer.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3">
+          <div className="grid gap-3 pt-2">
             <button
               type="button"
               onClick={() => turningOff && moveToFuture(turningOff)}
-              className="flex items-start gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary/50 hover:bg-muted/20"
+              className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition-all hover:border-[#ff6b2b]/50 hover:bg-white/10 cursor-pointer"
             >
               <PauseCircle className="mt-0.5 h-5 w-5 shrink-0 text-sky-400" />
               <span>
-                <span className="block font-semibold text-foreground">Move to Future monthly</span>
-                <span className="mt-0.5 block text-sm text-muted-foreground">
+                <span className="block font-bold text-white text-sm">Move to Future monthly</span>
+                <span className="mt-0.5 block text-xs text-white/50">
                   Pauses billing — the retainer waits in the pipeline and can be started again
                   anytime.
                 </span>
@@ -202,19 +202,19 @@ function RetainersPage() {
             <button
               type="button"
               onClick={() => turningOff && closePermanently(turningOff)}
-              className="flex items-start gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-rose-500/50 hover:bg-rose-500/5"
+              className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition-all hover:border-rose-500/50 hover:bg-rose-500/10 cursor-pointer"
             >
               <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />
               <span>
-                <span className="block font-semibold text-foreground">Close permanently</span>
-                <span className="mt-0.5 block text-sm text-muted-foreground">
+                <span className="block font-bold text-white text-sm">Close permanently</span>
+                <span className="mt-0.5 block text-xs text-white/50">
                   Ends this retainer for good — it stops counting in MRR and future monthly.
                 </span>
               </span>
             </button>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setTurningOff(null)}>
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="outline" onClick={() => setTurningOff(null)} className="rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10">
               Cancel
             </Button>
           </DialogFooter>
@@ -243,43 +243,45 @@ function RetainerSection({
 }) {
   return (
     <section
-      className={`rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6 ${muted ? "opacity-70" : ""}`}
+      className={`glass-panel rounded-3xl border border-white/10 p-6 shadow-2xl space-y-4 ${muted ? "opacity-60" : ""}`}
     >
-      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+      <div className="border-b border-white/10 pb-4">
+        <h2 className="text-lg font-bold tracking-tight text-white">{title}</h2>
+        <p className="mt-1 text-xs text-white/50">{subtitle}</p>
+      </div>
       {rows.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">{emptyMessage}</p>
+        <p className="py-8 text-center text-xs text-white/40">{emptyMessage}</p>
       ) : (
-        <ul className="mt-4 divide-y divide-border rounded-lg border border-border">
+        <ul className="space-y-3">
           {rows.map((row) => (
             <li
               key={row.project.id}
-              className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+              className="glass-card flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 p-4 transition-all hover:border-white/20"
             >
               <div className="min-w-0">
                 <Link
                   to="/projects/$id"
                   params={{ id: row.project.id }}
-                  className="font-semibold text-primary hover:underline"
+                  className="font-bold text-[#ff6b2b] hover:text-[#ff8a50] transition-colors"
                 >
                   {row.project.name?.trim() || row.client}
                 </Link>
                 {row.project.name?.trim() &&
                   row.client.trim() &&
                   row.project.name.trim() !== row.client.trim() && (
-                    <span className="ml-2 text-xs text-muted-foreground">{row.client}</span>
+                    <span className="ml-2 text-xs text-white/50">({row.client})</span>
                   )}
                 {row.project.projectType && (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {row.project.projectType}
+                  <span className="ml-2 text-[11px] font-semibold text-white/40 uppercase tracking-wider">
+                    · {row.project.projectType}
                   </span>
                 )}
-                <p className="mt-0.5 text-xs text-muted-foreground">{row.scheduleLabel}</p>
+                <p className="mt-1 text-xs text-white/45">{row.scheduleLabel}</p>
               </div>
               <div className="flex items-center gap-4">
-                <span className="font-bold tabular-nums text-foreground">
+                <span className="font-black tabular-nums text-emerald-400 text-base">
                   {formatINRWhole(row.perMonth)}
-                  <span className="text-xs font-normal text-muted-foreground">/month</span>
+                  <span className="text-xs font-normal text-white/50">/mo</span>
                 </span>
                 {renderToggle?.(row)}
                 {onDelete && (
@@ -288,7 +290,7 @@ function RetainerSection({
                     size="icon"
                     variant="ghost"
                     onClick={() => onDelete(row)}
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    className="h-8 w-8 text-white/40 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
                     aria-label={`Delete retainer for ${row.client}`}
                   >
                     <Trash2 className="h-4 w-4" />

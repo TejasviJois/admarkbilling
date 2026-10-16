@@ -17,7 +17,10 @@ import {
   Sliders,
   CheckCircle,
   ListChecks,
+  FileSpreadsheet,
+  FolderArchive,
 } from "lucide-react";
+import { exportSystemToExcel, exportSystemToCsvZip } from "@/lib/system-export";
 import { ComplianceDocumentsPanel } from "@/components/settings/ComplianceDocumentsPanel";
 import { CompanyPartnersPanel } from "@/components/settings/CompanyPartnersPanel";
 import { CloudUsagePanel } from "@/components/settings/CloudUsagePanel";
@@ -49,7 +52,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import type { CompanyMember, CompanySettings, Invoice } from "@/lib/types";
+import type { CompanyMember, CompanySettings, FinancialBaseline, Invoice } from "@/lib/types";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
@@ -91,6 +94,98 @@ function SettingsPage() {
     confirmPassword: "",
   });
   const [changingPassword, setChangingPassword] = useState(false);
+
+  // Financial baseline customization state
+  const [openingBalance, setOpeningBalance] = useState<string>("");
+  const [baselineRevenue, setBaselineRevenue] = useState<string>("");
+  const [baselineExpenses, setBaselineExpenses] = useState<string>("");
+  const [baselineExternalPayouts, setBaselineExternalPayouts] = useState<string>("");
+  const [baselineFounderPayouts, setBaselineFounderPayouts] = useState<string>("");
+  const [savingFinanceBaseline, setSavingFinanceBaseline] = useState(false);
+
+  useEffect(() => {
+    if (!ops) return;
+    const openingTx = (ops.transactions ?? []).find(
+      (t) => t.type === "adjustment" || t.id === "tx-gz-opening-balance",
+    );
+    setOpeningBalance(String(openingTx ? openingTx.amount : 46966.42));
+    setBaselineRevenue(
+      String(
+        ops.financialBaseline?.totalRevenueReceived ??
+          DEFAULT_FINANCIAL_BASELINE.totalRevenueReceived,
+      ),
+    );
+    setBaselineExpenses(
+      String(
+        ops.financialBaseline?.totalCompanyExpenses ??
+          DEFAULT_FINANCIAL_BASELINE.totalCompanyExpenses,
+      ),
+    );
+    setBaselineExternalPayouts(
+      String(
+        ops.financialBaseline?.totalExternalPayouts ??
+          DEFAULT_FINANCIAL_BASELINE.totalExternalPayouts,
+      ),
+    );
+    setBaselineFounderPayouts(
+      String(
+        ops.financialBaseline?.founderPayoutPool ??
+          DEFAULT_FINANCIAL_BASELINE.founderPayoutPool,
+      ),
+    );
+  }, [ops]);
+
+  const handleSaveFinanceBaseline = async () => {
+    setSavingFinanceBaseline(true);
+    try {
+      const nextBaseline: FinancialBaseline = {
+        ...(ops.financialBaseline ?? DEFAULT_FINANCIAL_BASELINE),
+        totalRevenueReceived: Number(baselineRevenue) || 0,
+        totalCompanyExpenses: Number(baselineExpenses) || 0,
+        totalExternalPayouts: Number(baselineExternalPayouts) || 0,
+        founderPayoutPool: Number(baselineFounderPayouts) || 0,
+      };
+
+      const openingAmount = Number(openingBalance) || 0;
+      const existingTx = (ops.transactions ?? []).find(
+        (t) => t.type === "adjustment" || t.id === "tx-gz-opening-balance",
+      );
+      let nextTransactions = ops.transactions ?? [];
+      if (existingTx) {
+        nextTransactions = nextTransactions.map((t) =>
+          t.id === existingTx.id ? { ...t, amount: openingAmount } : t,
+        );
+      } else {
+        nextTransactions = [
+          {
+            id: "tx-gz-opening-balance",
+            type: "adjustment",
+            date: "2026-07-17",
+            amount: openingAmount,
+            description: "Opening Balance",
+            category: "Opening Balance",
+            paymentMethod: "bank_transfer",
+            notes: "Authoritative opening liquid capital balance",
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+          ...nextTransactions,
+        ];
+      }
+
+      await persist({
+        ...ops,
+        financialBaseline: nextBaseline,
+        transactions: nextTransactions,
+      });
+      toast.success("Finance baseline and metric rules saved successfully");
+    } catch (err) {
+      logClientError("settings.saveFinanceBaseline", err);
+      toast.error(err instanceof Error ? err.message : "Failed to save baseline settings");
+    } finally {
+      setSavingFinanceBaseline(false);
+    }
+  };
 
   const latestRef = useRef<CompanySettings | null>(null);
   latestRef.current = c;
@@ -307,6 +402,24 @@ function SettingsPage() {
       URL.revokeObjectURL(url);
     } catch (err) {
       alert("Failed to export backup data.");
+    }
+  };
+
+  const handleExportExcel = () => {
+    try {
+      exportSystemToExcel(ops, invoices, c);
+    } catch (err) {
+      logClientError("settings.exportExcel", err);
+      alert("Failed to export Excel file.");
+    }
+  };
+
+  const handleExportCsvZip = () => {
+    try {
+      exportSystemToCsvZip(ops, invoices, c);
+    } catch (err) {
+      logClientError("settings.exportCsv", err);
+      alert("Failed to export CSV archive.");
     }
   };
 
@@ -529,31 +642,38 @@ function SettingsPage() {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
-      <header className="shrink-0 border-b border-border/80 px-4 py-3 sm:px-6 sm:py-3.5">
+    <div className="flex h-full min-h-0 flex-col bg-[#09090d]/60 backdrop-blur-xl">
+      <header className="shrink-0 border-b border-white/10 bg-[#0c0c12]/70 px-4 py-4 sm:px-6 sm:py-4 backdrop-blur-2xl">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
-              Settings
-            </h1>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">{activeTabMeta.label}</p>
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#ff6b2b]/10 border border-[#ff6b2b]/30 text-[#ff6b2b] shadow-[0_0_12px_rgba(255,107,43,0.2)]">
+                <Settings className="h-4 w-4" />
+              </span>
+              <div>
+                <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">
+                  Settings
+                </h1>
+                <p className="truncate text-xs text-white/50">{activeTabMeta.label}</p>
+              </div>
+            </div>
           </div>
           <button
             type="button"
             onClick={handleSave}
-            className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 self-start rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:bg-primary/90 sm:self-auto"
+            className="inline-flex h-9 shrink-0 items-center justify-center gap-2 self-start rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] px-5 text-xs font-semibold text-white shadow-lg shadow-[#ff6b2b]/25 hover:brightness-110 active:scale-95 transition-all sm:self-auto cursor-pointer"
           >
             <Save className="h-4 w-4" />
-            {saved ? "Saved" : "Save"}
+            {saved ? "Saved" : "Save Changes"}
           </button>
         </div>
 
         {(syncing || loadError) && (
           <div
-            className={`mt-3 rounded-lg border px-3 py-2 text-xs font-semibold ${
+            className={`mt-3 rounded-xl border px-3.5 py-2.5 text-xs font-medium backdrop-blur-md ${
               loadError
                 ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
-                : "border-border bg-muted/40 text-muted-foreground"
+                : "border-white/10 bg-white/[0.04] text-white/70"
             }`}
           >
             {loadError ?? "Loading settings…"}
@@ -568,12 +688,12 @@ function SettingsPage() {
             id="settings-section"
             value={activeTab}
             onChange={(e) => selectTab(e.target.value as SettingsTab)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-semibold text-foreground"
+            className="w-full rounded-xl border border-white/10 bg-[#14141c] px-3.5 py-2.5 text-sm font-medium text-white focus:outline-none focus:ring-1 focus:ring-[#ff6b2b]"
           >
             {tabGroups.map((group) => (
               <optgroup key={group.label} label={group.label}>
                 {group.tabs.map((t) => (
-                  <option key={t.value} value={t.value}>
+                  <option key={t.value} value={t.value} className="bg-[#14141c] text-white">
                     {t.label}
                   </option>
                 ))}
@@ -584,26 +704,26 @@ function SettingsPage() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-52 shrink-0 overflow-y-auto border-r border-border/80 md:block lg:w-56">
-          <nav className="space-y-4 p-3" aria-label="Settings sections">
+        <aside className="hidden w-60 shrink-0 overflow-y-auto border-r border-white/10 bg-[#0e0e14]/70 p-3.5 backdrop-blur-2xl md:block lg:w-64">
+          <nav className="space-y-4" aria-label="Settings sections">
             {tabGroups.map((group) => (
               <div key={group.label}>
-                <p className="mb-1 px-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">
+                <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-white/40">
                   {group.label}
                 </p>
-                <div className="space-y-0.5">
+                <div className="space-y-1">
                   {group.tabs.map((t) => (
                     <button
                       key={t.value}
                       type="button"
                       onClick={() => selectTab(t.value)}
-                      className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-xs font-medium transition-colors ${
+                      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-medium transition-all ${
                         activeTab === t.value
-                          ? "bg-muted text-foreground"
-                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                          ? "bg-gradient-to-r from-[#ff6b2b]/15 to-[#ff6b2b]/5 text-[#ff6b2b] border border-[#ff6b2b]/30 shadow-[0_0_15px_rgba(255,107,43,0.12)] font-semibold"
+                          : "text-white/60 hover:bg-white/[0.04] hover:text-white border border-transparent"
                       }`}
                     >
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center opacity-80">
+                      <span className={`flex h-4 w-4 shrink-0 items-center justify-center ${activeTab === t.value ? "text-[#ff6b2b]" : "opacity-70"}`}>
                         {t.icon}
                       </span>
                       <span className="min-w-0 flex-1 truncate">{t.label}</span>
@@ -690,16 +810,16 @@ function SettingsPage() {
             {activeTab === "finance" && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">Finance rules</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Optional features for the whole workspace.
+                <h2 className="text-lg font-bold tracking-tight text-white">Finance rules</h2>
+                <p className="mt-1 text-sm text-white/60">
+                  Optional features and modules for the workspace.
                 </p>
               </div>
-              <div className="divide-y divide-border/80 border-y border-border/80">
-                <div className="flex items-start justify-between gap-4 py-4">
+              <div className="glass-panel rounded-2xl border border-white/10 p-5 divide-y divide-white/10">
+                <div className="flex items-start justify-between gap-4 py-3.5 first:pt-0">
                   <div>
-                    <p className="text-sm font-medium text-foreground">Payment proof uploads</p>
-                    <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                    <p className="text-sm font-semibold text-white">Payment proof uploads</p>
+                    <p className="mt-1 max-w-xl text-xs leading-relaxed text-white/50">
                       Show receipt uploads on income and expense forms.
                     </p>
                   </div>
@@ -710,10 +830,10 @@ function SettingsPage() {
                     className="mt-0.5"
                   />
                 </div>
-                <div className="flex items-start justify-between gap-4 py-4">
+                <div className="flex items-start justify-between gap-4 py-3.5">
                   <div>
-                    <p className="text-sm font-medium text-foreground">Company Valuation</p>
-                    <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                    <p className="text-sm font-semibold text-white">Company Valuation</p>
+                    <p className="mt-1 max-w-xl text-xs leading-relaxed text-white/50">
                       Show Valuation under Insights. Keep off until ready.
                     </p>
                   </div>
@@ -724,10 +844,10 @@ function SettingsPage() {
                     className="mt-0.5"
                   />
                 </div>
-                <div className="flex items-start justify-between gap-4 py-4">
+                <div className="flex items-start justify-between gap-4 py-3.5">
                   <div>
-                    <p className="text-sm font-medium text-foreground">Project Assignments</p>
-                    <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                    <p className="text-sm font-semibold text-white">Project Assignments</p>
+                    <p className="mt-1 max-w-xl text-xs leading-relaxed text-white/50">
                       Map people to projects on the Team page.
                     </p>
                   </div>
@@ -738,10 +858,10 @@ function SettingsPage() {
                     className="mt-0.5"
                   />
                 </div>
-                <div className="flex items-start justify-between gap-4 py-4">
+                <div className="flex items-start justify-between gap-4 py-3.5 last:pb-0">
                   <div>
-                    <p className="text-sm font-medium text-foreground">Partnerships</p>
-                    <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                    <p className="text-sm font-semibold text-white">Partnerships</p>
+                    <p className="mt-1 max-w-xl text-xs leading-relaxed text-white/50">
                       Show Partnerships under Delivery. Keep off until you need it.
                     </p>
                   </div>
@@ -753,16 +873,122 @@ function SettingsPage() {
                   />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">Save after changing rules.</p>
+
+              {/* Baseline & Calculation Customization */}
+              <div className="glass-panel rounded-2xl border border-white/10 p-5 space-y-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-[#ff6b2b]">
+                      Calculation Baselines & Financial Customization
+                    </h3>
+                    <p className="mt-0.5 text-xs text-white/50">
+                      Customize the authoritative baseline numbers that drive Liquid Capital, Realized Revenue, and Historical Expenses across the entire platform.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveFinanceBaseline}
+                    disabled={savingFinanceBaseline}
+                    className="mt-2 sm:mt-0 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] px-4 py-2 text-xs font-bold text-white shadow-md shadow-orange-500/25 hover:brightness-110 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    {savingFinanceBaseline ? "Saving…" : "Save Calculation Rules"}
+                  </button>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-white/5">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-white/70">
+                      Opening Liquid Capital Balance (₹)
+                    </label>
+                    <Input
+                      type="number"
+                      value={openingBalance}
+                      onChange={(e) => setOpeningBalance(e.target.value)}
+                      placeholder="e.g. 46966.42"
+                      className="rounded-xl border-white/10 bg-white/5 text-xs text-white focus:border-[#ff6b2b]/50"
+                    />
+                    <p className="text-[11px] text-white/40">
+                      Authoritative opening cash & bank balance. Directly computes Liquid Capital.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-white/70">
+                      Historical Realized Revenue (₹)
+                    </label>
+                    <Input
+                      type="number"
+                      value={baselineRevenue}
+                      onChange={(e) => setBaselineRevenue(e.target.value)}
+                      placeholder="e.g. 147425"
+                      className="rounded-xl border-white/10 bg-white/5 text-xs text-white focus:border-[#ff6b2b]/50"
+                    />
+                    <p className="text-[11px] text-white/40">
+                      Verified historical inflow baseline prior to migration. Directly computes Realized Revenue.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-white/70">
+                      Historical Operating Expenses (₹)
+                    </label>
+                    <Input
+                      type="number"
+                      value={baselineExpenses}
+                      onChange={(e) => setBaselineExpenses(e.target.value)}
+                      placeholder="e.g. 36564.48"
+                      className="rounded-xl border-white/10 bg-white/5 text-xs text-white focus:border-[#ff6b2b]/50"
+                    />
+                    <p className="text-[11px] text-white/40">
+                      Company tools, subscriptions, and office costs baseline.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-white/70">
+                      Historical External Payouts (₹)
+                    </label>
+                    <Input
+                      type="number"
+                      value={baselineExternalPayouts}
+                      onChange={(e) => setBaselineExternalPayouts(e.target.value)}
+                      placeholder="e.g. 10000"
+                      className="rounded-xl border-white/10 bg-white/5 text-xs text-white focus:border-[#ff6b2b]/50"
+                    />
+                    <p className="text-[11px] text-white/40">
+                      Historical vendor and external partner payouts.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-white/70">
+                      Historical Founder Salaries Pool (₹)
+                    </label>
+                    <Input
+                      type="number"
+                      value={baselineFounderPayouts}
+                      onChange={(e) => setBaselineFounderPayouts(e.target.value)}
+                      placeholder="e.g. 56894.1"
+                      className="rounded-xl border-white/10 bg-white/5 text-xs text-white focus:border-[#ff6b2b]/50"
+                    />
+                    <p className="text-[11px] text-white/40">
+                      Historical salaries and withdrawals paid to founders.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-white/40">Save changes to apply new rules across the workspace.</p>
             </div>
           )}
             {activeTab === "tax" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                <h2 className="text-lg font-bold tracking-tight text-white">
                   Tax & legal
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-white/60">
                   Registrations and compliance documents for invoices.
                 </p>
               </div>
@@ -784,10 +1010,10 @@ function SettingsPage() {
                   className="sm:col-span-2"
                 />
               </div>
-              <div className="space-y-3 border-t border-border/80 pt-5">
+              <div className="space-y-3 border-t border-white/10 pt-5">
                 <div>
-                  <h3 className="text-sm font-medium text-foreground">Compliance PDFs</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <h3 className="text-sm font-semibold text-white">Compliance PDFs</h3>
+                  <p className="mt-1 text-xs text-white/50">
                     Udyam and other certificates — open or download only.
                   </p>
                 </div>
@@ -809,10 +1035,10 @@ function SettingsPage() {
             {activeTab === "bank" && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                <h2 className="text-lg font-bold tracking-tight text-white">
                   Bank details
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-white/60">
                   Settlement info printed on invoices.
                 </p>
               </div>
@@ -853,33 +1079,33 @@ function SettingsPage() {
             {activeTab === "security" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                <h2 className="text-lg font-bold tracking-tight text-white">
                   Security & session
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Password and sign-out for this account.
+                <p className="mt-1 text-sm text-white/60">
+                  Password and authentication controls for this account.
                 </p>
               </div>
 
-              <div className="divide-y divide-border/80 border-y border-border/80">
-                <div className="flex items-center justify-between gap-4 py-3.5 text-sm">
-                  <span className="text-muted-foreground">Access role</span>
-                  <span className="font-medium text-foreground">Admin</span>
+              <div className="glass-panel rounded-2xl border border-white/10 p-5 divide-y divide-white/10">
+                <div className="flex items-center justify-between gap-4 py-3 first:pt-0 text-sm">
+                  <span className="text-white/60">Access role</span>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#ff6b2b]/15 text-[#ff6b2b] border border-[#ff6b2b]/30">Admin</span>
                 </div>
-                <div className="flex items-center justify-between gap-4 py-3.5 text-sm">
-                  <span className="text-muted-foreground">Encryption</span>
-                  <span className="inline-flex items-center gap-1.5 font-medium text-emerald-500">
+                <div className="flex items-center justify-between gap-4 py-3 last:pb-0 text-sm">
+                  <span className="text-white/60">Encryption</span>
+                  <span className="inline-flex items-center gap-1.5 font-medium text-emerald-400">
                     <CheckCircle className="h-3.5 w-3.5" />
-                    RSA-2048
+                    RSA-2048 / TLS 1.3
                   </span>
                 </div>
               </div>
 
-              <div className="space-y-4 border-t border-border/80 pt-5">
+              <div className="glass-panel rounded-2xl border border-white/10 p-5 space-y-4">
                 <div>
-                  <h3 className="text-sm font-medium text-foreground">Change password</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    8+ characters with upper, lower, and a number.
+                  <h3 className="text-sm font-semibold text-white">Change password</h3>
+                  <p className="mt-1 text-xs text-white/50">
+                    8+ characters with uppercase, lowercase, and a number.
                   </p>
                 </div>
                 <form onSubmit={handleChangePassword} className="max-w-md space-y-3">
@@ -901,17 +1127,17 @@ function SettingsPage() {
                     value={passwordForm.confirmPassword}
                     onChange={(v) => setPasswordForm((f) => ({ ...f, confirmPassword: v }))}
                   />
-                  <Button type="submit" disabled={changingPassword}>
+                  <Button type="submit" disabled={changingPassword} className="rounded-xl bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white font-semibold hover:brightness-110 shadow-lg shadow-[#ff6b2b]/20">
                     {changingPassword ? "Updating…" : "Update password"}
                   </Button>
                 </form>
               </div>
 
-              <div className="border-t border-border/80 pt-5">
+              <div className="pt-2">
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="inline-flex items-center gap-2 rounded-md border border-rose-500/25 px-3.5 py-2 text-xs font-medium text-rose-500 transition-colors hover:bg-rose-500/10"
+                  className="inline-flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs font-semibold text-rose-400 transition-all hover:bg-rose-500/20 active:scale-95 cursor-pointer"
                 >
                   <LogOut className="h-4 w-4" />
                   Sign out
@@ -922,30 +1148,30 @@ function SettingsPage() {
             {activeTab === "storage" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                <h2 className="text-lg font-bold tracking-tight text-white">
                   Storage & backups
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Cloud usage, export, and restore.
+                <p className="mt-1 text-sm text-white/60">
+                  Cloud usage, export snapshots, and system restore.
                 </p>
               </div>
 
               <CloudUsagePanel />
 
-              <div className="flex items-start gap-3 border-y border-border/80 py-4">
+              <div className="glass-panel rounded-2xl border border-white/10 p-5 flex items-start gap-3.5">
                 {backendLabel.includes("Supabase") ? (
-                  <Cloud className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
+                  <Cloud className="mt-0.5 h-5 w-5 shrink-0 text-sky-400" />
                 ) : (
-                  <Database className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                  <Database className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
                 )}
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">Database</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  <p className="text-sm font-semibold text-white">Database Status</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-white/60">
                     {backendLabel}
                   </p>
                   {backendLabel.includes("Supabase") && backendReady != null && (
                     <p
-                      className={`mt-1.5 text-xs ${backendReady ? "text-emerald-500" : "text-amber-500"}`}
+                      className={`mt-1.5 text-xs font-medium ${backendReady ? "text-emerald-400" : "text-amber-400"}`}
                     >
                       {backendReady
                         ? "Connected to cloud tables."
@@ -955,30 +1181,72 @@ function SettingsPage() {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-foreground">Backups</h3>
-                <div className="divide-y divide-border/80 border-y border-border/80">
-                  <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="glass-panel rounded-2xl border border-white/10 p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-white">Data Export & System Backups</h3>
+                  <span className="text-[11px] text-emerald-400 font-medium">Excel & CSV Ready</span>
+                </div>
+                <div className="divide-y divide-white/10">
+                  {/* Export Excel (.xlsx) */}
+                  <div className="flex flex-col gap-3 py-3.5 first:pt-0 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 max-w-md">
-                      <p className="text-sm font-medium text-foreground">Export</p>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        Download invoices, operations, and settings as JSON.
+                      <p className="text-sm font-semibold text-white">Export to Excel (.xlsx)</p>
+                      <p className="mt-1 text-xs leading-relaxed text-white/50">
+                        Structured multi-sheet workbook with Projects, Transactions Ledger, Clients, CRM Leads, Invoices, Team, and Financial KPIs.
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleExportExcel}
+                      className="shrink-0 text-xs rounded-xl border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
+                    >
+                      <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+                      Export Excel (.xlsx)
+                    </Button>
+                  </div>
+
+                  {/* Export CSV (.zip) */}
+                  <div className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 max-w-md">
+                      <p className="text-sm font-semibold text-white">Export to CSV Bundle (.zip)</p>
+                      <p className="mt-1 text-xs leading-relaxed text-white/50">
+                        Download all individual database tables as clean, comma-separated CSV files in a single archive.
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleExportCsvZip}
+                      className="shrink-0 text-xs rounded-xl border-sky-500/20 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 hover:text-sky-300"
+                    >
+                      <FolderArchive className="mr-1.5 h-3.5 w-3.5" />
+                      Export CSV (.zip)
+                    </Button>
+                  </div>
+
+                  {/* Export JSON Snapshot */}
+                  <div className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 max-w-md">
+                      <p className="text-sm font-semibold text-white">Export System Snapshot (JSON)</p>
+                      <p className="mt-1 text-xs leading-relaxed text-white/50">
+                        Complete raw JSON snapshot used for system restores and migrations.
                       </p>
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={handleExportBackup}
-                      className="shrink-0 text-xs"
+                      className="shrink-0 text-xs rounded-xl border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08] hover:text-white"
                     >
                       <Download className="mr-1.5 h-3.5 w-3.5" />
-                      Export backup
+                      Export JSON
                     </Button>
                   </div>
-                  <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex flex-col gap-3 py-3.5 last:pb-0 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 max-w-md">
-                      <p className="text-sm font-medium text-foreground">Restore</p>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      <p className="text-sm font-semibold text-white">Restore Backup</p>
+                      <p className="mt-1 text-xs leading-relaxed text-white/50">
                         Upload a backup JSON. Replaces all current records.
                       </p>
                     </div>
@@ -993,7 +1261,7 @@ function SettingsPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-xs"
+                        className="text-xs rounded-xl border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08] hover:text-white"
                         disabled={restoring}
                       >
                         <Upload className="mr-1.5 h-3.5 w-3.5" />
@@ -1004,10 +1272,10 @@ function SettingsPage() {
                 </div>
               </div>
 
-              <div className="space-y-3 border-t border-border/80 pt-5">
+              <div className="glass-panel rounded-2xl border border-white/10 p-5 space-y-3">
                 <div>
-                  <h3 className="text-sm font-medium text-foreground">Local → cloud sync</h3>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  <h3 className="text-sm font-semibold text-white">Local → Cloud Sync</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-white/50">
                     Push browser-local settings and billing records to Supabase.
                   </p>
                 </div>
@@ -1015,7 +1283,7 @@ function SettingsPage() {
                   type="button"
                   disabled={syncingCloud}
                   onClick={handlePushLocalToCloud}
-                  className="inline-flex items-center gap-2 rounded-md border border-border/80 px-3.5 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted/40 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-semibold text-white transition-all hover:bg-white/[0.08] active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                   <Cloud className="h-4 w-4" />
                   {syncingCloud ? "Syncing…" : "Migrate local data to Supabase"}
@@ -1037,35 +1305,35 @@ function SettingsPage() {
             {activeTab === "permissions" && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                <h2 className="text-lg font-bold tracking-tight text-white">
                   Permissions
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-white/60">
                   Enforced on the server. Sales cannot call admin APIs even if they guess a URL.
                 </p>
               </div>
-              <div className="overflow-x-auto border-y border-border/80">
+              <div className="glass-panel rounded-2xl border border-white/10 overflow-hidden">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="border-b border-border/80 text-xs text-muted-foreground">
-                      <th className="py-3 font-medium">Role</th>
-                      <th className="py-3 font-medium">Access</th>
-                      <th className="py-3 font-medium">Write</th>
-                      <th className="py-3 font-medium">Settings</th>
+                    <tr className="border-b border-white/10 bg-white/[0.02] text-xs font-semibold text-white/50">
+                      <th className="py-3.5 px-4 font-semibold">Role</th>
+                      <th className="py-3.5 px-4 font-semibold">Access</th>
+                      <th className="py-3.5 px-4 font-semibold">Write</th>
+                      <th className="py-3.5 px-4 font-semibold">Settings</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border/60">
+                  <tbody className="divide-y divide-white/10">
                     <tr>
-                      <td className="py-3 font-medium text-foreground">Admin</td>
-                      <td className="py-3 text-emerald-500">Full app</td>
-                      <td className="py-3 text-emerald-500">Full</td>
-                      <td className="py-3 text-emerald-500">Full</td>
+                      <td className="py-3.5 px-4 font-medium text-white">Admin</td>
+                      <td className="py-3.5 px-4 text-emerald-400 font-medium">Full app</td>
+                      <td className="py-3.5 px-4 text-emerald-400 font-medium">Full</td>
+                      <td className="py-3.5 px-4 text-emerald-400 font-medium">Full</td>
                     </tr>
                     <tr>
-                      <td className="py-3 font-medium text-foreground">Sales</td>
-                      <td className="py-3 text-emerald-500">Lead List only</td>
-                      <td className="py-3 text-amber-500">Contacted toggle</td>
-                      <td className="py-3 text-rose-500">None</td>
+                      <td className="py-3.5 px-4 font-medium text-white">Sales</td>
+                      <td className="py-3.5 px-4 text-emerald-400 font-medium">Lead List only</td>
+                      <td className="py-3.5 px-4 text-amber-400 font-medium">Contacted toggle</td>
+                      <td className="py-3.5 px-4 text-rose-400 font-medium">None</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1075,31 +1343,31 @@ function SettingsPage() {
             {activeTab === "integrations" && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                <h2 className="text-lg font-bold tracking-tight text-white">
                   Integrations
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-white/60">
                   Connected services for this workspace.
                 </p>
               </div>
-              <div className="divide-y divide-border/80 border-y border-border/80">
-                <div className="flex items-start justify-between gap-4 py-4">
+              <div className="glass-panel rounded-2xl border border-white/10 p-5 divide-y divide-white/10">
+                <div className="flex items-start justify-between gap-4 py-3.5 first:pt-0">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">Vercel deployments</p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    <p className="text-sm font-semibold text-white">Vercel deployments</p>
+                    <p className="mt-1 text-xs leading-relaxed text-white/50">
                       Syncs letterhead logos and PDF assets with edge builds.
                     </p>
                   </div>
-                  <span className="shrink-0 text-xs text-amber-500">Configured</span>
+                  <span className="shrink-0 text-xs font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2.5 py-1 rounded-full">Configured</span>
                 </div>
-                <div className="flex items-start justify-between gap-4 py-4 opacity-60">
+                <div className="flex items-start justify-between gap-4 py-3.5 last:pb-0 opacity-60">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">Slack webhooks</p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    <p className="text-sm font-semibold text-white">Slack webhooks</p>
+                    <p className="mt-1 text-xs leading-relaxed text-white/50">
                       Notify channels when invoices go overdue.
                     </p>
                   </div>
-                  <span className="shrink-0 text-xs text-muted-foreground">Inactive</span>
+                  <span className="shrink-0 text-xs font-medium text-white/40 bg-white/[0.04] border border-white/10 px-2.5 py-1 rounded-full">Inactive</span>
                 </div>
               </div>
             </div>

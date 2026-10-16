@@ -45,10 +45,10 @@ export const DEFAULT_COMPANY: CompanySettings = {
   paymentTerms: "50% at project start; remaining 50% before deployment.",
   remarks: "Thank you for your business!",
   paymentMode: "Bank Transfer / UPI",
-  paymentProofUploadsEnabled: false,
-  companyValuationEnabled: false,
-  projectAssignmentsEnabled: false,
-  partnershipsEnabled: false,
+  paymentProofUploadsEnabled: true,
+  companyValuationEnabled: true,
+  projectAssignmentsEnabled: true,
+  partnershipsEnabled: true,
   companyMembers: [
     {
       id: "member-harshith",

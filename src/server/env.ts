@@ -1,7 +1,24 @@
 /** Supabase credentials for server functions only (never expose service role to the client). */
 export function getSupabaseServerConfig(): { url: string; serviceRoleKey: string } | null {
-  const url = process.env.SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  let url = process.env.SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!serviceRoleKey) return null;
+
+  // Auto-heal if url was mistakenly set to marketing domain https://supabase.com
+  if (!url || /^https?:\/\/(www\.)?supabase\.com\/?$/i.test(url)) {
+    try {
+      const parts = serviceRoleKey.split(".");
+      if (parts[1]) {
+        const payload = JSON.parse(Buffer.from(parts[1], "base64").toString("utf-8"));
+        if (typeof payload?.ref === "string" && payload.ref) {
+          url = `https://${payload.ref}.supabase.co`;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   if (!url || !serviceRoleKey) return null;
   return { url, serviceRoleKey };
 }
