@@ -102,7 +102,10 @@ export const recordSalesWinFn = createServerFn({ method: "POST" })
     const personName = member?.name || session.displayName || session.username;
 
     const version = await readLegacyVersionToken("default");
-    const current = await cacheThrough(CACHE_KEYS.operations, loadRelationalOperations);
+    const current = await cacheThrough(
+      data.directoryContactId ? CACHE_KEYS.operations + ":contacts" : CACHE_KEYS.operations,
+      () => loadRelationalOperations({ includeContacts: Boolean(data.directoryContactId) }),
+    );
 
     const today = new Date().toISOString().slice(0, 10);
     const clientId = slugId("cli");
@@ -377,17 +380,21 @@ export const revertSalesWinFn = createServerFn({ method: "POST" })
       }
     }
     if (markerMatch[1] === "directory" && markerMatch[2]) {
-      const contact = (next.contacts ?? []).find((entry) => entry.id === markerMatch[2]);
+      const opsWithContacts = await loadRelationalOperations({ includeContacts: true });
+      const contact = (opsWithContacts.contacts ?? []).find((entry) => entry.id === markerMatch[2]);
       if (contact) {
-        next = applyOperationsMutation(next, {
-          upserts: {
-            contacts: [
-              { ...contact, contacted: true, salesWon: false } as unknown as EntityRow,
-            ],
+        next = applyOperationsMutation(
+          { ...next, contacts: opsWithContacts.contacts },
+          {
+            upserts: {
+              contacts: [
+                { ...contact, contacted: true, salesWon: false } as unknown as EntityRow,
+              ],
+            },
+            deletes: {},
+            sets: {},
           },
-          deletes: {},
-          sets: {},
-        });
+        );
       }
     }
 

@@ -168,6 +168,10 @@ interface ExistingRow {
   deleted_at: string | null;
 }
 
+interface LeadLookupRow extends ExistingRow {
+  source?: string | null;
+}
+
 /** Reads id/legacy columns of every row (including soft-deleted) for one organization. */
 async function fetchExistingRows<Row extends ExistingRow>(
   db: AdmarkDb,
@@ -633,7 +637,7 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
       org.id,
       "id, legacy_id, deleted_at, name",
     ),
-    fetchExistingRows<ExistingRow>(db, "leads", org.id, "id, legacy_id, deleted_at"),
+    fetchExistingRows<LeadLookupRow>(db, "leads", org.id, "id, legacy_id, deleted_at, source"),
     fetchExistingRows<ProjectLookupRow>(
       db,
       "projects",
@@ -846,34 +850,37 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
       createdAt: isoTimestamp(lead.createdAt),
     });
   }
-  for (const contact of ops.contacts ?? []) {
-    const legacyId = requireLegacyId("leads", contact.id);
-    const companyName = text(contact.companyName) ?? text(contact.personName);
-    if (!companyName) {
-      throw new Error(`Failed to write admark.leads: contact "${legacyId}" has no name.`);
+  const hasContactsInPayload = ops.contacts !== undefined;
+  if (hasContactsInPayload) {
+    for (const contact of ops.contacts ?? []) {
+      const legacyId = requireLegacyId("leads", contact.id);
+      const companyName = text(contact.companyName) ?? text(contact.personName);
+      if (!companyName) {
+        throw new Error(`Failed to write admark.leads: contact "${legacyId}" has no name.`);
+      }
+      leadSeeds.push({
+        legacyId,
+        companyName,
+        contactPerson: text(contact.personName),
+        email: text(contact.email),
+        phone: text(contact.phone),
+        status: "new_lead",
+        source: "Directory",
+        expectedRevenue: null,
+        probability: null,
+        expectedClosingDate: null,
+        notes: encodeDirectoryNotes({
+          contactVia: contact.contactVia,
+          sector: contact.sector,
+          contacted: contact.contacted,
+          salesWon: contact.salesWon,
+          designation: contact.designation,
+        }),
+        assignedSalesperson: null,
+        convertedClientId: null,
+        createdAt: isoTimestamp(contact.createdAt),
+      });
     }
-    leadSeeds.push({
-      legacyId,
-      companyName,
-      contactPerson: text(contact.personName),
-      email: text(contact.email),
-      phone: text(contact.phone),
-      status: "new_lead",
-      source: "Directory",
-      expectedRevenue: null,
-      probability: null,
-      expectedClosingDate: null,
-      notes: encodeDirectoryNotes({
-        contactVia: contact.contactVia,
-        sector: contact.sector,
-        contacted: contact.contacted,
-        salesWon: contact.salesWon,
-        designation: contact.designation,
-      }),
-      assignedSalesperson: null,
-      convertedClientId: null,
-      createdAt: isoTimestamp(contact.createdAt),
-    });
   }
   for (const seed of leadSeeds) {
     const id = leadIds.resolve(seed.legacyId);
@@ -1721,8 +1728,10 @@ export async function saveRelationalOperations(data: OperationsData): Promise<vo
     assignmentActiveIds,
     assignmentBatch.ids,
   );
-  await softDeleteOmitted(db, "projects", org.id, projectIds.activeIds, projectBatch.ids);
-  await softDeleteOmitted(db, "leads", org.id, leadIds.activeIds, leadBatch.ids);
+  const leadActiveIds = hasContactsInPayload
+    ? leadIds.activeIds
+    : new Set(leadRows.filter((r) => !r.deleted_at && r.source !== "Directory").map((r) => r.id));
+  await softDeleteOmitted(db, "leads", org.id, leadActiveIds, leadBatch.ids);
   await softDeleteOmitted(
     db,
     "partnerships",

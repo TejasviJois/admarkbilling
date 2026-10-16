@@ -25,7 +25,7 @@ const EMPTY: OperationsData = {
   assets: [],
   fixedMonthlyExpenses: [],
   clients: [],
-  contacts: [],
+  contacts: undefined,
   leadList: [],
   credentials: [],
   payments: [],
@@ -53,7 +53,7 @@ function normalizeOperationsData(data: OperationsData | undefined | null): Opera
       ? base.fixedMonthlyExpenses
       : [],
     clients: Array.isArray(base.clients) ? base.clients : [],
-    contacts: Array.isArray(base.contacts) ? base.contacts : [],
+    contacts: Array.isArray(base.contacts) ? base.contacts : undefined,
     leadList: Array.isArray(base.leadList) ? base.leadList : [],
     credentials: Array.isArray(base.credentials) ? base.credentials : [],
     payments: Array.isArray(base.payments) ? base.payments : [],

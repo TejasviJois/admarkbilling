@@ -420,3 +420,43 @@ html.light {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.22);
 }
+
+/* Mobile Performance Optimizations */
+@media (max-width: 768px) {
+  /* Disable heavy GPU-taxing backdrop-filter shaders on mobile viewports to eliminate frame drops and scroll stutter */
+  *,
+  *::before,
+  *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Provide sleek, high-contrast surfaces for glass components on mobile */
+  .glass-panel {
+    background: #121217 !important;
+  }
+
+  .glass-card {
+    background: #16161c !important;
+    transform: none !important;
+  }
+
+  .glass-card:hover {
+    transform: none !important;
+  }
+
+  .glass-pill {
+    background: #1a1a22 !important;
+  }
+
+  .glass-input {
+    background: #16161c !important;
+  }
+
+  /* Smooth momentum touch scrolling */
+  html,
+  body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: none;
+  }
+}

@@ -28,6 +28,11 @@ import {
 } from "@/components/operations/operations-ui";
 import { useDirectoryContacts } from "@/hooks/use-directory-contacts";
 import { useOperations } from "@/hooks/use-operations";
+import {
+  saveDirectoryContactFn,
+  deleteDirectoryContactFn,
+  uploadDirectoryContactsFn,
+} from "@/server/directory-fns";
 import { getAuthStatusCached } from "@/lib/auth-status-cache";
 import { logClientError } from "@/lib/client-logger";
 import { mergeDirectoryContacts, parseContactWorkbook } from "@/lib/contact-import";
@@ -277,13 +282,18 @@ function SalesDirectoryPage() {
 }
 
 function AdminDirectoryPage() {
-  const { ops, persist, loading } = useOperations();
+  const { ops, persist, loading: opsLoading } = useOperations();
+  const {
+    contacts,
+    loading: contactsLoading,
+    reload,
+    setContacted,
+  } = useDirectoryContacts();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const contacts = ops.contacts ?? [];
   const browse = useDirectoryBrowse(contacts);
 
   const openAdd = () => {
@@ -296,7 +306,7 @@ function AdminDirectoryPage() {
     setFormOpen(true);
   };
 
-  const handleSave = (saved: Contact) => {
+  const handleSave = async (saved: Contact) => {
     const inferred = inferSalesSector(saved.companyName, saved.personName);
     const withSector: Contact = {
       ...saved,
@@ -307,10 +317,15 @@ function AdminDirectoryPage() {
             ? inferred
             : undefined,
     };
-    const next = editing
-      ? contacts.map((contact) => (contact.id === withSector.id ? withSector : contact))
-      : [withSector, ...contacts];
-    persist({ ...ops, contacts: next });
+    try {
+      await saveDirectoryContactFn({ data: { contact: withSector } });
+      toast.success(editing ? "Contact updated." : "Contact added.");
+      await reload();
+      setFormOpen(false);
+    } catch (err) {
+      logClientError("directory.save", err);
+      toast.error(err instanceof Error ? err.message : "Could not save contact.");
+    }
   };
 
   const moveToLeads = (contact: Contact) => {
@@ -336,12 +351,16 @@ function AdminDirectoryPage() {
     });
   };
 
-  const handleRemove = (contact: Contact) => {
+  const handleRemove = async (contact: Contact) => {
     if (!confirm(`Remove ${contact.personName} from the directory?`)) return;
-    persist(
-      { ...ops, contacts: contacts.filter((c) => c.id !== contact.id) },
-      { deleteIds: { contacts: [contact.id] } },
-    );
+    try {
+      await deleteDirectoryContactFn({ data: { id: contact.id } });
+      toast.success("Contact removed.");
+      await reload();
+    } catch (err) {
+      logClientError("directory.remove", err);
+      toast.error(err instanceof Error ? err.message : "Could not remove contact.");
+    }
   };
 
   const handleUpload = async (file: File | undefined) => {
@@ -350,10 +369,11 @@ function AdminDirectoryPage() {
     try {
       const parsed = await parseContactWorkbook(file);
       const { contacts: next, added, updated } = mergeDirectoryContacts(contacts, parsed.rows);
-      await persist({ ...ops, contacts: next });
+      await uploadDirectoryContactsFn({ data: { contacts: next } });
       toast.success(
         `Imported ${parsed.rowCount} contacts (${added} new · ${updated} updated) from ${parsed.sheetName}`,
       );
+      await reload();
     } catch (error) {
       logClientError("directory.upload", error);
       toast.error(error instanceof Error ? error.message : "Could not import spreadsheet.");
@@ -363,6 +383,7 @@ function AdminDirectoryPage() {
     }
   };
 
+  const loading = opsLoading || contactsLoading;
   if (loading) return <OperationsLoading />;
 
   return (
@@ -423,8 +444,11 @@ function AdminDirectoryPage() {
             totalFiltered={browse.filtered.length}
             onPageChange={browse.setPage}
             onContacted={(id, contacted) => {
-              const next = contacts.map((c) => (c.id === id ? { ...c, contacted } : c));
-              void persist({ ...ops, contacts: next });
+              void setContacted(id, contacted)
+                .then(() => {
+                  if (contacted) toast.success("Moved to Contacted.");
+                })
+                .catch(() => toast.error("Could not update contacted status."));
             }}
             onEdit={openEdit}
             onRemove={handleRemove}

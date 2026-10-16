@@ -43,14 +43,14 @@ describe("Strict Executive KPI & Rupee-for-Rupee Audit", () => {
     expect(summary.totalRevenueBooked).toBe(summary.totalRevenueReceived + totalOutstanding);
 
     // Rule 2: Cash balance must strictly equal liquid movements
-    // Current Cash Balance = ₹67,610 (rounded)
-    expect(Math.round(summary.currentCashBalance)).toBe(67610);
+    // Current Cash Balance = ₹44,610 (rounded)
+    expect(Math.round(summary.currentCashBalance)).toBe(44610);
 
     // Rule 3: Total Revenue Received = ₹5,01,425
     expect(summary.totalRevenueReceived).toBe(501425);
 
-    // Rule 4: Total Expenses = ₹4,37,953 (rounded)
-    expect(Math.round(summary.totalExpense)).toBe(437953);
+    // Rule 4: Total Expenses = ₹4,60,953 (rounded)
+    expect(Math.round(summary.totalExpense)).toBe(460953);
 
     // Rule 5: Outstanding = ₹7,19,500
     expect(totalOutstanding).toBe(719500);

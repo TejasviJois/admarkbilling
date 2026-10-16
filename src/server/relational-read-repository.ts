@@ -100,15 +100,22 @@ async function fetchAll<Row>(
   db: AdmarkDb,
   table: string,
   organizationId: string,
-  options: { softDelete?: boolean; match?: Record<string, string> } = {},
+  options: {
+    softDelete?: boolean;
+    match?: Record<string, string>;
+    neq?: { column: string; value: string };
+  } = {},
 ): Promise<Row[]> {
-  const { softDelete = true, match } = options;
+  const { softDelete = true, match, neq } = options;
   const rows: Row[] = [];
   for (let start = 0; ; start += PAGE_SIZE) {
     let query = db.from(table).select("*").eq("organization_id", organizationId);
     if (softDelete) query = query.is("deleted_at", null);
     if (match) {
       for (const [column, value] of Object.entries(match)) query = query.eq(column, value);
+    }
+    if (neq) {
+      query = query.neq(neq.column, neq.value);
     }
     const { data, error } = await query
       .order("created_at", { ascending: true })
@@ -136,14 +143,14 @@ async function fetchMaybeSingle<Row>(
   return (data as unknown as Row) ?? null;
 }
 
-interface OrganizationRef {
+export interface OrganizationRef {
   id: string;
   legacyId: string;
 }
 
 let cachedOrgRef: OrganizationRef | null = null;
 
-async function resolveOrganization(db: AdmarkDb): Promise<OrganizationRef> {
+export async function resolveOrganization(db: AdmarkDb): Promise<OrganizationRef> {
   if (cachedOrgRef) return cachedOrgRef;
   const { data, error } = await db
     .from("organizations")
@@ -1077,9 +1084,12 @@ function parseApplicationPreferences(raw: unknown): ParsedApplicationPreferences
 // Operations
 // ---------------------------------------------------------------------------
 
-export async function loadRelationalOperations(): Promise<OperationsData> {
+export async function loadRelationalOperations(options?: {
+  includeContacts?: boolean;
+}): Promise<OperationsData> {
   const db = admarkDb();
   const org = await resolveOrganization(db);
+  const includeContacts = options?.includeContacts === true;
   const [
     settingsRow,
     clientRows,
@@ -1106,7 +1116,12 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
     fetchAll<ClientRow>(db, "clients", org.id),
     fetchAll<TeamMemberRow>(db, "team_members", org.id),
     fetchAll<PartnershipRow>(db, "partnerships", org.id),
-    fetchAll<LeadRow>(db, "leads", org.id),
+    fetchAll<LeadRow>(
+      db,
+      "leads",
+      org.id,
+      includeContacts ? {} : { neq: { column: "source", value: "Directory" } },
+    ),
     fetchAll<ProjectRow>(db, "projects", org.id),
     fetchAll<ProjectAssignmentRow>(db, "project_assignments", org.id),
     fetchAll<MilestoneRow>(db, "project_milestones", org.id),
@@ -1119,7 +1134,9 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
     fetchAll<DocumentRow>(db, "documents", org.id),
     fetchAll<CalendarRow>(db, "calendar", org.id),
     fetchAll<NotificationRow>(db, "notifications", org.id),
-    fetchAll<ActivityLogRow>(db, "activity_logs", org.id),
+    fetchAll<ActivityLogRow>(db, "activity_logs", org.id, {
+      match: { entity_type: "valuation" },
+    }),
     fetchAll<ValuationSnapshotRow>(db, "valuation_snapshots", org.id),
     fetchAll<LegacyRecordMapRow>(db, "legacy_record_map", org.id, {
       softDelete: false,
@@ -1596,7 +1613,7 @@ export async function loadRelationalOperations(): Promise<OperationsData> {
     financialBaseline: preferences.financialBaseline,
     fixedMonthlyExpenses,
     clients,
-    contacts,
+    contacts: includeContacts ? contacts : undefined,
     leadList: preferences.leadList,
     credentials: preferences.credentials,
     payments: topLevelPayments,

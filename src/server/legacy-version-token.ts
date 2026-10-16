@@ -40,3 +40,17 @@ export async function bumpLegacyVersionToken(
   }
   return { ok: true, version: data.updated_at };
 }
+
+/** Unconditionally updates updated_at without an optimistic check. */
+export async function touchLegacyVersionToken(rowId: string): Promise<string> {
+  const sb = requireServerSupabase();
+  const nextVersion = new Date().toISOString();
+  const { data, error } = await sb
+    .from("operations_data")
+    .update({ updated_at: nextVersion })
+    .eq("id", rowId)
+    .select("updated_at")
+    .maybeSingle();
+  if (error) throw error;
+  return data?.updated_at ?? nextVersion;
+}
