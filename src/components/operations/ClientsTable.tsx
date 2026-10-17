@@ -58,6 +58,7 @@ export function ClientsTable({
                     <Link
                       to="/clients/$id"
                       params={{ id: c.id }}
+                      aria-label={`View ${c.companyName} overview`}
                       className="text-[15px] font-bold text-white hover:text-[#ff6b2b] transition-colors break-words leading-snug"
                     >
                       {c.companyName}
@@ -122,6 +123,7 @@ export function ClientsTable({
                   <Link
                     to="/clients/$id"
                     params={{ id: c.id }}
+                    aria-label={`View ${c.companyName} overview`}
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-[#ff6b2b] hover:text-[#ff8a50] transition-colors"
                   >
                     <Eye className="h-3.5 w-3.5" /> View Overview
@@ -131,8 +133,8 @@ export function ClientsTable({
                       type="button"
                       onClick={() => onEdit(c)}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-                      title="Edit Client"
-                      aria-label="Edit Client"
+                      title={`Edit ${c.companyName}`}
+                      aria-label={`Edit ${c.companyName}`}
                     >
                       <Edit2 className="h-3.5 w-3.5" />
                     </button>
@@ -140,8 +142,8 @@ export function ClientsTable({
                       type="button"
                       onClick={() => onRemove(c.id)}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 transition-colors"
-                      title="Delete Client"
-                      aria-label="Delete Client"
+                      title={`Delete ${c.companyName}`}
+                      aria-label={`Delete ${c.companyName}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -241,8 +243,8 @@ export function ClientsTable({
                             to="/clients/$id"
                             params={{ id: c.id }}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-                            title="View Client Overview"
-                            aria-label="View Client Overview"
+                            title={`View ${c.companyName} overview`}
+                            aria-label={`View ${c.companyName} overview`}
                           >
                             <Eye className="h-4 w-4" />
                           </Link>
@@ -250,8 +252,8 @@ export function ClientsTable({
                             type="button"
                             onClick={() => onEdit(c)}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-                            title="Edit Client"
-                            aria-label="Edit Client"
+                            title={`Edit ${c.companyName}`}
+                            aria-label={`Edit ${c.companyName}`}
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
@@ -259,8 +261,8 @@ export function ClientsTable({
                             type="button"
                             onClick={() => onRemove(c.id)}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-rose-400/70 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                            title="Delete Client"
-                            aria-label="Delete Client"
+                            title={`Delete ${c.companyName}`}
+                            aria-label={`Delete ${c.companyName}`}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>

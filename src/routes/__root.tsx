@@ -145,8 +145,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@400;600&display=swap",
+        rel: "preload",
+        as: "style",
+        href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap",
       },
     ],
   }),
@@ -161,6 +162,17 @@ function RootShell({ children }: { children: React.ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap';document.head.appendChild(l);`,
+          }}
+        />
+        <noscript>
+          <link
+            rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+          />
+        </noscript>
       </head>
       <body>
         {children}
@@ -176,7 +188,7 @@ const navLinkClass = (active: boolean) => {
     "flex w-full items-center justify-start gap-2.5 rounded-xl px-4 py-2.5 text-sm transition-all duration-300";
   const tone = active
     ? "bg-gradient-to-r from-[#ff6b2b] to-[#f04400] text-white shadow-lg shadow-orange-500/30 font-bold"
-    : "text-white/60 hover:bg-white/[0.06] hover:text-white font-medium";
+    : "text-white/75 hover:bg-white/[0.06] hover:text-white font-medium";
   return `${base} ${tone}`;
 };
 
@@ -275,7 +287,7 @@ function SidebarNavigation({
     return (
       <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4" aria-label="Primary navigation">
         <div className="space-y-1">
-          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Sales
           </p>
           <Link
@@ -602,7 +614,7 @@ function AppShell() {
       >
         <div className="flex h-full w-64 shrink-0 flex-col">
           <div className="flex h-16 items-center border-b border-white/[0.08] px-6">
-            <Link to={homePath} className="flex items-center shrink-0">
+            <Link to={homePath} aria-label="Admark Home" className="flex items-center shrink-0">
               <img
                 src={brandLogo}
                 alt="Admark Logo"
@@ -632,7 +644,7 @@ function AppShell() {
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-white/[0.08] bg-[#121217]/70 px-4 backdrop-blur-2xl supports-[backdrop-filter]:bg-[#121217]/60 sm:h-16 sm:px-6">
           {/* Left: Mobile branding */}
           <div className="flex items-center gap-3 md:hidden">
-            <Link to={homePath} className="flex items-center shrink-0">
+            <Link to={homePath} aria-label="Admark Home" className="flex items-center shrink-0">
               <img
                 src={brandLogo}
                 alt="Admark Logo"
