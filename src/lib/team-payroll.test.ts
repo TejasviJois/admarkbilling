@@ -7,6 +7,7 @@ import {
   applyTeamDirectoryDefaults,
   clearSalaryPayment,
   compareMembersByPayroll,
+  deleteCompanyMember,
   groupMembersByType,
   isMonthEligible,
   isMonthPaid,
@@ -14,6 +15,7 @@ import {
   monthPaymentsFromSchedule,
   paymentForMonth,
   recordSalaryPayment,
+  removeSalarySchedule,
   startPayroll,
   totalSalaryPaidUntilToday,
   trackerMonthsForYear,
@@ -227,5 +229,81 @@ describe("team-payroll", () => {
     expect(tejasvi?.salaryStartDate).toBe("2026-06-01");
     expect(harshith?.employeeId).toBe("ADM-002");
     expect(harshith?.salaryStartDate).toBeUndefined();
+  });
+
+  it("deletes a member and records deletedMemberIds", () => {
+    const initialCompany = normalizeCompanySettings({
+      ...DEFAULT_COMPANY,
+      companyMembers: [
+        {
+          id: "member-test",
+          name: "Test Member",
+          email: "",
+          phone: "",
+          memberType: "employee",
+          status: "active",
+        },
+        {
+          id: "member-tejasvi",
+          name: "Tejasvi Jois",
+          email: "",
+          phone: "",
+          memberType: "founder",
+          status: "active",
+        },
+      ],
+    });
+
+    const { nextCompany, removedMember } = deleteCompanyMember(initialCompany, "member-test");
+    expect(removedMember?.name).toBe("Test Member");
+    expect(nextCompany.companyMembers?.some((m) => m.id === "member-test")).toBe(false);
+    expect(nextCompany.deletedMemberIds).toContain("member-test");
+
+    // Normalization preserves deletion and does not revive the member
+    const reNormalized = normalizeCompanySettings(nextCompany);
+    expect(reNormalized.companyMembers?.some((m) => m.id === "member-test")).toBe(false);
+  });
+
+  it("removes member salary schedule and project assignments upon deletion", () => {
+    const opsWithMember: OperationsData = {
+      ...emptyOps,
+      fixedMonthlyExpenses: [
+        {
+          id: "sched-test",
+          label: "Salary · Test",
+          kind: "salary",
+          teamMemberId: "member-test",
+          amountPerMonth: 10000,
+          startDate: "2026-06-01",
+          active: true,
+          status: "active",
+        },
+        {
+          id: "sched-other",
+          label: "Office Internet",
+          kind: "other",
+          amountPerMonth: 2000,
+          startDate: "2026-06-01",
+          active: true,
+          status: "active",
+        },
+      ],
+      projects: [
+        {
+          id: "proj-1",
+          client: "Acme Corp",
+          status: "active",
+          assignedMembers: ["member-test", "member-other"],
+          assignedPartner: "member-test",
+        },
+      ],
+    };
+
+    const { nextOps, removedScheduleIds } = removeSalarySchedule(opsWithMember, "member-test");
+    expect(removedScheduleIds).toEqual(["sched-test"]);
+    expect(nextOps.fixedMonthlyExpenses).toHaveLength(1);
+    expect(nextOps.fixedMonthlyExpenses?.[0].id).toBe("sched-other");
+    expect(nextOps.projects[0].assignedMembers).toEqual(["member-other"]);
+    expect(nextOps.projects[0].assignedPartner).toBe("member-other");
   });
 });

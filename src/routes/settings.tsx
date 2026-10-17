@@ -532,7 +532,8 @@ function SettingsPage() {
   const removeMember = (id: string) => {
     setC((prev) => {
       const list = (prev.companyMembers ?? []).filter((m) => m.id !== id);
-      return { ...prev, companyMembers: list.length ? list : undefined };
+      const deletedMemberIds = Array.from(new Set([...(prev.deletedMemberIds ?? []), id]));
+      return { ...prev, companyMembers: list.length ? list : undefined, deletedMemberIds };
     });
     setSaved(false);
   };

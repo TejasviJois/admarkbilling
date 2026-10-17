@@ -9,155 +9,60 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ValuationRouteImport } from './routes/valuation'
-import { Route as TeamRouteImport } from './routes/team'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as RemindersRouteImport } from './routes/reminders'
-import { Route as ProjectsRouteImport } from './routes/projects'
-import { Route as PipelineHistoryRouteImport } from './routes/pipeline-history'
-import { Route as PartnershipsRouteImport } from './routes/partnerships'
-import { Route as OpsRouteImport } from './routes/ops'
-import { Route as NewRouteImport } from './routes/new'
-import { Route as MyWinsRouteImport } from './routes/my-wins'
-import { Route as LogsRouteImport } from './routes/logs'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as LeadsRouteImport } from './routes/leads'
-import { Route as LeadListRouteImport } from './routes/lead-list'
-import { Route as InvoicesRouteImport } from './routes/invoices'
-import { Route as DirectoryRouteImport } from './routes/directory'
-import { Route as CredentialsRouteImport } from './routes/credentials'
-import { Route as ContactedRouteImport } from './routes/contacted'
-import { Route as ClientsRouteImport } from './routes/clients'
-import { Route as CalendarRouteImport } from './routes/calendar'
-import { Route as AccountsRouteImport } from './routes/accounts'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
-import { Route as DocumentsIndexRouteImport } from './routes/documents/index'
-import { Route as ClientsIndexRouteImport } from './routes/clients.index'
-import { Route as AnalyticsIndexRouteImport } from './routes/analytics/index'
+import { Route as AccountsRouteImport } from './routes/accounts'
+import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as ClientsRouteImport } from './routes/clients'
+import { Route as ContactedRouteImport } from './routes/contacted'
+import { Route as CredentialsRouteImport } from './routes/credentials'
+import { Route as DirectoryRouteImport } from './routes/directory'
+import { Route as InvoicesRouteImport } from './routes/invoices'
+import { Route as LeadListRouteImport } from './routes/lead-list'
+import { Route as LeadsRouteImport } from './routes/leads'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as LogsRouteImport } from './routes/logs'
+import { Route as MyWinsRouteImport } from './routes/my-wins'
+import { Route as NewRouteImport } from './routes/new'
+import { Route as OpsRouteImport } from './routes/ops'
+import { Route as PartnershipsRouteImport } from './routes/partnerships'
+import { Route as PipelineHistoryRouteImport } from './routes/pipeline-history'
+import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as RemindersRouteImport } from './routes/reminders'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as TeamRouteImport } from './routes/team'
+import { Route as ValuationRouteImport } from './routes/valuation'
 import { Route as AccountsIndexRouteImport } from './routes/accounts/index'
-import { Route as TeamAssignmentsRouteImport } from './routes/team_.assignments'
-import { Route as TeamIdRouteImport } from './routes/team_.$id'
-import { Route as ProjectsIdRouteImport } from './routes/projects.$id'
-import { Route as InvoiceIdRouteImport } from './routes/invoice.$id'
-import { Route as DocumentsVaultRouteImport } from './routes/documents/vault'
-import { Route as DocumentsInvoicesRouteImport } from './routes/documents/invoices'
-import { Route as DocumentsCompanyRouteImport } from './routes/documents/company'
-import { Route as DocumentsAgreementsRouteImport } from './routes/documents/agreements'
-import { Route as ClientsIdRouteImport } from './routes/clients.$id'
-import { Route as AccountsRetainersRouteImport } from './routes/accounts.retainers'
 import { Route as AccountsBillingRouteImport } from './routes/accounts.billing'
-import { Route as DocumentsProposalsIndexRouteImport } from './routes/documents/proposals/index'
-import { Route as DocumentsPaymentsIndexRouteImport } from './routes/documents/payments/index'
+import { Route as AccountsRetainersRouteImport } from './routes/accounts.retainers'
+import { Route as AnalyticsIndexRouteImport } from './routes/analytics/index'
+import { Route as ClientsIndexRouteImport } from './routes/clients.index'
+import { Route as ClientsIdRouteImport } from './routes/clients.$id'
+import { Route as DocumentsIndexRouteImport } from './routes/documents/index'
+import { Route as DocumentsAgreementsRouteImport } from './routes/documents/agreements'
+import { Route as DocumentsCompanyRouteImport } from './routes/documents/company'
+import { Route as DocumentsInvoicesRouteImport } from './routes/documents/invoices'
+import { Route as DocumentsVaultRouteImport } from './routes/documents/vault'
+import { Route as InvoiceIdRouteImport } from './routes/invoice.$id'
+import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
+import { Route as ProjectsIdRouteImport } from './routes/projects.$id'
+import { Route as TeamIdRouteImport } from './routes/team_.$id'
+import { Route as TeamAssignmentsRouteImport } from './routes/team_.assignments'
 import { Route as DocumentsClientsIndexRouteImport } from './routes/documents/clients/index'
-import { Route as InvoiceIdEditRouteImport } from './routes/invoice_.$id.edit'
-import { Route as DocumentsProposalsCompanyKeyRouteImport } from './routes/documents/proposals/$companyKey'
 import { Route as DocumentsClientsIdRouteImport } from './routes/documents/clients/$id'
-import { Route as DocumentsPaymentsVendorsIndexRouteImport } from './routes/documents/payments/vendors/index'
-import { Route as DocumentsPaymentsPartnersIndexRouteImport } from './routes/documents/payments/partners/index'
+import { Route as DocumentsPaymentsIndexRouteImport } from './routes/documents/payments/index'
+import { Route as DocumentsProposalsIndexRouteImport } from './routes/documents/proposals/index'
+import { Route as DocumentsProposalsCompanyKeyRouteImport } from './routes/documents/proposals/$companyKey'
+import { Route as InvoiceIdEditRouteImport } from './routes/invoice_.$id.edit'
 import { Route as DocumentsPaymentsClientsIndexRouteImport } from './routes/documents/payments/clients/index'
-import { Route as DocumentsPaymentsVendorsVendorKeyRouteImport } from './routes/documents/payments/vendors/$vendorKey'
-import { Route as DocumentsPaymentsPartnersPartnershipIdRouteImport } from './routes/documents/payments/partners/$partnershipId'
 import { Route as DocumentsPaymentsClientsClientKeyRouteImport } from './routes/documents/payments/clients/$clientKey'
+import { Route as DocumentsPaymentsPartnersIndexRouteImport } from './routes/documents/payments/partners/index'
+import { Route as DocumentsPaymentsPartnersPartnershipIdRouteImport } from './routes/documents/payments/partners/$partnershipId'
+import { Route as DocumentsPaymentsVendorsIndexRouteImport } from './routes/documents/payments/vendors/index'
+import { Route as DocumentsPaymentsVendorsVendorKeyRouteImport } from './routes/documents/payments/vendors/$vendorKey'
 
-const ValuationRoute = ValuationRouteImport.update({
-  id: '/valuation',
-  path: '/valuation',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TeamRoute = TeamRouteImport.update({
-  id: '/team',
-  path: '/team',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RemindersRoute = RemindersRouteImport.update({
-  id: '/reminders',
-  path: '/reminders',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProjectsRoute = ProjectsRouteImport.update({
-  id: '/projects',
-  path: '/projects',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PipelineHistoryRoute = PipelineHistoryRouteImport.update({
-  id: '/pipeline-history',
-  path: '/pipeline-history',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PartnershipsRoute = PartnershipsRouteImport.update({
-  id: '/partnerships',
-  path: '/partnerships',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OpsRoute = OpsRouteImport.update({
-  id: '/ops',
-  path: '/ops',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NewRoute = NewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MyWinsRoute = MyWinsRouteImport.update({
-  id: '/my-wins',
-  path: '/my-wins',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LogsRoute = LogsRouteImport.update({
-  id: '/logs',
-  path: '/logs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LeadsRoute = LeadsRouteImport.update({
-  id: '/leads',
-  path: '/leads',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LeadListRoute = LeadListRouteImport.update({
-  id: '/lead-list',
-  path: '/lead-list',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const InvoicesRoute = InvoicesRouteImport.update({
-  id: '/invoices',
-  path: '/invoices',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DirectoryRoute = DirectoryRouteImport.update({
-  id: '/directory',
-  path: '/directory',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CredentialsRoute = CredentialsRouteImport.update({
-  id: '/credentials',
-  path: '/credentials',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ContactedRoute = ContactedRouteImport.update({
-  id: '/contacted',
-  path: '/contacted',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ClientsRoute = ClientsRouteImport.update({
-  id: '/clients',
-  path: '/clients',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CalendarRoute = CalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccountsRoute = AccountsRouteImport.update({
@@ -165,29 +70,104 @@ const AccountsRoute = AccountsRouteImport.update({
   path: '/accounts',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ProjectsRoute,
-} as any)
-const DocumentsIndexRoute = DocumentsIndexRouteImport.update({
-  id: '/documents/',
-  path: '/documents/',
+const ClientsRoute = ClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ClientsIndexRoute = ClientsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ClientsRoute,
+const ContactedRoute = ContactedRouteImport.update({
+  id: '/contacted',
+  path: '/contacted',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AnalyticsIndexRoute = AnalyticsIndexRouteImport.update({
-  id: '/analytics/',
-  path: '/analytics/',
+const CredentialsRoute = CredentialsRouteImport.update({
+  id: '/credentials',
+  path: '/credentials',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DirectoryRoute = DirectoryRouteImport.update({
+  id: '/directory',
+  path: '/directory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InvoicesRoute = InvoicesRouteImport.update({
+  id: '/invoices',
+  path: '/invoices',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeadListRoute = LeadListRouteImport.update({
+  id: '/lead-list',
+  path: '/lead-list',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeadsRoute = LeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LogsRoute = LogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyWinsRoute = MyWinsRouteImport.update({
+  id: '/my-wins',
+  path: '/my-wins',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NewRoute = NewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OpsRoute = OpsRouteImport.update({
+  id: '/ops',
+  path: '/ops',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartnershipsRoute = PartnershipsRouteImport.update({
+  id: '/partnerships',
+  path: '/partnerships',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PipelineHistoryRoute = PipelineHistoryRouteImport.update({
+  id: '/pipeline-history',
+  path: '/pipeline-history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsRoute = ProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RemindersRoute = RemindersRouteImport.update({
+  id: '/reminders',
+  path: '/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamRoute = TeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ValuationRoute = ValuationRouteImport.update({
+  id: '/valuation',
+  path: '/valuation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccountsIndexRoute = AccountsIndexRouteImport.update({
@@ -195,39 +175,34 @@ const AccountsIndexRoute = AccountsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AccountsRoute,
 } as any)
-const TeamAssignmentsRoute = TeamAssignmentsRouteImport.update({
-  id: '/team_/assignments',
-  path: '/team/assignments',
+const AccountsBillingRoute = AccountsBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AccountsRoute,
+} as any)
+const AccountsRetainersRoute = AccountsRetainersRouteImport.update({
+  id: '/retainers',
+  path: '/retainers',
+  getParentRoute: () => AccountsRoute,
+} as any)
+const AnalyticsIndexRoute = AnalyticsIndexRouteImport.update({
+  id: '/analytics/',
+  path: '/analytics/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TeamIdRoute = TeamIdRouteImport.update({
-  id: '/team_/$id',
-  path: '/team/$id',
-  getParentRoute: () => rootRouteImport,
+const ClientsIndexRoute = ClientsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ClientsRoute,
 } as any)
-const ProjectsIdRoute = ProjectsIdRouteImport.update({
+const ClientsIdRoute = ClientsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
-  getParentRoute: () => ProjectsRoute,
+  getParentRoute: () => ClientsRoute,
 } as any)
-const InvoiceIdRoute = InvoiceIdRouteImport.update({
-  id: '/invoice/$id',
-  path: '/invoice/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocumentsVaultRoute = DocumentsVaultRouteImport.update({
-  id: '/documents/vault',
-  path: '/documents/vault',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocumentsInvoicesRoute = DocumentsInvoicesRouteImport.update({
-  id: '/documents/invoices',
-  path: '/documents/invoices',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocumentsCompanyRoute = DocumentsCompanyRouteImport.update({
-  id: '/documents/company',
-  path: '/documents/company',
+const DocumentsIndexRoute = DocumentsIndexRouteImport.update({
+  id: '/documents/',
+  path: '/documents/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocumentsAgreementsRoute = DocumentsAgreementsRouteImport.update({
@@ -235,29 +210,44 @@ const DocumentsAgreementsRoute = DocumentsAgreementsRouteImport.update({
   path: '/documents/agreements',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ClientsIdRoute = ClientsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ClientsRoute,
-} as any)
-const AccountsRetainersRoute = AccountsRetainersRouteImport.update({
-  id: '/retainers',
-  path: '/retainers',
-  getParentRoute: () => AccountsRoute,
-} as any)
-const AccountsBillingRoute = AccountsBillingRouteImport.update({
-  id: '/billing',
-  path: '/billing',
-  getParentRoute: () => AccountsRoute,
-} as any)
-const DocumentsProposalsIndexRoute = DocumentsProposalsIndexRouteImport.update({
-  id: '/documents/proposals/',
-  path: '/documents/proposals/',
+const DocumentsCompanyRoute = DocumentsCompanyRouteImport.update({
+  id: '/documents/company',
+  path: '/documents/company',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DocumentsPaymentsIndexRoute = DocumentsPaymentsIndexRouteImport.update({
-  id: '/documents/payments/',
-  path: '/documents/payments/',
+const DocumentsInvoicesRoute = DocumentsInvoicesRouteImport.update({
+  id: '/documents/invoices',
+  path: '/documents/invoices',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsVaultRoute = DocumentsVaultRouteImport.update({
+  id: '/documents/vault',
+  path: '/documents/vault',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InvoiceIdRoute = InvoiceIdRouteImport.update({
+  id: '/invoice/$id',
+  path: '/invoice/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProjectsRoute,
+} as any)
+const ProjectsIdRoute = ProjectsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ProjectsRoute,
+} as any)
+const TeamIdRoute = TeamIdRouteImport.update({
+  id: '/team_/$id',
+  path: '/team/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamAssignmentsRoute = TeamAssignmentsRouteImport.update({
+  id: '/team_/assignments',
+  path: '/team/assignments',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocumentsClientsIndexRoute = DocumentsClientsIndexRouteImport.update({
@@ -265,9 +255,19 @@ const DocumentsClientsIndexRoute = DocumentsClientsIndexRouteImport.update({
   path: '/documents/clients/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InvoiceIdEditRoute = InvoiceIdEditRouteImport.update({
-  id: '/invoice_/$id/edit',
-  path: '/invoice/$id/edit',
+const DocumentsClientsIdRoute = DocumentsClientsIdRouteImport.update({
+  id: '/documents/clients/$id',
+  path: '/documents/clients/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsPaymentsIndexRoute = DocumentsPaymentsIndexRouteImport.update({
+  id: '/documents/payments/',
+  path: '/documents/payments/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsProposalsIndexRoute = DocumentsProposalsIndexRouteImport.update({
+  id: '/documents/proposals/',
+  path: '/documents/proposals/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocumentsProposalsCompanyKeyRoute =
@@ -276,15 +276,21 @@ const DocumentsProposalsCompanyKeyRoute =
     path: '/documents/proposals/$companyKey',
     getParentRoute: () => rootRouteImport,
   } as any)
-const DocumentsClientsIdRoute = DocumentsClientsIdRouteImport.update({
-  id: '/documents/clients/$id',
-  path: '/documents/clients/$id',
+const InvoiceIdEditRoute = InvoiceIdEditRouteImport.update({
+  id: '/invoice_/$id/edit',
+  path: '/invoice/$id/edit',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DocumentsPaymentsVendorsIndexRoute =
-  DocumentsPaymentsVendorsIndexRouteImport.update({
-    id: '/documents/payments/vendors/',
-    path: '/documents/payments/vendors/',
+const DocumentsPaymentsClientsIndexRoute =
+  DocumentsPaymentsClientsIndexRouteImport.update({
+    id: '/documents/payments/clients/',
+    path: '/documents/payments/clients/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DocumentsPaymentsClientsClientKeyRoute =
+  DocumentsPaymentsClientsClientKeyRouteImport.update({
+    id: '/documents/payments/clients/$clientKey',
+    path: '/documents/payments/clients/$clientKey',
     getParentRoute: () => rootRouteImport,
   } as any)
 const DocumentsPaymentsPartnersIndexRoute =
@@ -293,28 +299,22 @@ const DocumentsPaymentsPartnersIndexRoute =
     path: '/documents/payments/partners/',
     getParentRoute: () => rootRouteImport,
   } as any)
-const DocumentsPaymentsClientsIndexRoute =
-  DocumentsPaymentsClientsIndexRouteImport.update({
-    id: '/documents/payments/clients/',
-    path: '/documents/payments/clients/',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const DocumentsPaymentsVendorsVendorKeyRoute =
-  DocumentsPaymentsVendorsVendorKeyRouteImport.update({
-    id: '/documents/payments/vendors/$vendorKey',
-    path: '/documents/payments/vendors/$vendorKey',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const DocumentsPaymentsPartnersPartnershipIdRoute =
   DocumentsPaymentsPartnersPartnershipIdRouteImport.update({
     id: '/documents/payments/partners/$partnershipId',
     path: '/documents/payments/partners/$partnershipId',
     getParentRoute: () => rootRouteImport,
   } as any)
-const DocumentsPaymentsClientsClientKeyRoute =
-  DocumentsPaymentsClientsClientKeyRouteImport.update({
-    id: '/documents/payments/clients/$clientKey',
-    path: '/documents/payments/clients/$clientKey',
+const DocumentsPaymentsVendorsIndexRoute =
+  DocumentsPaymentsVendorsIndexRouteImport.update({
+    id: '/documents/payments/vendors/',
+    path: '/documents/payments/vendors/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DocumentsPaymentsVendorsVendorKeyRoute =
+  DocumentsPaymentsVendorsVendorKeyRouteImport.update({
+    id: '/documents/payments/vendors/$vendorKey',
+    path: '/documents/payments/vendors/$vendorKey',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -676,144 +676,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/valuation': {
-      id: '/valuation'
-      path: '/valuation'
-      fullPath: '/valuation'
-      preLoaderRoute: typeof ValuationRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/team': {
-      id: '/team'
-      path: '/team'
-      fullPath: '/team'
-      preLoaderRoute: typeof TeamRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reminders': {
-      id: '/reminders'
-      path: '/reminders'
-      fullPath: '/reminders'
-      preLoaderRoute: typeof RemindersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/projects': {
-      id: '/projects'
-      path: '/projects'
-      fullPath: '/projects'
-      preLoaderRoute: typeof ProjectsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pipeline-history': {
-      id: '/pipeline-history'
-      path: '/pipeline-history'
-      fullPath: '/pipeline-history'
-      preLoaderRoute: typeof PipelineHistoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/partnerships': {
-      id: '/partnerships'
-      path: '/partnerships'
-      fullPath: '/partnerships'
-      preLoaderRoute: typeof PartnershipsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/ops': {
-      id: '/ops'
-      path: '/ops'
-      fullPath: '/ops'
-      preLoaderRoute: typeof OpsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/new': {
-      id: '/new'
-      path: '/new'
-      fullPath: '/new'
-      preLoaderRoute: typeof NewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/my-wins': {
-      id: '/my-wins'
-      path: '/my-wins'
-      fullPath: '/my-wins'
-      preLoaderRoute: typeof MyWinsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/logs': {
-      id: '/logs'
-      path: '/logs'
-      fullPath: '/logs'
-      preLoaderRoute: typeof LogsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/leads': {
-      id: '/leads'
-      path: '/leads'
-      fullPath: '/leads'
-      preLoaderRoute: typeof LeadsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/lead-list': {
-      id: '/lead-list'
-      path: '/lead-list'
-      fullPath: '/lead-list'
-      preLoaderRoute: typeof LeadListRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/invoices': {
-      id: '/invoices'
-      path: '/invoices'
-      fullPath: '/invoices'
-      preLoaderRoute: typeof InvoicesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/directory': {
-      id: '/directory'
-      path: '/directory'
-      fullPath: '/directory'
-      preLoaderRoute: typeof DirectoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/credentials': {
-      id: '/credentials'
-      path: '/credentials'
-      fullPath: '/credentials'
-      preLoaderRoute: typeof CredentialsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/contacted': {
-      id: '/contacted'
-      path: '/contacted'
-      fullPath: '/contacted'
-      preLoaderRoute: typeof ContactedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/clients': {
-      id: '/clients'
-      path: '/clients'
-      fullPath: '/clients'
-      preLoaderRoute: typeof ClientsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/calendar': {
-      id: '/calendar'
-      path: '/calendar'
-      fullPath: '/calendar'
-      preLoaderRoute: typeof CalendarRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/accounts': {
@@ -823,39 +690,144 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/projects/': {
-      id: '/projects/'
-      path: '/'
-      fullPath: '/projects/'
-      preLoaderRoute: typeof ProjectsIndexRouteImport
-      parentRoute: typeof ProjectsRoute
-    }
-    '/documents/': {
-      id: '/documents/'
-      path: '/documents'
-      fullPath: '/documents/'
-      preLoaderRoute: typeof DocumentsIndexRouteImport
+    '/clients': {
+      id: '/clients'
+      path: '/clients'
+      fullPath: '/clients'
+      preLoaderRoute: typeof ClientsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/clients/': {
-      id: '/clients/'
-      path: '/'
-      fullPath: '/clients/'
-      preLoaderRoute: typeof ClientsIndexRouteImport
-      parentRoute: typeof ClientsRoute
+    '/contacted': {
+      id: '/contacted'
+      path: '/contacted'
+      fullPath: '/contacted'
+      preLoaderRoute: typeof ContactedRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/analytics/': {
-      id: '/analytics/'
-      path: '/analytics'
-      fullPath: '/analytics/'
-      preLoaderRoute: typeof AnalyticsIndexRouteImport
+    '/credentials': {
+      id: '/credentials'
+      path: '/credentials'
+      fullPath: '/credentials'
+      preLoaderRoute: typeof CredentialsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/directory': {
+      id: '/directory'
+      path: '/directory'
+      fullPath: '/directory'
+      preLoaderRoute: typeof DirectoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invoices': {
+      id: '/invoices'
+      path: '/invoices'
+      fullPath: '/invoices'
+      preLoaderRoute: typeof InvoicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lead-list': {
+      id: '/lead-list'
+      path: '/lead-list'
+      fullPath: '/lead-list'
+      preLoaderRoute: typeof LeadListRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leads': {
+      id: '/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof LeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/logs': {
+      id: '/logs'
+      path: '/logs'
+      fullPath: '/logs'
+      preLoaderRoute: typeof LogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-wins': {
+      id: '/my-wins'
+      path: '/my-wins'
+      fullPath: '/my-wins'
+      preLoaderRoute: typeof MyWinsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/new': {
+      id: '/new'
+      path: '/new'
+      fullPath: '/new'
+      preLoaderRoute: typeof NewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ops': {
+      id: '/ops'
+      path: '/ops'
+      fullPath: '/ops'
+      preLoaderRoute: typeof OpsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partnerships': {
+      id: '/partnerships'
+      path: '/partnerships'
+      fullPath: '/partnerships'
+      preLoaderRoute: typeof PartnershipsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pipeline-history': {
+      id: '/pipeline-history'
+      path: '/pipeline-history'
+      fullPath: '/pipeline-history'
+      preLoaderRoute: typeof PipelineHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects': {
+      id: '/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reminders': {
+      id: '/reminders'
+      path: '/reminders'
+      fullPath: '/reminders'
+      preLoaderRoute: typeof RemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team': {
+      id: '/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof TeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/valuation': {
+      id: '/valuation'
+      path: '/valuation'
+      fullPath: '/valuation'
+      preLoaderRoute: typeof ValuationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/accounts/': {
@@ -865,53 +837,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountsIndexRouteImport
       parentRoute: typeof AccountsRoute
     }
-    '/team_/assignments': {
-      id: '/team_/assignments'
-      path: '/team/assignments'
-      fullPath: '/team/assignments'
-      preLoaderRoute: typeof TeamAssignmentsRouteImport
+    '/accounts/billing': {
+      id: '/accounts/billing'
+      path: '/billing'
+      fullPath: '/accounts/billing'
+      preLoaderRoute: typeof AccountsBillingRouteImport
+      parentRoute: typeof AccountsRoute
+    }
+    '/accounts/retainers': {
+      id: '/accounts/retainers'
+      path: '/retainers'
+      fullPath: '/accounts/retainers'
+      preLoaderRoute: typeof AccountsRetainersRouteImport
+      parentRoute: typeof AccountsRoute
+    }
+    '/analytics/': {
+      id: '/analytics/'
+      path: '/analytics'
+      fullPath: '/analytics/'
+      preLoaderRoute: typeof AnalyticsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/team_/$id': {
-      id: '/team_/$id'
-      path: '/team/$id'
-      fullPath: '/team/$id'
-      preLoaderRoute: typeof TeamIdRouteImport
-      parentRoute: typeof rootRouteImport
+    '/clients/': {
+      id: '/clients/'
+      path: '/'
+      fullPath: '/clients/'
+      preLoaderRoute: typeof ClientsIndexRouteImport
+      parentRoute: typeof ClientsRoute
     }
-    '/projects/$id': {
-      id: '/projects/$id'
+    '/clients/$id': {
+      id: '/clients/$id'
       path: '/$id'
-      fullPath: '/projects/$id'
-      preLoaderRoute: typeof ProjectsIdRouteImport
-      parentRoute: typeof ProjectsRoute
+      fullPath: '/clients/$id'
+      preLoaderRoute: typeof ClientsIdRouteImport
+      parentRoute: typeof ClientsRoute
     }
-    '/invoice/$id': {
-      id: '/invoice/$id'
-      path: '/invoice/$id'
-      fullPath: '/invoice/$id'
-      preLoaderRoute: typeof InvoiceIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/documents/vault': {
-      id: '/documents/vault'
-      path: '/documents/vault'
-      fullPath: '/documents/vault'
-      preLoaderRoute: typeof DocumentsVaultRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/documents/invoices': {
-      id: '/documents/invoices'
-      path: '/documents/invoices'
-      fullPath: '/documents/invoices'
-      preLoaderRoute: typeof DocumentsInvoicesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/documents/company': {
-      id: '/documents/company'
-      path: '/documents/company'
-      fullPath: '/documents/company'
-      preLoaderRoute: typeof DocumentsCompanyRouteImport
+    '/documents/': {
+      id: '/documents/'
+      path: '/documents'
+      fullPath: '/documents/'
+      preLoaderRoute: typeof DocumentsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/documents/agreements': {
@@ -921,39 +886,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocumentsAgreementsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/clients/$id': {
-      id: '/clients/$id'
-      path: '/$id'
-      fullPath: '/clients/$id'
-      preLoaderRoute: typeof ClientsIdRouteImport
-      parentRoute: typeof ClientsRoute
-    }
-    '/accounts/retainers': {
-      id: '/accounts/retainers'
-      path: '/retainers'
-      fullPath: '/accounts/retainers'
-      preLoaderRoute: typeof AccountsRetainersRouteImport
-      parentRoute: typeof AccountsRoute
-    }
-    '/accounts/billing': {
-      id: '/accounts/billing'
-      path: '/billing'
-      fullPath: '/accounts/billing'
-      preLoaderRoute: typeof AccountsBillingRouteImport
-      parentRoute: typeof AccountsRoute
-    }
-    '/documents/proposals/': {
-      id: '/documents/proposals/'
-      path: '/documents/proposals'
-      fullPath: '/documents/proposals/'
-      preLoaderRoute: typeof DocumentsProposalsIndexRouteImport
+    '/documents/company': {
+      id: '/documents/company'
+      path: '/documents/company'
+      fullPath: '/documents/company'
+      preLoaderRoute: typeof DocumentsCompanyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/documents/payments/': {
-      id: '/documents/payments/'
-      path: '/documents/payments'
-      fullPath: '/documents/payments/'
-      preLoaderRoute: typeof DocumentsPaymentsIndexRouteImport
+    '/documents/invoices': {
+      id: '/documents/invoices'
+      path: '/documents/invoices'
+      fullPath: '/documents/invoices'
+      preLoaderRoute: typeof DocumentsInvoicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/vault': {
+      id: '/documents/vault'
+      path: '/documents/vault'
+      fullPath: '/documents/vault'
+      preLoaderRoute: typeof DocumentsVaultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invoice/$id': {
+      id: '/invoice/$id'
+      path: '/invoice/$id'
+      fullPath: '/invoice/$id'
+      preLoaderRoute: typeof InvoiceIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/': {
+      id: '/projects/'
+      path: '/'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof ProjectsIndexRouteImport
+      parentRoute: typeof ProjectsRoute
+    }
+    '/projects/$id': {
+      id: '/projects/$id'
+      path: '/$id'
+      fullPath: '/projects/$id'
+      preLoaderRoute: typeof ProjectsIdRouteImport
+      parentRoute: typeof ProjectsRoute
+    }
+    '/team_/$id': {
+      id: '/team_/$id'
+      path: '/team/$id'
+      fullPath: '/team/$id'
+      preLoaderRoute: typeof TeamIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team_/assignments': {
+      id: '/team_/assignments'
+      path: '/team/assignments'
+      fullPath: '/team/assignments'
+      preLoaderRoute: typeof TeamAssignmentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/documents/clients/': {
@@ -963,11 +949,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocumentsClientsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/invoice_/$id/edit': {
-      id: '/invoice_/$id/edit'
-      path: '/invoice/$id/edit'
-      fullPath: '/invoice/$id/edit'
-      preLoaderRoute: typeof InvoiceIdEditRouteImport
+    '/documents/clients/$id': {
+      id: '/documents/clients/$id'
+      path: '/documents/clients/$id'
+      fullPath: '/documents/clients/$id'
+      preLoaderRoute: typeof DocumentsClientsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/payments/': {
+      id: '/documents/payments/'
+      path: '/documents/payments'
+      fullPath: '/documents/payments/'
+      preLoaderRoute: typeof DocumentsPaymentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/proposals/': {
+      id: '/documents/proposals/'
+      path: '/documents/proposals'
+      fullPath: '/documents/proposals/'
+      preLoaderRoute: typeof DocumentsProposalsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/documents/proposals/$companyKey': {
@@ -977,25 +977,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocumentsProposalsCompanyKeyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/documents/clients/$id': {
-      id: '/documents/clients/$id'
-      path: '/documents/clients/$id'
-      fullPath: '/documents/clients/$id'
-      preLoaderRoute: typeof DocumentsClientsIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/documents/payments/vendors/': {
-      id: '/documents/payments/vendors/'
-      path: '/documents/payments/vendors'
-      fullPath: '/documents/payments/vendors/'
-      preLoaderRoute: typeof DocumentsPaymentsVendorsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/documents/payments/partners/': {
-      id: '/documents/payments/partners/'
-      path: '/documents/payments/partners'
-      fullPath: '/documents/payments/partners/'
-      preLoaderRoute: typeof DocumentsPaymentsPartnersIndexRouteImport
+    '/invoice_/$id/edit': {
+      id: '/invoice_/$id/edit'
+      path: '/invoice/$id/edit'
+      fullPath: '/invoice/$id/edit'
+      preLoaderRoute: typeof InvoiceIdEditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/documents/payments/clients/': {
@@ -1005,11 +991,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocumentsPaymentsClientsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/documents/payments/vendors/$vendorKey': {
-      id: '/documents/payments/vendors/$vendorKey'
-      path: '/documents/payments/vendors/$vendorKey'
-      fullPath: '/documents/payments/vendors/$vendorKey'
-      preLoaderRoute: typeof DocumentsPaymentsVendorsVendorKeyRouteImport
+    '/documents/payments/clients/$clientKey': {
+      id: '/documents/payments/clients/$clientKey'
+      path: '/documents/payments/clients/$clientKey'
+      fullPath: '/documents/payments/clients/$clientKey'
+      preLoaderRoute: typeof DocumentsPaymentsClientsClientKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/payments/partners/': {
+      id: '/documents/payments/partners/'
+      path: '/documents/payments/partners'
+      fullPath: '/documents/payments/partners/'
+      preLoaderRoute: typeof DocumentsPaymentsPartnersIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/documents/payments/partners/$partnershipId': {
@@ -1019,11 +1012,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocumentsPaymentsPartnersPartnershipIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/documents/payments/clients/$clientKey': {
-      id: '/documents/payments/clients/$clientKey'
-      path: '/documents/payments/clients/$clientKey'
-      fullPath: '/documents/payments/clients/$clientKey'
-      preLoaderRoute: typeof DocumentsPaymentsClientsClientKeyRouteImport
+    '/documents/payments/vendors/': {
+      id: '/documents/payments/vendors/'
+      path: '/documents/payments/vendors'
+      fullPath: '/documents/payments/vendors/'
+      preLoaderRoute: typeof DocumentsPaymentsVendorsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents/payments/vendors/$vendorKey': {
+      id: '/documents/payments/vendors/$vendorKey'
+      path: '/documents/payments/vendors/$vendorKey'
+      fullPath: '/documents/payments/vendors/$vendorKey'
+      preLoaderRoute: typeof DocumentsPaymentsVendorsVendorKeyRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

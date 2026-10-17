@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Pencil, Plus } from "lucide-react";
+import { ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PayrollOnboardingDialog, StartPayrollDialog } from "@/components/team/StartPayrollDialog";
 import { SalaryMonthPaymentDialog } from "@/components/team/SalaryMonthPaymentDialog";
 import { TeamMemberFormDialog } from "@/components/team/TeamMemberFormDialog";
+import { DeleteMemberDialog } from "@/components/team/DeleteMemberDialog";
 import { MemberAvatar, PayrollMonthCell } from "@/components/team/team-ui";
 import { OperationsLoading } from "@/components/operations/operations-ui";
 import { useCompany } from "@/hooks/use-company";
@@ -22,6 +23,7 @@ import {
   compareMembersByPayroll,
   currentMonthKey,
   currentYear,
+  deleteCompanyMember,
   ensureSalarySchedules,
   formatSalary,
   groupMembersByType,
@@ -30,6 +32,7 @@ import {
   paymentForMonth,
   payrollYearOptions,
   recordSalaryPayment,
+  removeSalarySchedule,
   shortMonthLabel,
   startPayroll,
   teamGroupLabel,
@@ -57,6 +60,8 @@ function TeamPage() {
   const [startTarget, setStartTarget] = useState<CompanyMember | null>(null);
   const [onboardingMember, setOnboardingMember] = useState<CompanyMember | null>(null);
   const [directoryType, setDirectoryType] = useState<TeamMemberType>("founder");
+  const [deletingMember, setDeletingMember] = useState<CompanyMember | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const members = useMemo(
     () => [...(company.companyMembers ?? [])].sort(compareMembersByPayroll),
@@ -156,6 +161,40 @@ function TeamPage() {
     }
   };
 
+  const handleDeleteMember = async () => {
+    if (!deletingMember) return;
+    setDeleting(true);
+    try {
+      const { nextCompany } = deleteCompanyMember(company, deletingMember.id);
+      const { nextOps, removedScheduleIds } = removeSalarySchedule(ops, deletingMember.id);
+
+      queryClient.setQueryData(queryKeys.company, nextCompany);
+      writeClientCache("company", nextCompany);
+      queryClient.setQueryData(queryKeys.operations, nextOps);
+      writeClientCache("operations", nextOps);
+
+      await saveCompany(nextCompany);
+      if (removedScheduleIds.length > 0) {
+        await persist(nextOps, {
+          deleteIds: {
+            fixedMonthlyExpenses: removedScheduleIds,
+          },
+        });
+      } else {
+        await persist(nextOps);
+      }
+      await invalidate();
+      setDeletingMember(null);
+      toast.success(`${deletingMember.name || "Member"} removed from team.`);
+    } catch (error) {
+      logClientError("team.deleteMember", error);
+      toast.error(error instanceof Error ? error.message : "Could not delete team member.");
+      await invalidate();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (companyLoading || operationsLoading) return <OperationsLoading />;
 
   return (
@@ -242,13 +281,14 @@ function TeamPage() {
                     {shortMonthLabel(month)}
                   </th>
                 ))}
+                <th className="px-4 py-3 text-right font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
               {members.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={monthKeys.length + 2}
+                    colSpan={monthKeys.length + 3}
                     className="px-5 py-12 text-center text-white/40"
                   >
                     No team members yet. Add someone to start tracking months.
@@ -325,6 +365,31 @@ function TeamPage() {
                           </div>
                         </td>
                       )}
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 rounded-lg border border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                            title={`Edit ${member.name}`}
+                            onClick={() => {
+                              setEditing(member);
+                              setDialogOpen(true);
+                            }}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/40 transition-colors"
+                            title={`Delete ${member.name}`}
+                            onClick={() => setDeletingMember(member)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })
@@ -438,8 +503,18 @@ function TeamPage() {
                       setEditing(member);
                       setDialogOpen(true);
                     }}
+                    title={`Edit ${member.name}`}
                   >
                     <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/40 transition-colors"
+                    onClick={() => setDeletingMember(member)}
+                    title={`Delete ${member.name}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               );
@@ -457,6 +532,16 @@ function TeamPage() {
         customTeamGroups={company.customTeamGroups}
         saving={saving}
         onSave={saveMember}
+        onDelete={(member) => setDeletingMember(member)}
+      />
+      <DeleteMemberDialog
+        open={deletingMember != null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeletingMember(null);
+        }}
+        member={deletingMember}
+        deleting={deleting}
+        onConfirm={handleDeleteMember}
       />
       <SalaryMonthPaymentDialog
         open={paymentTarget != null}

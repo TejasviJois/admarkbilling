@@ -86,6 +86,8 @@ export interface CompanySettings {
   formOptions?: FormOptionCatalogs;
   /** One-time upgrade from the old partners-only list to the Team directory. */
   teamDirectoryMigrationApplied?: boolean;
+  /** IDs of team members explicitly deleted by the user so migrations don't resurrect them. */
+  deletedMemberIds?: string[];
   paymentTerms?: string;
   remarks?: string;
   paymentMode?: string;

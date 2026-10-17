@@ -7,10 +7,14 @@ import {
 } from "./team-payroll";
 import type { CompanyMember, CompanySettings } from "./types";
 
-function missingDefaultMembers(existing: CompanyMember[]): CompanyMember[] {
+function missingDefaultMembers(
+  existing: CompanyMember[],
+  deletedIds: string[] = [],
+): CompanyMember[] {
   const defaults = DEFAULT_COMPANY.companyMembers ?? [];
   return defaults.filter(
     (candidate) =>
+      !deletedIds.includes(candidate.id) &&
       !existing.some(
         (member) =>
           member.id === candidate.id ||
@@ -24,10 +28,12 @@ export function normalizeCompanySettings(
   raw: Partial<CompanySettings> | null | undefined,
 ): CompanySettings {
   const merged: CompanySettings = { ...DEFAULT_COMPANY, ...(raw ?? {}) };
+  const deletedIds = raw?.deletedMemberIds ?? [];
+  merged.deletedMemberIds = deletedIds;
   if (!merged.name?.trim()) merged.name = DEFAULT_COMPANY.name;
   if (!merged.address?.trim()) merged.address = DEFAULT_COMPANY.address;
   if (!merged.email?.trim()) merged.email = DEFAULT_COMPANY.email;
-  if (!merged.companyMembers?.length) {
+  if (!merged.companyMembers?.length && !deletedIds.length) {
     merged.companyMembers = DEFAULT_COMPANY.companyMembers;
   }
   if (raw?.teamDirectoryMigrationApplied !== true) {
@@ -44,12 +50,12 @@ export function normalizeCompanySettings(
       employeeId: member.employeeId ?? defaultById.get(member.id)?.employeeId,
       salaryStartDate: member.salaryStartDate ?? defaultById.get(member.id)?.salaryStartDate,
     }));
-    upgraded.push(...missingDefaultMembers(upgraded));
+    upgraded.push(...missingDefaultMembers(upgraded, deletedIds));
     merged.companyMembers = upgraded;
     merged.teamDirectoryMigrationApplied = true;
   } else {
     const existing = merged.companyMembers ?? [];
-    const withMissing = [...existing, ...missingDefaultMembers(existing)];
+    const withMissing = [...existing, ...missingDefaultMembers(existing, deletedIds)];
     merged.companyMembers = withMissing;
   }
   merged.companyMembers = applyTeamDirectoryDefaults(merged.companyMembers ?? []);

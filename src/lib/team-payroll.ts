@@ -501,3 +501,55 @@ export function applyKnownPayrollStarts(members: CompanyMember[]): CompanyMember
 export function applyTeamDirectoryDefaults(members: CompanyMember[]): CompanyMember[] {
   return applyKnownEmployeeIds(applyKnownPayrollStarts(members));
 }
+
+export function removeSalarySchedule(
+  ops: OperationsData,
+  memberId: string,
+): { nextOps: OperationsData; removedScheduleIds: string[] } {
+  const schedules = ops.fixedMonthlyExpenses ?? [];
+  const removedScheduleIds: string[] = [];
+  const nextSchedules = schedules.filter((item) => {
+    if (item.kind === "salary" && item.teamMemberId === memberId) {
+      if (item.id) removedScheduleIds.push(item.id);
+      return false;
+    }
+    return true;
+  });
+  const nextProjects = (ops.projects ?? []).map((project) => {
+    const assigned = project.assignedMembers ?? [];
+    if (!assigned.includes(memberId) && project.assignedPartner !== memberId) return project;
+    const filteredAssigned = assigned.filter((id) => id !== memberId);
+    return {
+      ...project,
+      assignedMembers: filteredAssigned,
+      assignedPartner:
+        project.assignedPartner === memberId ? filteredAssigned[0] : project.assignedPartner,
+    };
+  });
+  return {
+    nextOps: {
+      ...ops,
+      fixedMonthlyExpenses: nextSchedules,
+      projects: nextProjects,
+    },
+    removedScheduleIds,
+  };
+}
+
+export function deleteCompanyMember(
+  company: CompanySettings,
+  memberId: string,
+): { nextCompany: CompanySettings; removedMember?: CompanyMember } {
+  const members = company.companyMembers ?? [];
+  const removedMember = members.find((m) => m.id === memberId);
+  const nextMembers = members.filter((m) => m.id !== memberId);
+  const nextDeletedIds = Array.from(new Set([...(company.deletedMemberIds ?? []), memberId]));
+  const nextCompany: CompanySettings = {
+    ...company,
+    companyMembers: nextMembers,
+    deletedMemberIds: nextDeletedIds,
+    ...withDirectoryCatalogs(company, nextMembers),
+  };
+  return { nextCompany, removedMember };
+}
+

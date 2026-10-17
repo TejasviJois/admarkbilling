@@ -1736,6 +1736,11 @@ export async function loadRelationalCompany(): Promise<CompanySettings> {
         ? settingsRow.application_preferences.customTeamGroups
         : undefined,
     ),
+    deletedMemberIds: parseStringList(
+      isRecord(settingsRow?.application_preferences)
+        ? settingsRow.application_preferences.deletedMemberIds
+        : undefined,
+    ),
     formOptions: isRecord(settingsRow?.application_preferences)
       ? parseFormOptions(settingsRow.application_preferences.formOptions)
       : undefined,

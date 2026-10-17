@@ -1857,6 +1857,7 @@ export async function saveRelationalCompany(data: CompanySettings): Promise<void
         ...existingPreferences,
         customMemberTypes: settings.customMemberTypes ?? [],
         customTeamGroups: settings.customTeamGroups ?? [],
+        deletedMemberIds: settings.deletedMemberIds ?? [],
         formOptions: settings.formOptions ?? {},
         // Survives when DB lags migrations (member_type / team_group / employee_code).
         legacyTeamDirectory: (settings.companyMembers ?? []).map((member) => ({

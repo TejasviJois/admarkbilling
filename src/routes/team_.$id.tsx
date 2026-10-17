@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { StartPayrollDialog } from "@/components/team/StartPayrollDialog";
 import { TeamMemberFormDialog } from "@/components/team/TeamMemberFormDialog";
+import { DeleteMemberDialog } from "@/components/team/DeleteMemberDialog";
 import { MemberAvatar } from "@/components/team/team-ui";
 import { OperationsLoading, OperationsPageHeader } from "@/components/operations/operations-ui";
 import { useCompany } from "@/hooks/use-company";
@@ -16,9 +17,11 @@ import { queryKeys } from "@/lib/query-keys";
 import { saveCompany } from "@/lib/storage";
 import { formatINRWhole } from "@/lib/invoice-calc";
 import {
+  deleteCompanyMember,
   formatSalary,
   isPayrollStarted,
   memberTypeLabel,
+  removeSalarySchedule,
   startPayroll,
   teamGroupLabel,
   totalSalaryPaidUntilToday,
@@ -33,12 +36,15 @@ export const Route = createFileRoute("/team_/$id")({
 
 function TeamMemberDetailPage() {
   const { id } = Route.useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { company, loading: companyLoading, invalidate } = useCompany();
   const { ops, persist, loading: operationsLoading } = useOperations();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [startOpen, setStartOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const members = useMemo(() => company.companyMembers ?? [], [company.companyMembers]);
   const member = useMemo(() => members.find((candidate) => candidate.id === id), [members, id]);
@@ -72,6 +78,40 @@ function TeamMemberDetailPage() {
       await invalidate();
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!member) return;
+    setDeleting(true);
+    try {
+      const { nextCompany } = deleteCompanyMember(company, member.id);
+      const { nextOps, removedScheduleIds } = removeSalarySchedule(ops, member.id);
+
+      queryClient.setQueryData(queryKeys.company, nextCompany);
+      writeClientCache("company", nextCompany);
+      queryClient.setQueryData(queryKeys.operations, nextOps);
+      writeClientCache("operations", nextOps);
+
+      await saveCompany(nextCompany);
+      if (removedScheduleIds.length > 0) {
+        await persist(nextOps, {
+          deleteIds: {
+            fixedMonthlyExpenses: removedScheduleIds,
+          },
+        });
+      } else {
+        await persist(nextOps);
+      }
+      await invalidate();
+      toast.success(`${member.name || "Member"} removed from team.`);
+      navigate({ to: "/team" });
+    } catch (error) {
+      logClientError("team.detail.deleteMember", error);
+      toast.error(error instanceof Error ? error.message : "Could not delete member.");
+      await invalidate();
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -136,6 +176,13 @@ function TeamMemberDetailPage() {
             >
               <Pencil className="h-4 w-4" /> Edit profile
             </Button>
+            <Button
+              variant="outline"
+              className="gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" /> Delete member
+            </Button>
           </div>
         </div>
       </div>
@@ -178,6 +225,16 @@ function TeamMemberDetailPage() {
         customTeamGroups={company.customTeamGroups}
         saving={saving}
         onSave={saveMember}
+        onDelete={() => setDeleteOpen(true)}
+      />
+      <DeleteMemberDialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteOpen(false);
+        }}
+        member={member}
+        deleting={deleting}
+        onConfirm={handleDelete}
       />
       <StartPayrollDialog
         open={startOpen}

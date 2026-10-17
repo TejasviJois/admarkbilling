@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,6 +37,7 @@ export function TeamMemberFormDialog({
   customTeamGroups = [],
   saving,
   onSave,
+  onDelete,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -45,6 +47,7 @@ export function TeamMemberFormDialog({
   customTeamGroups?: string[];
   saving: boolean;
   onSave: (member: CompanyMember) => Promise<void>;
+  onDelete?: (member: CompanyMember) => void;
 }) {
   const [form, setForm] = useState({
     name: "",
@@ -304,17 +307,35 @@ export function TeamMemberFormDialog({
             />
           </Field>
         </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            disabled={saving || !form.name.trim() || !resolvedMemberType}
-            onClick={submit}
-          >
-            {saving ? "Saving…" : "Save member"}
-          </Button>
+        <DialogFooter className="flex flex-row items-center justify-between gap-2 sm:justify-between">
+          {member && onDelete ? (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={saving}
+              className="gap-1.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
+              onClick={() => {
+                onOpenChange(false);
+                onDelete(member);
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete member
+            </Button>
+          ) : (
+            <div />
+          )}
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={saving || !form.name.trim() || !resolvedMemberType}
+              onClick={submit}
+            >
+              {saving ? "Saving…" : "Save member"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
