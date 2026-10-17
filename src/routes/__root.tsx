@@ -146,7 +146,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@400;600&display=swap",
       },
     ],
   }),
@@ -606,6 +606,10 @@ function AppShell() {
               <img
                 src={brandLogo}
                 alt="Admark Logo"
+                width={157}
+                height={32}
+                fetchPriority="high"
+                decoding="async"
                 className="h-8 w-auto max-h-9 object-contain drop-shadow-[0_2px_12px_rgba(255,107,43,0.35)]"
               />
             </Link>
@@ -632,6 +636,10 @@ function AppShell() {
               <img
                 src={brandLogo}
                 alt="Admark Logo"
+                width={137}
+                height={28}
+                fetchPriority="high"
+                decoding="async"
                 className="h-7 w-auto object-contain drop-shadow-[0_2px_10px_rgba(255,107,43,0.3)]"
               />
             </Link>

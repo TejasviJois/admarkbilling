@@ -1,12 +1,12 @@
 import type { CompanySettings } from "./types";
 
-import admarkDigitalsLogoUrl from "../assets/admark-digitals-logo.png?url";
+import admarkDigitalsLogoUrl from "../assets/admark-digitals-logo.webp?url";
 import admarkLetterheadUrl from "../assets/admark-letterhead.png?url";
 
 /** Static public copy — PDF fetch fallback and apple-touch-icon. */
-export const DEFAULT_PUBLIC_LOGO_PATH = "/admark-default-logo.png";
+export const DEFAULT_PUBLIC_LOGO_PATH = "/admark-default-logo.webp";
 
-/** Bundled logo (header, preview, PDF when no custom upload). Matches `src/assets/admark-digitals-logo.png`. */
+/** Bundled logo (header, preview, PDF when no custom upload). Lightweight WebP format. */
 export const DEFAULT_PUBLIC_LOGO_URL = admarkDigitalsLogoUrl;
 
 /** Invoice letterhead — PNG render of bundled PDF (`src/assets/admark-letterhead.pdf`). */

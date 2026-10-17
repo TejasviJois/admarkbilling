@@ -104,12 +104,20 @@ export default defineConfig({
     ],
   },
   build: {
+    target: "es2022",
+    cssMinify: true,
+    minify: "esbuild",
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes("node_modules/xlsx")) return "xlsx";
+          if (id.includes("node_modules/pdfjs-dist")) return "pdfjs";
           if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-"))
             return "recharts";
-          if (id.includes("node_modules/jspdf")) return "jspdf";
+          if (id.includes("node_modules/jspdf") || id.includes("node_modules/jspdf-autotable"))
+            return "jspdf";
+          if (id.includes("node_modules/html2canvas") || id.includes("node_modules/canvg"))
+            return "canvas";
           if (id.includes("node_modules/@supabase")) return "supabase";
         },
       },
